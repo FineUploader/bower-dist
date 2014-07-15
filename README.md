@@ -47,26 +47,26 @@ $ grunt
 
 ```
 dist
-├── placeholders
-│   ├── not_available-generic.png
-│   └── waiting-generic.png
-├── all.fineuploader.js
-├── all.fineuploader.min.js
-├── azure.fineuploader.js
-├── azure.fineuploader.min.js
-├── azure.jquery.fineuploader.js
-├── azure.jquery.fineuploader.min.js
-├── edit.gif
-├── fineuploader.css
-├── fineuploader.js
-├── fineuploader.min.css
-├── fineuploader.min.js
-├── jquery.fineuploader.js
-├── jquery.fineuploader.min.js
-├── loading.gif
-├── processing.gif
-├── s3.fineuploader.js
-├── s3.fineuploader.min.js
-├── s3.jquery.fineuploader.js
-└── s3.jquery.fineuploader.min.js
+├─ placeholders
+│   ├─ not_available-generic.png
+│   └─ waiting-generic.png
+├─ all.fineuploader.js
+├─ all.fineuploader.min.js
+├─ azure.fineuploader.js
+├─ azure.fineuploader.min.js
+├─ azure.jquery.fineuploader.js
+├─ azure.jquery.fineuploader.min.js
+├─ edit.gif
+├─ fineuploader.css
+├─ fineuploader.js
+├─ fineuploader.min.css
+├─ fineuploader.min.js
+├─ jquery.fineuploader.js
+├─ jquery.fineuploader.min.js
+├─ loading.gif
+├─ processing.gif
+├─ s3.fineuploader.js
+├─ s3.fineuploader.min.js
+├─ s3.jquery.fineuploader.js
+└─ s3.jquery.fineuploader.min.js
 ```
