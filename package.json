@@ -1,9 +1,8 @@
 {
   "name": "fineuploader-dist",
-  "title": "Fine Uploader distribution copy",
   "version": "5.0.3",
-  "author": "Widen Enterprises, Inc.",
-  "description": "Multiple file upload component with progress-bar, drag-and-drop, support for all modern browsers.",
+  "author": "Fery Wardiyanto",
+  "description": "A bower build for Widen/fine-uploader",
   "license": "GPLv3",
   "licenses": [
     {
@@ -26,5 +25,13 @@
   "repository": {
     "type": "git",
     "url": "git://github.com/feryardiant/fineuploader-dist.git"
+  },
+  "devDependencies": {
+    "coffee-script": "^1.7.1",
+    "grunt": "^0.4.5",
+    "grunt-contrib-clean": "^0.5.0",
+    "grunt-contrib-copy": "^0.5.0",
+    "grunt-submodule": "0.1.0-rc1",
+    "load-grunt-tasks": "^0.6.0"
   }
 }

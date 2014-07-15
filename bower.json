@@ -1,9 +1,8 @@
 {
   "name": "fineuploader-dist",
-  "title": "Fine Uploader distribution copy",
   "version": "5.0.3",
-  "author": "Widen Enterprises, Inc.",
-  "description": "Multiple file upload component with progress-bar, drag-and-drop, support for all modern browsers.",
+  "author": "Fery Wardiyanto",
+  "description": "A bower build for Widen/fine-uploader",
   "license": "GPLv3",
   "licenses": [
     {
