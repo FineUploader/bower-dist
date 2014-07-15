@@ -38,15 +38,15 @@ $ git submodule update # get latest source from fine-uploader
 $ cd fineuploader-dist
 $ npm install
 $ cd src
-$ npm install          # I don't thinks it's a best idea but, you need to do this in order to install all of fine-uploader dependencies (let me know if you have better one)
-$ cd ..                # when all done, get back to the root directory
+$ npm install    # I don't thinks it's a best idea but, you need to do this in order to install all of fine-uploader dependencies (let me know if you have better one)
+$ cd ..          # when all done, get back to the root directory
 $ grunt
 ```
 
 > You should now see these files within the `dist` directory
 
 ```
-build
+dist
 ├── placeholders
 │   ├── not_available-generic.png
 │   └── waiting-generic.png
