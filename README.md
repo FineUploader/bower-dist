@@ -1,4 +1,4 @@
-## A bower build for [Widen/fine-uploader](https://github.com/Widen/fine-uploader)
+## A bower distribution build for [Widen/fine-uploader](https://github.com/Widen/fine-uploader)
 
 ### Usage
 
@@ -19,15 +19,23 @@ __Enjoy__
 
 ### Updating or building manually
 
-Currently the build is for fine-uploader `v5.0.3`.
+Currently the build is for fine-uploader `v5.0.7`.
 You can build yourself by doing the following
 
 ##### Prepping (getting fine-uploader)
 
 ```bash
 $ git clone https://github.com/feryardiant/fineuploader-dist.git
+& cd fineuploader-dist
 $ git submodule init
-$ git submodule update # get latest source from fine-uploader
+$ git submodule update
+```
+
+OR, if you already cloned this repo;
+
+```bash
+$ cd fineuploader-dist
+$ git submodule foreach git pull
 ```
 
 ##### Building
