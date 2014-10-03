@@ -3,7 +3,7 @@
 *
 * Copyright 2013, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.0.5
+* Version: 5.0.6
 *
 * Homepage: http://fineuploader.com
 *
@@ -842,7 +842,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version="5.0.5";
+qq.version="5.0.6";
 
 /* globals qq */
 qq.supportedFeatures = (function () {
@@ -1249,7 +1249,7 @@ qq.UploadButton = function(o) {
         },
 
         setMultiple: function(isMultiple, opt_input) {
-            var input = this.getInput() || opt_input;
+            var input = opt_input || this.getInput();
 
             // Temporary workaround for bug in in iOS8 UIWebView that causes the browser to crash
             // before the file chooser appears if the file input doesn't contain a multiple attribute.
@@ -1280,6 +1280,7 @@ qq.UploadButton = function(o) {
             }
 
             qq(options.element).removeClass(options.focusClass);
+            input = null;
             input = createInput();
         }
     });
