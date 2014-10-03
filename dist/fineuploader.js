@@ -3,7 +3,7 @@
 *
 * Copyright 2013, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.0.6
+* Version: 5.0.7
 *
 * Homepage: http://fineuploader.com
 *
@@ -541,6 +541,11 @@ var qq = function(element) {
         return qq.ios() && navigator.userAgent.indexOf(" OS 8_") !== -1;
     };
 
+    // iOS 8.0.0
+    qq.ios800 = function() {
+        return qq.ios() && navigator.userAgent.indexOf(" OS 8_0 ") !== -1;
+    };
+
     qq.ios = function() {
         /*jshint -W014 */
         return navigator.userAgent.indexOf("iPad") !== -1
@@ -842,7 +847,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version="5.0.6";
+qq.version="5.0.7";
 
 /* globals qq */
 qq.supportedFeatures = (function () {
@@ -2689,7 +2694,7 @@ qq.status = {
         _maybeHandleIos8SafariWorkaround: function() {
             var self = this;
 
-            if (this._options.workarounds.ios8SafariUploads && qq.ios8() && qq.iosSafari()) {
+            if (this._options.workarounds.ios8SafariUploads && qq.ios800() && qq.iosSafari()) {
                 setTimeout(function() {
                     window.alert(self._options.messages.unsupportedBrowserIos8Safari);
                 }, 0);
@@ -6449,7 +6454,7 @@ qq.FineUploader = function(o, namespace) {
         text: this._options.text
     });
 
-    if (this._options.workarounds.ios8SafariUploads && qq.ios8() && qq.iosSafari()) {
+    if (this._options.workarounds.ios8SafariUploads && qq.ios800() && qq.iosSafari()) {
         this._templating.renderFailure(this._options.messages.unsupportedBrowserIos8Safari);
     }
     else if (!qq.supportedFeatures.uploading || (this._options.cors.expected && !qq.supportedFeatures.uploadCors)) {
