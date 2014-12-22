@@ -3,7 +3,7 @@
 *
 * Copyright 2013, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.0.7
+* Version: 5.0.9
 *
 * Homepage: http://fineuploader.com
 *
@@ -491,6 +491,10 @@ var qq = function(element) {
         return navigator.userAgent.indexOf("MSIE 7") !== -1;
     };
 
+    qq.ie8 = function() {
+        return navigator.userAgent.indexOf("MSIE 8") !== -1;
+    };
+
     qq.ie10 = function() {
         return navigator.userAgent.indexOf("MSIE 10") !== -1;
     };
@@ -847,7 +851,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version="5.0.7";
+qq.version="5.0.9";
 
 /* globals qq */
 qq.supportedFeatures = (function () {
@@ -933,6 +937,16 @@ qq.supportedFeatures = (function () {
         return document.createElement("input").webkitdirectory !== undefined;
     }
 
+    function isLocalStorageSupported () {
+        try {
+            return !!window.localStorage;
+        }
+        catch (error) {
+            // probably caught a security exception, so no localStorage for you
+            return false;
+        }
+    }
+
 
     supportsUploading = testSupportsFileInputElement();
 
@@ -944,7 +958,7 @@ qq.supportedFeatures = (function () {
 
     supportsChunking = supportsAjaxFileUploading && qq.isFileChunkingSupported();
 
-    supportsResume = supportsAjaxFileUploading && supportsChunking && !!window.localStorage;
+    supportsResume = supportsAjaxFileUploading && supportsChunking && isLocalStorageSupported();
 
     supportsUploadViaPaste = supportsAjaxFileUploading && isChrome14OrHigher();
 
@@ -1192,8 +1206,10 @@ qq.UploadButton = function(o) {
             // space of the container element.  Otherwise, the left side of the 
             // button will require a double-click to invoke the file chooser.
             // In other browsers, this might cause other issues, so a large font-size
-            // is only used in IE.
-            fontSize: qq.ie() ? "3500px" : "118px",
+            // is only used in IE.  There is a bug in IE8 where the opacity style is  ignored
+            // in some cases when the font-size is large.  So, this workaround is not applied
+            // to IE8.
+            fontSize: qq.ie() && !qq.ie8() ? "3500px" : "118px",
             margin: 0,
             padding: 0,
             cursor: "pointer",
@@ -9919,7 +9935,7 @@ qq.PasteSupport = function(o) {
     }
 
     function registerPasteHandler() {
-        qq(options.targetElement).attach("paste", function(event) {
+        detachPasteHandler = qq(options.targetElement).attach("paste", function(event) {
             var clipboardData = event.clipboardData;
 
             if (clipboardData) {
@@ -10193,7 +10209,7 @@ qq.DragAndDrop = function(o) {
             var uploadDropZone = setupDropzone(dropZone);
 
             // IE <= 9 does not support the File API used for drag+drop uploads
-            if (dropZones.length && (!qq.ie() || qq.ie10())) {
+            if (dropZones.length && qq.supportedFeatures.fileDrop) {
                 disposeSupport.attach(document, "dragenter", function(e) {
                     if (!uploadDropZone.dropDisabled() && isFileDrag(e)) {
                         qq.each(dropZones, function(idx, dropZone) {
@@ -10318,7 +10334,7 @@ qq.UploadDropZone = function(o){
     function isValidFileDrag(e){
         // e.dataTransfer currently causing IE errors
         // IE9 does NOT support file API, so drag-and-drop is not possible
-        if (qq.ie() && !qq.ie10()) {
+        if (!qq.supportedFeatures.fileDrop) {
             return false;
         }
 
@@ -10329,9 +10345,9 @@ qq.UploadDropZone = function(o){
         // dt.effectAllowed is none in Safari 5
         // dt.types.contains check is for firefox
 
-        // dt.effectAllowed crashes IE11 when files have been dragged from
+        // dt.effectAllowed crashes IE 11 & 10 when files have been dragged from
         // the filesystem
-        effectTest = (qq.ie10() || qq.ie11()) ? true : dt.effectAllowed !== "none";
+        effectTest = qq.ie() && qq.supportedFeatures.fileDrop ? true : dt.effectAllowed !== "none";
         return dt && effectTest && (dt.files || (!isSafari && dt.types.contains && dt.types.contains("Files")));
     }
 
@@ -10371,9 +10387,9 @@ qq.UploadDropZone = function(o){
                 return;
             }
 
-            // dt.effectAllowed crashes IE11 when files have been dragged from
+            // dt.effectAllowed crashes IE 11 & 10 when files have been dragged from
             // the filesystem
-            var effect = (qq.ie() || qq.ie11()) ? null : e.dataTransfer.effectAllowed;
+            var effect = qq.ie() && qq.supportedFeatures.fileDrop ? null : e.dataTransfer.effectAllowed;
             if (effect === "move" || effect === "linkMove"){
                 e.dataTransfer.dropEffect = "move"; // for FF (only move allowed)
             } else {
@@ -14394,4 +14410,4 @@ code.google.com/p/crypto-js/wiki/License
 
 }(jQuery));
 
-/*! 2014-10-04 */
+/*! 2014-12-22 */
