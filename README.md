@@ -19,7 +19,7 @@ __Enjoy__
 
 ### Updating or building manually
 
-Currently the build is for fine-uploader `v5.0.7`.
+Currently the build is for fine-uploader `v5.0.9`.
 You can build yourself by doing the following
 
 ##### Prepping (getting fine-uploader)
@@ -35,7 +35,7 @@ OR, if you already cloned this repo;
 
 ```bash
 $ cd fineuploader-dist
-$ git submodule foreach git pull
+$ git submodule foreach git pull origin
 ```
 
 ##### Building
