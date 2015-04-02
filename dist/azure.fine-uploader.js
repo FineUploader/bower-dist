@@ -1,15 +1,15 @@
 /*!
 * Fine Uploader
 *
-* Copyright 2013, Widen Enterprises, Inc. info@fineuploader.com
+* Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.0.9
+* Version: 5.1.1
 *
 * Homepage: http://fineuploader.com
 *
 * Repository: git://github.com/Widen/fine-uploader.git
 *
-* Licensed under GNU GPL v3, see LICENSE
+* Licensed only under the Widen Commercial License (http://fineuploader.com/licensing).
 */ 
 
 
@@ -26,9 +26,9 @@ var qq = function(element) {
 
         /** Returns the function which detaches attached event */
         attach: function(type, fn) {
-            if (element.addEventListener){
+            if (element.addEventListener) {
                 element.addEventListener(type, fn, false);
-            } else if (element.attachEvent){
+            } else if (element.attachEvent) {
                 element.attachEvent("on" + type, fn);
             }
             return function() {
@@ -37,9 +37,9 @@ var qq = function(element) {
         },
 
         detach: function(type, fn) {
-            if (element.removeEventListener){
+            if (element.removeEventListener) {
                 element.removeEventListener(type, fn, false);
-            } else if (element.attachEvent){
+            } else if (element.attachEvent) {
                 element.detachEvent("on" + type, fn);
             }
             return this;
@@ -59,7 +59,7 @@ var qq = function(element) {
                 return true;
             }
 
-            if (element.contains){
+            if (element.contains) {
                 return element.contains(descendant);
             } else {
                 /*jslint bitwise: true*/
@@ -91,8 +91,8 @@ var qq = function(element) {
             }
 
             /*jshint -W116*/
-            if (styles.opacity != null){
-                if (typeof element.style.opacity !== "string" && typeof(element.filters) !== "undefined"){
+            if (styles.opacity != null) {
+                if (typeof element.style.opacity !== "string" && typeof (element.filters) !== "undefined") {
                     styles.filter = "alpha(opacity=" + Math.round(100 * styles.opacity) + ")";
                 }
             }
@@ -107,7 +107,7 @@ var qq = function(element) {
         },
 
         addClass: function(name) {
-            if (!qq(element).hasClass(name)){
+            if (!qq(element).hasClass(name)) {
                 element.className += " " + name;
             }
             return this;
@@ -123,14 +123,14 @@ var qq = function(element) {
             var candidates,
                 result = [];
 
-            if (element.querySelectorAll){
+            if (element.querySelectorAll) {
                 return element.querySelectorAll("." + className);
             }
 
             candidates = element.getElementsByTagName("*");
 
             qq.each(candidates, function(idx, val) {
-                if (qq(val).hasClass(className)){
+                if (qq(val).hasClass(className)) {
                     result.push(val);
                 }
             });
@@ -141,8 +141,8 @@ var qq = function(element) {
             var children = [],
                 child = element.firstChild;
 
-            while (child){
-                if (child.nodeType === 1){
+            while (child) {
+                if (child.nodeType === 1) {
                     children.push(child);
                 }
                 child = child.nextSibling;
@@ -189,8 +189,54 @@ var qq = function(element) {
     };
 };
 
-(function(){
+(function() {
     "use strict";
+
+    qq.canvasToBlob = function(canvas, mime, quality) {
+        return qq.dataUriToBlob(canvas.toDataURL(mime, quality));
+    };
+
+    qq.dataUriToBlob = function(dataUri) {
+        var arrayBuffer, byteString,
+            createBlob = function(data, mime) {
+                var BlobBuilder = window.BlobBuilder ||
+                        window.WebKitBlobBuilder ||
+                        window.MozBlobBuilder ||
+                        window.MSBlobBuilder,
+                    blobBuilder = BlobBuilder && new BlobBuilder();
+
+                if (blobBuilder) {
+                    blobBuilder.append(data);
+                    return blobBuilder.getBlob(mime);
+                }
+                else {
+                    return new Blob([data], {type: mime});
+                }
+            },
+            intArray, mimeString;
+
+        // convert base64 to raw binary data held in a string
+        if (dataUri.split(",")[0].indexOf("base64") >= 0) {
+            byteString = atob(dataUri.split(",")[1]);
+        }
+        else {
+            byteString = decodeURI(dataUri.split(",")[1]);
+        }
+
+        // extract the MIME
+        mimeString = dataUri.split(",")[0]
+            .split(":")[1]
+            .split(";")[0];
+
+        // write the bytes of the binary string to an ArrayBuffer
+        arrayBuffer = new ArrayBuffer(byteString.length);
+        intArray = new Uint8Array(arrayBuffer);
+        qq.each(byteString, function(idx, character) {
+            intArray[idx] = character.charCodeAt(0);
+        });
+
+        return createBlob(arrayBuffer, mimeString);
+    };
 
     qq.log = function(message, level) {
         if (window.console) {
@@ -214,7 +260,7 @@ var qq = function(element) {
     };
 
     qq.isFunction = function(variable) {
-        return typeof(variable) === "function";
+        return typeof (variable) === "function";
     };
 
     /**
@@ -251,9 +297,8 @@ var qq = function(element) {
             return string.trim();
         }
 
-        return string.replace(/^\s+|\s+$/g,"");
+        return string.replace(/^\s+|\s+$/g, "");
     };
-
 
     /**
      * @param str String to format.
@@ -267,7 +312,7 @@ var qq = function(element) {
 
         qq.each(args, function(idx, val) {
             var strBefore = newStr.substring(0, nextIdxToReplace),
-                strAfter = newStr.substring(nextIdxToReplace+2);
+                strAfter = newStr.substring(nextIdxToReplace + 2);
 
             newStr = strBefore + val + strAfter;
             nextIdxToReplace = newStr.indexOf("{}", nextIdxToReplace + val.length);
@@ -336,7 +381,7 @@ var qq = function(element) {
             input.multiple !== undefined &&
                 typeof File !== "undefined" &&
                 typeof FormData !== "undefined" &&
-                typeof (qq.createXhrInstance()).upload !== "undefined" );
+                typeof (qq.createXhrInstance()).upload !== "undefined");
     };
 
     // Fall back to ActiveX is native XHR is disabled (possible in any version of IE).
@@ -348,7 +393,7 @@ var qq = function(element) {
         try {
             return new ActiveXObject("MSXML2.XMLHTTP.3.0");
         }
-        catch(error) {
+        catch (error) {
             qq.log("Neither XHR or ActiveX are supported!", "error");
             return null;
         }
@@ -375,7 +420,6 @@ var qq = function(element) {
     qq.arrayBufferToHex = function(buffer) {
         var bytesAsHex = "",
             bytes = new Uint8Array(buffer);
-
 
         qq.each(bytes, function(idx, byt) {
             var byteAsHexStr = byt.toString(16);
@@ -451,7 +495,7 @@ var qq = function(element) {
      * Searches for a given element in the array, returns -1 if it is not present.
      * @param {Number} [from] The index at which to begin the search
      */
-    qq.indexOf = function(arr, elt, from){
+    qq.indexOf = function(arr, elt, from) {
         if (arr.indexOf) {
             return arr.indexOf(elt, from);
         }
@@ -463,8 +507,8 @@ var qq = function(element) {
             from += len;
         }
 
-        for (; from < len; from+=1){
-            if (arr.hasOwnProperty(from) && arr[from] === elt){
+        for (; from < len; from += 1) {
+            if (arr.hasOwnProperty(from) && arr[from] === elt) {
                 return from;
             }
         }
@@ -472,10 +516,10 @@ var qq = function(element) {
     };
 
     //this is a version 4 UUID
-    qq.getUniqueId = function(){
+    qq.getUniqueId = function() {
         return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {
             /*jslint eqeq: true, bitwise: true*/
-            var r = Math.random()*16|0, v = c == "x" ? r : (r&0x3|0x8);
+            var r = Math.random() * 16 | 0, v = c == "x" ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
     };
@@ -572,10 +616,10 @@ var qq = function(element) {
     //
     // Events
 
-    qq.preventDefault = function(e){
-        if (e.preventDefault){
+    qq.preventDefault = function(e) {
+        if (e.preventDefault) {
             e.preventDefault();
-        } else{
+        } else {
             e.returnValue = false;
         }
     };
@@ -584,9 +628,9 @@ var qq = function(element) {
      * Creates and returns element from html string
      * Uses innerHTML to create an element
      */
-    qq.toElement = (function(){
+    qq.toElement = (function() {
         var div = document.createElement("div");
-        return function(html){
+        return function(html) {
             div.innerHTML = html;
             var element = div.firstChild;
             div.removeChild(element);
@@ -672,15 +716,15 @@ var qq = function(element) {
      * @param  String current querystring-part
      * @return String encoded querystring
      */
-    qq.obj2url = function(obj, temp, prefixDone){
+    qq.obj2url = function(obj, temp, prefixDone) {
         /*jshint laxbreak: true*/
         var uristrings = [],
             prefix = "&",
-            add = function(nextObj, i){
+            add = function(nextObj, i) {
                 var nextTemp = temp
                     ? (/\[\]$/.test(temp)) // prevent double-encoding
                     ? temp
-                    : temp+"["+i+"]"
+                    : temp + "[" + i + "]"
                     : i;
                 if ((nextTemp !== "undefined") && (i !== "undefined")) {
                     uristrings.push(
@@ -697,11 +741,11 @@ var qq = function(element) {
             prefix = (/\?/.test(temp)) ? (/\?$/.test(temp)) ? "" : "&" : "?";
             uristrings.push(temp);
             uristrings.push(qq.obj2url(obj));
-        } else if ((Object.prototype.toString.call(obj) === "[object Array]") && (typeof obj !== "undefined") ) {
+        } else if ((Object.prototype.toString.call(obj) === "[object Array]") && (typeof obj !== "undefined")) {
             qq.each(obj, function(idx, val) {
                 add(val, idx);
             });
-        } else if ((typeof obj !== "undefined") && (obj !== null) && (typeof obj === "object")){
+        } else if ((typeof obj !== "undefined") && (obj !== null) && (typeof obj === "object")) {
             qq.each(obj, function(prop, val) {
                 add(val, prop);
             });
@@ -851,10 +895,10 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version="5.0.9";
+qq.version = "5.1.1";
 
 /* globals qq */
-qq.supportedFeatures = (function () {
+qq.supportedFeatures = (function() {
     "use strict";
 
     var supportsUploading,
@@ -871,7 +915,6 @@ qq.supportedFeatures = (function () {
         supportsFolderSelection,
         supportsImagePreviews,
         supportsUploadProgress;
-
 
     function testSupportsFileInputElement() {
         var supported = true,
@@ -937,7 +980,7 @@ qq.supportedFeatures = (function () {
         return document.createElement("input").webkitdirectory !== undefined;
     }
 
-    function isLocalStorageSupported () {
+    function isLocalStorageSupported() {
         try {
             return !!window.localStorage;
         }
@@ -946,7 +989,6 @@ qq.supportedFeatures = (function () {
             return false;
         }
     }
-
 
     supportsUploading = testSupportsFileInputElement();
 
@@ -980,7 +1022,6 @@ qq.supportedFeatures = (function () {
         }
         return false;
     }());
-
 
     return {
         ajaxUploading: supportsAjaxFileUploading,
@@ -1042,7 +1083,7 @@ qq.Promise = function() {
                 onFailure && onFailure.apply(null, failureArgs);
             }
             else if (onSuccess) {
-                onSuccess.apply(null,successArgs);
+                onSuccess.apply(null, successArgs);
             }
 
             return this;
@@ -1069,7 +1110,7 @@ qq.Promise = function() {
                 });
             }
 
-            if(doneCallbacks.length) {
+            if (doneCallbacks.length) {
                 qq.each(doneCallbacks, function(idx, callback) {
                     callback.apply(null, successArgs);
                 });
@@ -1088,7 +1129,7 @@ qq.Promise = function() {
                 });
             }
 
-            if(doneCallbacks.length) {
+            if (doneCallbacks.length) {
                 qq.each(doneCallbacks, function(idx, callback) {
                     callback.apply(null, failureArgs);
                 });
@@ -1134,7 +1175,6 @@ qq.BlobProxy = function(referenceBlob, onCreate) {
  */
 qq.UploadButton = function(o) {
     "use strict";
-
 
     var self = this,
 
@@ -1201,9 +1241,9 @@ qq.UploadButton = function(o) {
             right: 0,
             top: 0,
             fontFamily: "Arial",
-            // It's especially important to make this an arbitrarily large value 
-            // to ensure the rendered input button in IE takes up the entire 
-            // space of the container element.  Otherwise, the left side of the 
+            // It's especially important to make this an arbitrarily large value
+            // to ensure the rendered input button in IE takes up the entire
+            // space of the container element.  Otherwise, the left side of the
             // button will require a double-click to invoke the file chooser.
             // In other browsers, this might cause other issues, so a large font-size
             // is only used in IE.  There is a bug in IE8 where the opacity style is  ignored
@@ -1215,29 +1255,29 @@ qq.UploadButton = function(o) {
             cursor: "pointer",
             opacity: 0
         });
-        
-        // Setting the file input's height to 100% in IE7 causes 
+
+        // Setting the file input's height to 100% in IE7 causes
         // most of the visible button to be unclickable.
         !qq.ie7() && qq(input).css({height: "100%"});
 
         options.element.appendChild(input);
 
-        disposeSupport.attach(input, "change", function(){
+        disposeSupport.attach(input, "change", function() {
             options.onChange(input);
         });
 
         // **These event handlers will be removed** in the future as the :hover CSS pseudo-class is available on all supported browsers
-        disposeSupport.attach(input, "mouseover", function(){
+        disposeSupport.attach(input, "mouseover", function() {
             qq(options.element).addClass(options.hoverClass);
         });
-        disposeSupport.attach(input, "mouseout", function(){
+        disposeSupport.attach(input, "mouseout", function() {
             qq(options.element).removeClass(options.hoverClass);
         });
 
-        disposeSupport.attach(input, "focus", function(){
+        disposeSupport.attach(input, "focus", function() {
             qq(options.element).addClass(options.focusClass);
         });
-        disposeSupport.attach(input, "blur", function(){
+        disposeSupport.attach(input, "blur", function() {
             qq(options.element).removeClass(options.focusClass);
         });
 
@@ -1269,8 +1309,8 @@ qq.UploadButton = function(o) {
             return buttonId;
         },
 
-        setMultiple: function(isMultiple, opt_input) {
-            var input = opt_input || this.getInput();
+        setMultiple: function(isMultiple, optInput) {
+            var input = optInput || this.getInput();
 
             // Temporary workaround for bug in in iOS8 UIWebView that causes the browser to crash
             // before the file chooser appears if the file input doesn't contain a multiple attribute.
@@ -1295,8 +1335,8 @@ qq.UploadButton = function(o) {
             }
         },
 
-        reset: function(){
-            if (input.parentNode){
+        reset: function() {
+            if (input.parentNode) {
                 qq(input).remove();
             }
 
@@ -1320,7 +1360,6 @@ qq.UploadData = function(uploaderProxy) {
         byStatus = {},
         byProxyGroupId = {},
         byBatchId = {};
-
 
     function getDataByIds(idOrIds) {
         if (qq.isArray(idOrIds)) {
@@ -1383,15 +1422,14 @@ qq.UploadData = function(uploaderProxy) {
          * @returns {number} Internal ID for this file.
          */
         addFile: function(spec) {
-            var status = spec.status || qq.status.SUBMITTING;
-
-            var id = data.push({
-                name: spec.name,
-                originalName: spec.name,
-                uuid: spec.uuid,
-                size: spec.size || -1,
-                status: status
-            }) - 1;
+            var status = spec.status || qq.status.SUBMITTING,
+                id = data.push({
+                    name: spec.name,
+                    originalName: spec.name,
+                    uuid: spec.uuid,
+                    size: spec.size || -1,
+                    status: status
+                }) - 1;
 
             if (spec.batchId) {
                 data[id].batchId = spec.batchId;
@@ -1524,85 +1562,103 @@ qq.status = {
 /**
  * Defines the public API for FineUploaderBasic mode.
  */
-(function(){
+(function() {
     "use strict";
 
     qq.basePublicApi = {
+        // DEPRECATED - TODO REMOVE IN NEXT MAJOR RELEASE (replaced by addFiles)
         addBlobs: function(blobDataOrArray, params, endpoint) {
-            if (!qq.supportedFeatures.blobUploading) {
-                throw new qq.Error("Blob uploading is not supported in this browser!");
-            }
-
-            this._maybeHandleIos8SafariWorkaround();
-
-            if (blobDataOrArray) {
-                var blobDataArray = [].concat(blobDataOrArray),
-                    verifiedBlobDataList = [],
-                    batchId = this._storedIds.length === 0 ? qq.getUniqueId() : this._currentBatchId,
-                    self = this;
-
-                this._currentBatchId = batchId;
-
-                qq.each(blobDataArray, function(idx, blobData) {
-                    var blobOrBlobData;
-
-                    if (qq.isBlob(blobData) && !qq.isFileOrInput(blobData)) {
-                        blobOrBlobData = {
-                            blob: blobData,
-                            name: self._options.blobs.defaultName
-                        };
-                    }
-                    else if (qq.isObject(blobData) && blobData.blob && blobData.name) {
-                        blobOrBlobData = blobData;
-                    }
-                    else {
-                        self.log("addBlobs: entry at index " + idx + " is not a Blob or a BlobData object", "error");
-                    }
-
-                    blobOrBlobData && self._handleNewFile(blobOrBlobData, batchId, verifiedBlobDataList);
-                });
-
-                this._prepareItemsForUpload(verifiedBlobDataList, params, endpoint);
-            }
-            else {
-                this.log("undefined or non-array parameter passed into addBlobs", "error");
-            }
+            this.addFiles(blobDataOrArray, params, endpoint);
         },
 
-        addFiles: function(filesOrInputs, params, endpoint) {
+        addFiles: function(data, params, endpoint) {
             this._maybeHandleIos8SafariWorkaround();
 
-            var verifiedFilesOrInputs = [],
-                batchId = this._storedIds.length === 0 ? qq.getUniqueId() : this._currentBatchId,
-                fileOrInputIndex, fileOrInput, fileIndex;
+            var batchId = this._storedIds.length === 0 ? qq.getUniqueId() : this._currentBatchId,
+
+                processBlob = qq.bind(function(blob) {
+                    this._handleNewFile({
+                        blob: blob,
+                        name: this._options.blobs.defaultName
+                    }, batchId, verifiedFiles);
+                }, this),
+
+                processBlobData = qq.bind(function(blobData) {
+                    this._handleNewFile(blobData, batchId, verifiedFiles);
+                }, this),
+
+                processCanvas = qq.bind(function(canvas) {
+                    var blob = qq.canvasToBlob(canvas);
+
+                    this._handleNewFile({
+                        blob: blob,
+                        name: this._options.blobs.defaultName + ".png"
+                    }, batchId, verifiedFiles);
+                }, this),
+
+                processCanvasData = qq.bind(function(canvasData) {
+                    var normalizedQuality = canvasData.quality && canvasData.quality / 100,
+                        blob = qq.canvasToBlob(canvasData.canvas, canvasData.type, normalizedQuality);
+
+                    this._handleNewFile({
+                        blob: blob,
+                        name: canvasData.name
+                    }, batchId, verifiedFiles);
+                }, this),
+
+                processFileOrInput = qq.bind(function(fileOrInput) {
+                    if (qq.isInput(fileOrInput) && qq.supportedFeatures.ajaxUploading) {
+                        var files = Array.prototype.slice.call(fileOrInput.files);
+
+                        qq.each(files, function(idx, file) {
+                            this._handleNewFile(file, batchId, verifiedFiles);
+                        });
+                    }
+                    else {
+                        this._handleNewFile(fileOrInput, batchId, verifiedFiles);
+                    }
+                }, this),
+
+                normalizeData = function() {
+                    if (qq.isFileList(data)) {
+                        data = Array.prototype.slice.call(data);
+                    }
+                    data = [].concat(data);
+                },
+
+                self = this,
+                verifiedFiles = [];
 
             this._currentBatchId = batchId;
 
-            if (filesOrInputs) {
-                if (!qq.isFileList(filesOrInputs)) {
-                    filesOrInputs = [].concat(filesOrInputs);
-                }
+            if (data) {
+                normalizeData();
 
-                for (fileOrInputIndex = 0; fileOrInputIndex < filesOrInputs.length; fileOrInputIndex+=1) {
-                    fileOrInput = filesOrInputs[fileOrInputIndex];
-
-                    if (qq.isFileOrInput(fileOrInput)) {
-                        if (qq.isInput(fileOrInput) && qq.supportedFeatures.ajaxUploading) {
-                            for (fileIndex = 0; fileIndex < fileOrInput.files.length; fileIndex++) {
-                                this._handleNewFile(fileOrInput.files[fileIndex], batchId, verifiedFilesOrInputs);
-                            }
+                qq.each(data, function(idx, fileContainer) {
+                    if (qq.isFileOrInput(fileContainer)) {
+                        processFileOrInput(fileContainer);
+                    }
+                    else if (qq.isBlob(fileContainer)) {
+                        processBlob(fileContainer);
+                    }
+                    else if (qq.isObject(fileContainer)) {
+                        if (fileContainer.blob && fileContainer.name) {
+                            processBlobData(fileContainer);
                         }
-                        else {
-                            this._handleNewFile(fileOrInput, batchId, verifiedFilesOrInputs);
+                        else if (fileContainer.canvas && fileContainer.name) {
+                            processCanvasData(fileContainer);
                         }
+                    }
+                    else if (fileContainer.tagName && fileContainer.tagName.toLowerCase() === "canvas") {
+                        processCanvas(fileContainer);
                     }
                     else {
-                        this.log(fileOrInput + " is not a File or INPUT element!  Ignoring!", "warn");
+                        self.log(fileContainer + " is not a valid file container!  Ignoring!", "warn");
                     }
-                }
+                });
 
-                this.log("Received " + verifiedFilesOrInputs.length + " files or inputs.");
-                this._prepareItemsForUpload(verifiedFilesOrInputs, params, endpoint);
+                this.log("Received " + verifiedFiles.length + " files.");
+                this._prepareItemsForUpload(verifiedFiles, params, endpoint);
             }
         },
 
@@ -1622,7 +1678,7 @@ qq.status = {
             this._handler.cancelAll();
         },
 
-        clearStoredFiles: function(){
+        clearStoredFiles: function() {
             this._storedIds = [];
         },
 
@@ -1654,19 +1710,20 @@ qq.status = {
             return this._handler.isValid(fileOrBlobId);
         },
 
-                // Generate a variable size thumbnail on an img or canvas,
+        // Generate a variable size thumbnail on an img or canvas,
         // returning a promise that is fulfilled when the attempt completes.
         // Thumbnail can either be based off of a URL for an image returned
         // by the server in the upload response, or the associated `Blob`.
         drawThumbnail: function(fileId, imgOrCanvas, maxSize, fromServer) {
-            var promiseToReturn = new qq.Promise();
+            var promiseToReturn = new qq.Promise(),
+                fileOrUrl, options;
 
             if (this._imageGenerator) {
-                var fileOrUrl = this._thumbnailUrls[fileId],
-                    options = {
-                        scale: maxSize > 0,
-                        maxSize: maxSize > 0 ? maxSize : null
-                    };
+                fileOrUrl = this._thumbnailUrls[fileId];
+                options = {
+                    scale: maxSize > 0,
+                    maxSize: maxSize > 0 ? maxSize : null
+                };
 
                 // If client-side preview generation is possible
                 // and we are not specifically looking for the image URl returned by the server...
@@ -1699,6 +1756,10 @@ qq.status = {
 
         getButton: function(fileId) {
             return this._getButton(this._buttonIdsForFileIds[fileId]);
+        },
+
+        getEndpoint: function(fileId) {
+            return this._endpointStore.get(fileId);
         },
 
         getFile: function(fileOrBlobId) {
@@ -1746,10 +1807,10 @@ qq.status = {
         },
 
         getRemainingAllowedItems: function() {
-            var allowedItems = this._options.validation.itemLimit;
+            var allowedItems = this._currentItemLimit;
 
             if (allowedItems > 0) {
-                return this._options.validation.itemLimit - this._netUploadedOrQueued;
+                return allowedItems - this._netUploadedOrQueued;
             }
 
             return null;
@@ -1862,6 +1923,10 @@ qq.status = {
             this._endpointStore.set(endpoint, id);
         },
 
+        setItemLimit: function(newItemLimit) {
+            this._currentItemLimit = newItemLimit;
+        },
+
         setName: function(id, newName) {
             this._uploadData.updateName(id, newName);
         },
@@ -1888,9 +1953,6 @@ qq.status = {
             }
         }
     };
-
-
-
 
     /**
      * Defines the private (internal) API for FineUploaderBasic mode.
@@ -2084,7 +2146,8 @@ qq.status = {
         _createUploadButton: function(spec) {
             var self = this,
                 acceptFiles = spec.accept || this._options.validation.acceptFiles,
-                allowedExtensions = spec.allowedExtensions || this._options.validation.allowedExtensions;
+                allowedExtensions = spec.allowedExtensions || this._options.validation.allowedExtensions,
+                button;
 
             function allowMultiple() {
                 if (qq.supportedFeatures.ajaxUploading) {
@@ -2107,7 +2170,7 @@ qq.status = {
                 return false;
             }
 
-            var button = new qq.UploadButton({
+            button = new qq.UploadButton({
                 element: spec.element,
                 folders: spec.folders,
                 name: this._options.request.inputName,
@@ -2167,7 +2230,8 @@ qq.status = {
                     onComplete: function(id, name, result, xhr) {
                         delete lastOnProgress[id];
 
-                        var status = self.getUploads({id: id}).status;
+                        var status = self.getUploads({id: id}).status,
+                            retVal;
 
                         // This is to deal with some observed cases where the XHR readyStateChange handler is
                         // invoked by the browser multiple times for the same XHR instance with the same state
@@ -2177,7 +2241,7 @@ qq.status = {
                             return;
                         }
 
-                        var retVal = self._onComplete(id, name, result, xhr);
+                        retVal = self._onComplete(id, name, result, xhr);
 
                         // If the internal `_onComplete` handler returns a promise, don't invoke the `onComplete` callback
                         // until the promise has been fulfilled.
@@ -2269,7 +2333,7 @@ qq.status = {
             this._uploadData.setStatus(id, qq.status.REJECTED);
         },
 
-        _formatSize: function(bytes){
+        _formatSize: function(bytes) {
             var i = -1;
             do {
                 bytes = bytes / 1000;
@@ -2529,7 +2593,7 @@ qq.status = {
 
             name += "." + extension;
 
-            this.addBlobs({
+            this.addFiles({
                 name: name,
                 blob: blob
             });
@@ -2631,7 +2695,7 @@ qq.status = {
                 validationBase = this._getValidationBase(buttonId),
                 extensionsForMessage, placeholderMatch;
 
-            function r(name, replacement){ message = message.replace(name, replacement); }
+            function r(name, replacement) { message = message.replace(name, replacement); }
 
             qq.each(validationBase.allowedExtensions, function(idx, allowedExtension) {
                 /**
@@ -2721,7 +2785,7 @@ qq.status = {
         _maybeParseAndSendUploadError: function(id, name, response, xhr) {
             // Assuming no one will actually set the response code to something other than 200
             // and still set 'success' to true...
-            if (!response.success){
+            if (!response.success) {
                 if (xhr && xhr.status !== 200 && !response.error) {
                     this._options.callbacks.onError(id, name, "XHR returned response code " + xhr.status, xhr);
                 }
@@ -2813,20 +2877,21 @@ qq.status = {
 
         //return false if we should not attempt the requested retry
         _onBeforeManualRetry: function(id) {
-            var itemLimit = this._options.validation.itemLimit;
+            var itemLimit = this._currentItemLimit,
+                fileName;
 
             if (this._preventRetries[id]) {
                 this.log("Retries are forbidden for id " + id, "warn");
                 return false;
             }
             else if (this._handler.isValid(id)) {
-                var fileName = this.getName(id);
+                fileName = this.getName(id);
 
                 if (this._options.callbacks.onManualRetry(id, fileName) === false) {
                     return false;
                 }
 
-                if (itemLimit > 0 && this._netUploadedOrQueued+1 > itemLimit) {
+                if (itemLimit > 0 && this._netUploadedOrQueued + 1 > itemLimit) {
                     this._itemError("retryFailTooManyItems");
                     return false;
                 }
@@ -3009,7 +3074,7 @@ qq.status = {
 
         _onValidateBatchCallbackSuccess: function(validationDescriptors, items, params, endpoint, button) {
             var errorMessage,
-                itemLimit = this._options.validation.itemLimit,
+                itemLimit = this._currentItemLimit,
                 proposedNetFilesUploadedOrQueued = this._netUploadedOrQueued;
 
             if (itemLimit === 0 || proposedNetFilesUploadedOrQueued <= itemLimit) {
@@ -3036,7 +3101,7 @@ qq.status = {
         },
 
         _onValidateCallbackFailure: function(items, index, params, endpoint) {
-            var nextIndex = index+ 1;
+            var nextIndex = index + 1;
 
             this._fileOrBlobRejected(items[0].id, items[0].file.name);
 
@@ -3045,7 +3110,7 @@ qq.status = {
 
         _onValidateCallbackSuccess: function(items, index, params, endpoint) {
             var self = this,
-                nextIndex = index+1,
+                nextIndex = index + 1,
                 validationDescriptor = this._getValidationDescriptor(items[index]);
 
             this._validateFileOrBlobData(items[index], validationDescriptor)
@@ -3079,10 +3144,10 @@ qq.status = {
             });
         },
 
-        _preventLeaveInProgress: function(){
+        _preventLeaveInProgress: function() {
             var self = this;
 
-            this._disposeSupport.attach(window, "beforeunload", function(e){
+            this._disposeSupport.attach(window, "beforeunload", function(e) {
                 if (self.getInProgress()) {
                     e = e || window.event;
                     // for ie, ff
@@ -3261,7 +3326,7 @@ qq.status = {
         },
 
         _wrapCallbacks: function() {
-            var self, safeCallback;
+            var self, safeCallback, prop;
 
             self = this;
 
@@ -3278,7 +3343,7 @@ qq.status = {
             };
 
             /* jshint forin: false, loopfunc: true */
-            for (var prop in this._options.callbacks) {
+            for (prop in this._options.callbacks) {
                 (function() {
                     var callbackName, callbackFunc;
                     callbackName = prop;
@@ -3293,7 +3358,7 @@ qq.status = {
 }());
 
 /*globals qq*/
-(function(){
+(function() {
     "use strict";
 
     qq.FineUploaderBasic = function(o) {
@@ -3336,25 +3401,25 @@ qq.status = {
             },
 
             callbacks: {
-                onSubmit: function(id, name){},
-                onSubmitted: function(id, name){},
-                onComplete: function(id, name, responseJSON, maybeXhr){},
+                onSubmit: function(id, name) {},
+                onSubmitted: function(id, name) {},
+                onComplete: function(id, name, responseJSON, maybeXhr) {},
                 onAllComplete: function(successful, failed) {},
-                onCancel: function(id, name){},
-                onUpload: function(id, name){},
-                onUploadChunk: function(id, name, chunkData){},
-                onUploadChunkSuccess: function(id, chunkData, responseJSON, xhr){},
-                onResume: function(id, fileName, chunkData){},
-                onProgress: function(id, name, loaded, total){},
-                onTotalProgress: function(loaded, total){},
+                onCancel: function(id, name) {},
+                onUpload: function(id, name) {},
+                onUploadChunk: function(id, name, chunkData) {},
+                onUploadChunkSuccess: function(id, chunkData, responseJSON, xhr) {},
+                onResume: function(id, fileName, chunkData) {},
+                onProgress: function(id, name, loaded, total) {},
+                onTotalProgress: function(loaded, total) {},
                 onError: function(id, name, reason, maybeXhrOrXdr) {},
                 onAutoRetry: function(id, name, attemptNumber) {},
                 onManualRetry: function(id, name) {},
                 onValidateBatch: function(fileOrBlobData) {},
                 onValidate: function(fileOrBlobData) {},
                 onSubmitDelete: function(id) {},
-                onDelete: function(id){},
-                onDeleteComplete: function(id, xhrOrXdr, isError){},
+                onDelete: function(id) {},
+                onDeleteComplete: function(id, xhrOrXdr, isError) {},
                 onPasteReceived: function(blob) {},
                 onStatusChange: function(id, oldStatus, newStatus) {},
                 onSessionRequestComplete: function(response, success, xhrOrXdr) {}
@@ -3393,6 +3458,7 @@ qq.status = {
                 concurrent: {
                     enabled: false
                 },
+                mandatory: false,
                 paramNames: {
                     partIndex: "qqpartindex",
                     partByteOffset: "qqpartbyteoffset",
@@ -3427,7 +3493,7 @@ qq.status = {
                 sizeSymbols: ["kB", "MB", "GB", "TB", "PB", "EB"]
             },
 
-            deleteFile : {
+            deleteFile: {
                 enabled: false,
                 method: "DELETE",
                 endpoint: "/server/upload",
@@ -3589,6 +3655,8 @@ qq.status = {
                 }
             );
         }
+
+        this._currentItemLimit = this._options.validation.itemLimit;
     };
 
     // Define the private & public API methods.
@@ -3598,7 +3666,7 @@ qq.status = {
 
 /*globals qq, XDomainRequest*/
 /** Generic class for sending non-upload ajax requests and handling the associated responses **/
-qq.AjaxRequester = function (o) {
+qq.AjaxRequester = function(o) {
     "use strict";
 
     var log, shouldParamsBeInQueryString,
@@ -3616,17 +3684,17 @@ qq.AjaxRequester = function (o) {
             mandatedParams: {},
             allowXRequestedWithAndCacheControl: true,
             successfulResponseCodes: {
-                "DELETE": [200, 202, 204],
-                "POST": [200, 204],
-                "GET": [200]
+                DELETE: [200, 202, 204],
+                POST: [200, 204],
+                GET: [200]
             },
             cors: {
                 expected: false,
                 sendCredentials: false
             },
-            log: function (str, level) {},
-            onSend: function (id) {},
-            onComplete: function (id, xhrOrXdr, isError) {},
+            log: function(str, level) {},
+            onSend: function(id) {},
+            onComplete: function(id, xhrOrXdr, isError) {},
             onProgress: null
         };
 
@@ -3746,14 +3814,14 @@ qq.AjaxRequester = function (o) {
         }
 
         if (onDemandParams) {
-            qq.each(onDemandParams, function (name, val) {
+            qq.each(onDemandParams, function(name, val) {
                 params = params || {};
                 params[name] = val;
             });
         }
 
         if (mandatedParams) {
-            qq.each(mandatedParams, function (name, val) {
+            qq.each(mandatedParams, function(name, val) {
                 params = params || {};
                 params[name] = val;
             });
@@ -3762,8 +3830,8 @@ qq.AjaxRequester = function (o) {
         return params;
     }
 
-    function sendRequest(id, opt_xhr) {
-        var xhr = getXhrOrXdr(id, opt_xhr),
+    function sendRequest(id, optXhr) {
+        var xhr = getXhrOrXdr(id, optXhr),
             method = options.method,
             params = getParams(id),
             payload = requestData[id].payload,
@@ -3781,7 +3849,6 @@ qq.AjaxRequester = function (o) {
         else {
             xhr.onreadystatechange = getXhrReadyStateChangeHandler(id);
         }
-
 
         registerForUploadProgress(id);
 
@@ -3837,7 +3904,7 @@ qq.AjaxRequester = function (o) {
     // Invoked by the UA to indicate a number of possible states that describe
     // a live `XMLHttpRequest` transport.
     function getXhrReadyStateChangeHandler(id) {
-        return function () {
+        return function() {
             if (getXhrOrXdr(id).readyState === 4) {
                 onComplete(id);
             }
@@ -3859,7 +3926,7 @@ qq.AjaxRequester = function (o) {
     // This will be called by IE to indicate **success** for an associated
     // `XDomainRequest` transported request.
     function getXdrLoadHandler(id) {
-        return function () {
+        return function() {
             onComplete(id);
         };
     }
@@ -3867,7 +3934,7 @@ qq.AjaxRequester = function (o) {
     // This will be called by IE to indicate **failure** for an associated
     // `XDomainRequest` transported request.
     function getXdrErrorHandler(id) {
-        return function () {
+        return function() {
             onComplete(id, true);
         };
     }
@@ -3902,7 +3969,7 @@ qq.AjaxRequester = function (o) {
             qq.extend(allHeaders, qq.isFunction(customHeaders) ? customHeaders(id) : customHeaders);
             qq.extend(allHeaders, onDemandHeaders);
 
-            qq.each(allHeaders, function (name, val) {
+            qq.each(allHeaders, function(name, val) {
                 xhr.setRequestHeader(name, val);
             });
         }
@@ -3912,7 +3979,7 @@ qq.AjaxRequester = function (o) {
         return qq.indexOf(options.successfulResponseCodes[options.method], responseCode) >= 0;
     }
 
-    function prepareToSend(id, opt_xhr, addToPath, additionalParams, additionalHeaders, payload) {
+    function prepareToSend(id, optXhr, addToPath, additionalParams, additionalHeaders, payload) {
         requestData[id] = {
             addToPath: addToPath,
             additionalParams: additionalParams,
@@ -3924,10 +3991,9 @@ qq.AjaxRequester = function (o) {
 
         // if too many active connections, wait...
         if (len <= options.maxConnections) {
-            return sendRequest(id, opt_xhr);
+            return sendRequest(id, optXhr);
         }
     }
-
 
     shouldParamsBeInQueryString = options.method === "GET" || options.method === "DELETE";
 
@@ -3971,12 +4037,12 @@ qq.AjaxRequester = function (o) {
                 },
 
                 // Send the constructed request.
-                send: function(opt_xhr) {
+                send: function(optXhr) {
                     if (cacheBuster && qq.indexOf(["GET", "DELETE"], options.method) >= 0) {
                         params.qqtimestamp = new Date().getTime();
                     }
 
-                    return prepareToSend(id, opt_xhr, path, params, headers, payload);
+                    return prepareToSend(id, optXhr, path, params, headers, payload);
                 }
             };
         },
@@ -4000,7 +4066,6 @@ qq.UploadHandler = function(spec) {
         fileState = {},
         onCancel = proxy.onCancel,
         getName = proxy.getName;
-
 
     qq.extend(this, {
         add: function(id, fileItem) {
@@ -4077,23 +4142,22 @@ qq.UploadHandlerController = function(o, namespace) {
             }
         },
         log: function(str, level) {},
-        onProgress: function(id, fileName, loaded, total){},
-        onComplete: function(id, fileName, response, xhr){},
-        onCancel: function(id, fileName){},
-        onUploadPrep: function(id){}, // Called if non-trivial operations will be performed before onUpload
-        onUpload: function(id, fileName){},
-        onUploadChunk: function(id, fileName, chunkData){},
-        onUploadChunkSuccess: function(id, chunkData, response, xhr){},
-        onAutoRetry: function(id, fileName, response, xhr){},
-        onResume: function(id, fileName, chunkData){},
-        onUuidChanged: function(id, newUuid){},
+        onProgress: function(id, fileName, loaded, total) {},
+        onComplete: function(id, fileName, response, xhr) {},
+        onCancel: function(id, fileName) {},
+        onUploadPrep: function(id) {}, // Called if non-trivial operations will be performed before onUpload
+        onUpload: function(id, fileName) {},
+        onUploadChunk: function(id, fileName, chunkData) {},
+        onUploadChunkSuccess: function(id, chunkData, response, xhr) {},
+        onAutoRetry: function(id, fileName, response, xhr) {},
+        onResume: function(id, fileName, chunkData) {},
+        onUuidChanged: function(id, newUuid) {},
         getName: function(id) {},
         setSize: function(id, newSize) {},
         isQueued: function(id) {},
         getIdsInProxyGroup: function(id) {},
         getIdsInBatch: function(id) {}
     },
-
 
     chunked = {
         // Called when each chunk has uploaded successfully
@@ -4190,7 +4254,7 @@ qq.UploadHandlerController = function(o, namespace) {
 
             // Send the next chunk
             else {
-                log("Sending chunked upload request for item " + id + ": bytes " + (chunkData.start+1) + "-" + chunkData.end + " of " + size);
+                log("Sending chunked upload request for item " + id + ": bytes " + (chunkData.start + 1) + "-" + chunkData.end + " of " + size);
                 options.onUploadChunk(id, name, handler._getChunkDataForCallback(chunkData));
 
                 inProgressChunks.push(chunkIdx);
@@ -4239,13 +4303,14 @@ qq.UploadHandlerController = function(o, namespace) {
 
                         handler.clearCachedChunk(id, chunkIdx);
 
-                        var responseToReport = upload.normalizeResponse(response, false);
+                        var responseToReport = upload.normalizeResponse(response, false),
+                            inProgressIdx;
 
                         if (responseToReport.reset) {
                             chunked.reset(id);
                         }
                         else {
-                            var inProgressIdx = qq.indexOf(handler._getFileState(id).chunking.inProgress, chunkIdx);
+                            inProgressIdx = qq.indexOf(handler._getFileState(id).chunking.inProgress, chunkIdx);
                             if (inProgressIdx >= 0) {
                                 handler._getFileState(id).chunking.inProgress.splice(inProgressIdx, 1);
                                 handler._getFileState(id).chunking.remaining.unshift(chunkIdx);
@@ -4403,31 +4468,29 @@ qq.UploadHandlerController = function(o, namespace) {
 
             log("Sending simple upload request for " + id);
             handler.uploadFile(id).then(
-                function(response, opt_xhr) {
+                function(response, optXhr) {
                     log("Simple upload request succeeded for " + id);
 
-                    var responseToReport = upload.normalizeResponse(response, true);
-
-                    var size = options.getSize(id);
+                    var responseToReport = upload.normalizeResponse(response, true),
+                        size = options.getSize(id);
 
                     options.onProgress(id, name, size, size);
                     upload.maybeNewUuid(id, responseToReport);
-                    upload.cleanup(id, responseToReport, opt_xhr);
+                    upload.cleanup(id, responseToReport, optXhr);
                 },
 
-                function(response, opt_xhr) {
+                function(response, optXhr) {
                     log("Simple upload request failed for " + id);
 
                     var responseToReport = upload.normalizeResponse(response, false);
 
-                    if (!options.onAutoRetry(id, name, responseToReport, opt_xhr)) {
-                        upload.cleanup(id, responseToReport, opt_xhr);
+                    if (!options.onAutoRetry(id, name, responseToReport, optXhr)) {
+                        upload.cleanup(id, responseToReport, optXhr);
                     }
                 }
             );
         }
     },
-
 
     upload = {
         cancel: function(id) {
@@ -4436,10 +4499,10 @@ qq.UploadHandlerController = function(o, namespace) {
             connectionManager.free(id);
         },
 
-        cleanup: function(id, response, opt_xhr) {
+        cleanup: function(id, response, optXhr) {
             var name = options.getName(id);
 
-            options.onComplete(id, name, response, opt_xhr);
+            options.onComplete(id, name, response, optXhr);
 
             if (handler._getFileState(id)) {
                 handler._clearXhrs && handler._clearXhrs(id);
@@ -4560,7 +4623,7 @@ qq.UploadHandlerController = function(o, namespace) {
             return uploadedThisId;
         },
 
-        maybeNewUuid: function (id, response) {
+        maybeNewUuid: function(id, response) {
             if (response.newUuid !== undefined) {
                 options.onUuidChanged(id, response.newUuid);
             }
@@ -4629,7 +4692,7 @@ qq.UploadHandlerController = function(o, namespace) {
          * Sends the file identified by id
          */
         upload: function(id) {
-            if(connectionManager.open(id)) {
+            if (connectionManager.open(id)) {
                 return upload.start(id);
             }
             return false;
@@ -4643,7 +4706,7 @@ qq.UploadHandlerController = function(o, namespace) {
             if (concurrentChunkingPossible) {
                 handler._getFileState(id).temp.ignoreFailure = false;
             }
-            
+
             // If we are attempting to retry a file that is already consuming a connection, this is likely an auto-retry.
             // Just go ahead and ask the handler to upload again.
             if (connectionManager.isUsingConnection(id)) {
@@ -4678,12 +4741,13 @@ qq.UploadHandlerController = function(o, namespace) {
          * Cancels all queued or in-progress uploads
          */
         cancelAll: function() {
-            var waitingOrConnected = connectionManager.getWaitingOrConnected();
+            var waitingOrConnected = connectionManager.getWaitingOrConnected(),
+                i;
 
             // ensure files are cancelled in reverse order which they were added
             // to avoid a flash of time where a queued file begins to upload before it is canceled
             if (waitingOrConnected.length) {
-                for (var i = waitingOrConnected.length-1; i >= 0; i--) {
+                for (i = waitingOrConnected.length - 1; i >= 0; i--) {
                     controller.cancel(waitingOrConnected[i]);
                 }
             }
@@ -4812,7 +4876,6 @@ qq.FormUploadHandler = function(spec) {
         log = proxy.log,
         corsMessageReceiver = new qq.WindowReceiveMessage({log: log});
 
-
     /**
      * Remove any trace of the file from the handler.
      *
@@ -4938,7 +5001,7 @@ qq.FormUploadHandler = function(spec) {
                 fileInput.setAttribute("name", inputName);
 
                 // remove file input from DOM
-                if (fileInput.parentNode){
+                if (fileInput.parentNode) {
                     qq(fileInput).remove();
                 }
             },
@@ -4976,13 +5039,13 @@ qq.FormUploadHandler = function(spec) {
                 registerPostMessageCallback(iframe, callback);
             }
             else {
-                detachLoadEvents[iframe.id] = qq(iframe).attach("load", function(){
+                detachLoadEvents[iframe.id] = qq(iframe).attach("load", function() {
                     log("Received response for " + iframe.id);
 
                     // when we remove iframe from dom
                     // the request stops, but in IE load
                     // event fires
-                    if (!iframe.parentNode){
+                    if (!iframe.parentNode) {
                         return;
                     }
 
@@ -4990,7 +5053,7 @@ qq.FormUploadHandler = function(spec) {
                         // fixing Opera 10.53
                         if (iframe.contentDocument &&
                             iframe.contentDocument.body &&
-                            iframe.contentDocument.body.innerHTML == "false"){
+                            iframe.contentDocument.body.innerHTML == "false") {
                             // In Opera event is fired second time
                             // when body.innerHTML changed from false
                             // to server response approx. after 1 sec
@@ -5073,21 +5136,21 @@ qq.FormUploadHandler = function(spec) {
 
             return form;
         },
-        
+
         /**
          * @param innerHtmlOrMessage JSON message
          * @returns {*} The parsed response, or an empty object if the response could not be parsed
          */
         _parseJsonResponse: function(innerHtmlOrMessage) {
             var response = {};
-    
+
             try {
                 response = qq.parseJson(innerHtmlOrMessage);
             }
-            catch(error) {
+            catch (error) {
                 log("Error when attempting to parse iframe upload response (" + error.message + ")", "error");
             }
-    
+
             return response;
         }
     });
@@ -5118,7 +5181,6 @@ qq.XhrUploadHandler = function(spec) {
         onUuidChanged = proxy.onUuidChanged,
         onProgress = proxy.onProgress,
         log = proxy.log;
-
 
     function abort(id) {
         qq.each(handler._getXhrs(id), function(xhrId, xhr) {
@@ -5231,9 +5293,9 @@ qq.XhrUploadHandler = function(spec) {
             return !!chunking && handler.isValid(id) && !handler._getFileState(id).notResumable;
         },
 
-        moveInProgressToRemaining: function(id, opt_inProgress, opt_remaining) {
-            var inProgress = opt_inProgress || handler._getFileState(id).chunking.inProgress,
-                remaining = opt_remaining || handler._getFileState(id).chunking.remaining;
+        moveInProgressToRemaining: function(id, optInProgress, optRemaining) {
+            var inProgress = optInProgress || handler._getFileState(id).chunking.inProgress,
+                remaining = optRemaining || handler._getFileState(id).chunking.remaining;
 
             if (inProgress) {
                 inProgress.reverse();
@@ -5245,7 +5307,7 @@ qq.XhrUploadHandler = function(spec) {
         },
 
         pause: function(id) {
-            if(handler.isValid(id)) {
+            if (handler.isValid(id)) {
                 log(qq.format("Aborting XHR upload for {} '{}' due to pause instruction.", id, getName(id)));
                 handler._getFileState(id).paused = true;
                 abort(id);
@@ -5256,18 +5318,19 @@ qq.XhrUploadHandler = function(spec) {
         reevaluateChunking: function(id) {
             if (chunking && handler.isValid(id)) {
                 var state = handler._getFileState(id),
-                    totalChunks;
+                    totalChunks,
+                    i;
 
                 delete state.chunking;
 
                 state.chunking = {};
                 totalChunks = handler._getTotalChunks(id);
-                if (totalChunks > 1) {
+                if (totalChunks > 1 || chunking.mandatory) {
                     state.chunking.enabled = true;
                     state.chunking.parts = totalChunks;
                     state.chunking.remaining = [];
 
-                    for (var i = 0; i < totalChunks; i++) {
+                    for (i = 0; i < totalChunks; i++) {
                         state.chunking.remaining.push(i);
                     }
 
@@ -5301,15 +5364,15 @@ qq.XhrUploadHandler = function(spec) {
          * Creates an XHR instance for this file and stores it in the fileState.
          *
          * @param id File ID
-         * @param opt_chunkIdx The chunk index associated with this XHR, if applicable
+         * @param optChunkIdx The chunk index associated with this XHR, if applicable
          * @returns {XMLHttpRequest}
          */
-        _createXhr: function(id, opt_chunkIdx) {
-            return handler._registerXhr(id, opt_chunkIdx, qq.createXhrInstance());
+        _createXhr: function(id, optChunkIdx) {
+            return handler._registerXhr(id, optChunkIdx, qq.createXhrInstance());
         },
 
-        _getAjaxRequester: function(id, opt_chunkIdx) {
-            var chunkIdx = opt_chunkIdx == null ? -1 : opt_chunkIdx;
+        _getAjaxRequester: function(id, optChunkIdx) {
+            var chunkIdx = optChunkIdx == null ? -1 : optChunkIdx;
             return handler._getFileState(id).temp.ajaxRequesters[chunkIdx];
         },
 
@@ -5318,7 +5381,7 @@ qq.XhrUploadHandler = function(spec) {
                 fileSize = getSize(id),
                 fileOrBlob = handler.getFile(id),
                 startBytes = chunkSize * chunkIndex,
-                endBytes = startBytes+chunkSize >= fileSize ? fileSize : startBytes+chunkSize,
+                endBytes = startBytes + chunkSize >= fileSize ? fileSize : startBytes + chunkSize,
                 totalChunks = handler._getTotalChunks(id),
                 cachedChunks = this._getFileState(id).temp.cachedChunks,
 
@@ -5382,8 +5445,8 @@ qq.XhrUploadHandler = function(spec) {
             }
         },
 
-        _getXhr: function(id, opt_chunkIdx) {
-            var chunkIdx = opt_chunkIdx == null ? -1 : opt_chunkIdx;
+        _getXhr: function(id, optChunkIdx) {
+            var chunkIdx = optChunkIdx == null ? -1 : optChunkIdx;
             return handler._getFileState(id).temp.xhrs[chunkIdx];
         },
 
@@ -5505,7 +5568,7 @@ qq.XhrUploadHandler = function(spec) {
                             onProgress(id, name, fileSize, fileSize);
                         }
                         else {
-                            onProgress(id, name, (loaded >= fileSize ? fileSize-1 : loaded), fileSize);
+                            onProgress(id, name, (loaded >= fileSize ? fileSize - 1 : loaded), fileSize);
                         }
                     },
 
@@ -5541,13 +5604,13 @@ qq.XhrUploadHandler = function(spec) {
          * Registers an XHR transport instance created elsewhere.
          *
          * @param id ID of the associated file
-         * @param opt_chunkIdx The chunk index associated with this XHR, if applicable
+         * @param optChunkIdx The chunk index associated with this XHR, if applicable
          * @param xhr XMLHttpRequest object instance
-         * @param opt_ajaxRequester `qq.AjaxRequester` associated with this request, if applicable.
+         * @param optAjaxRequester `qq.AjaxRequester` associated with this request, if applicable.
          * @returns {XMLHttpRequest}
          */
-        _registerXhr: function(id, opt_chunkIdx, xhr, opt_ajaxRequester) {
-            var xhrsId = opt_chunkIdx == null ? -1 : opt_chunkIdx,
+        _registerXhr: function(id, optChunkIdx, xhr, optAjaxRequester) {
+            var xhrsId = optChunkIdx == null ? -1 : optChunkIdx,
                 tempState = handler._getFileState(id).temp;
 
             tempState.xhrs = tempState.xhrs || {};
@@ -5555,8 +5618,8 @@ qq.XhrUploadHandler = function(spec) {
 
             tempState.xhrs[xhrsId] = xhr;
 
-            if (opt_ajaxRequester) {
-                tempState.ajaxRequesters[xhrsId] = opt_ajaxRequester;
+            if (optAjaxRequester) {
+                tempState.ajaxRequesters[xhrsId] = optAjaxRequester;
             }
 
             return xhr;
@@ -5610,7 +5673,7 @@ qq.WindowReceiveMessage = function(o) {
     qq.extend(options, o);
 
     qq.extend(this, {
-        receiveMessage : function(id, callback) {
+        receiveMessage: function(id, callback) {
             var onMessageCallbackWrapper = function(event) {
                     callback(event.data);
                 };
@@ -5623,7 +5686,7 @@ qq.WindowReceiveMessage = function(o) {
             }
         },
 
-        stopReceivingMessages : function(id) {
+        stopReceivingMessages: function(id) {
             if (window.postMessage) {
                 var detacher = callbackWrapperDetachers[id];
                 if (detacher) {
@@ -5638,7 +5701,7 @@ qq.WindowReceiveMessage = function(o) {
 /**
  * Defines the public API for FineUploader mode.
  */
-(function(){
+(function() {
     "use strict";
 
     qq.uiPublicApi = {
@@ -5647,11 +5710,11 @@ qq.WindowReceiveMessage = function(o) {
             this._templating.clearFiles();
         },
 
-        addExtraDropzone: function(element){
+        addExtraDropzone: function(element) {
             this._dnd && this._dnd.setupExtraDropzone(element);
         },
 
-        removeExtraDropzone: function(element){
+        removeExtraDropzone: function(element) {
             if (this._dnd) {
                 return this._dnd.removeDropzone(element);
             }
@@ -5711,9 +5774,6 @@ qq.WindowReceiveMessage = function(o) {
             return file.qqDropTarget;
         }
     };
-
-
-
 
     /**
      * Defines the private (internal) API for FineUploader mode.
@@ -5943,7 +6003,7 @@ qq.WindowReceiveMessage = function(o) {
         },
 
         // Update the progress bar & percentage as the file is uploaded
-        _onProgress: function(id, name, loaded, total){
+        _onProgress: function(id, name, loaded, total) {
             this._parent.prototype._onProgress.apply(this, arguments);
 
             this._templating.updateProgress(id, loaded, total);
@@ -6036,7 +6096,7 @@ qq.WindowReceiveMessage = function(o) {
             this._templating.showSpinner(id);
         },
 
-        _onUpload: function(id, name){
+        _onUpload: function(id, name) {
             var parentRetVal = this._parent.prototype._onUpload.apply(this, arguments);
 
             this._templating.showSpinner(id);
@@ -6147,7 +6207,7 @@ qq.WindowReceiveMessage = function(o) {
             retVal = this._options.showConfirm(confirmMessage);
 
             if (qq.isGenericPromise(retVal)) {
-                retVal.then(function () {
+                retVal.then(function() {
                     self._sendDeleteRequest.apply(self, deleteRequestArgs);
                 });
             }
@@ -6159,7 +6219,8 @@ qq.WindowReceiveMessage = function(o) {
         _addToList: function(id, name, canned) {
             var prependData,
                 prependIndex = 0,
-                dontDisplay = this._handler.isProxied(id) && this._options.scaling.hideScaled;
+                dontDisplay = this._handler.isProxied(id) && this._options.scaling.hideScaled,
+                record;
 
             // If we don't want this file to appear in the UI, skip all of this UI-related logic.
             if (dontDisplay) {
@@ -6181,12 +6242,12 @@ qq.WindowReceiveMessage = function(o) {
                     this._templating.disableCancel();
                 }
 
-                // Cancel all existing (previous) files and clear the list if this file is not part of 
-                // a scaled file group that has already been accepted, or if this file is not part of 
+                // Cancel all existing (previous) files and clear the list if this file is not part of
+                // a scaled file group that has already been accepted, or if this file is not part of
                 // a scaled file group at all.
                 if (!this._options.multiple) {
-                    var record = this.getUploads({id: id});
-                    
+                    record = this.getUploads({id: id});
+
                     this._handledProxyGroup = this._handledProxyGroup || record.proxyGroupId;
 
                     if (record.proxyGroupId !== this._handledProxyGroup || !record.proxyGroupId) {
@@ -6215,7 +6276,7 @@ qq.WindowReceiveMessage = function(o) {
             }
         },
 
-        _clearList: function(){
+        _clearList: function() {
             this._templating.clearFiles();
             this.clearStoredFiles();
         },
@@ -6233,7 +6294,7 @@ qq.WindowReceiveMessage = function(o) {
             }
         },
 
-        _formatProgress: function (uploadedSize, totalSize) {
+        _formatProgress: function(uploadedSize, totalSize) {
             var message = this._options.text.formatProgress;
             function r(name, replacement) { message = message.replace(name, replacement); }
 
@@ -6422,18 +6483,20 @@ qq.FineUploader = function(o, namespace) {
         },
 
         thumbnails: {
+            maxCount: 0,
             placeholders: {
                 waitUntilResponse: false,
                 notAvailablePath: null,
                 waitingPath: null
-            }
+            },
+            timeBetweenThumbs: 750
         },
 
         scaling: {
             hideScaled: false
         },
 
-        showMessage: function(message){
+        showMessage: function(message) {
             setTimeout(function() {
                 window.alert(message);
             }, 0);
@@ -6461,6 +6524,10 @@ qq.FineUploader = function(o, namespace) {
         classes: {
             hide: this._options.classes.hide,
             editable: this._options.classes.editable
+        },
+        limits: {
+            maxThumbs: this._options.thumbnails.maxCount,
+            timeBetweenThumbs: this._options.thumbnails.timeBetweenThumbs
         },
         placeholders: {
             waitUntilUpdate: this._options.thumbnails.placeholders.waitUntilResponse,
@@ -6535,9 +6602,16 @@ qq.Templating = function(spec) {
         // This variable is duplicated in the DnD module since it can function as a standalone as well
         HIDE_DROPZONE_ATTR = "qq-hide-dropzone",
         isCancelDisabled = false,
+        generatedThumbnails = 0,
+        thumbnailQueueMonitorRunning = false,
+        thumbGenerationQueue = [],
         thumbnailMaxSize = -1,
         options = {
             log: null,
+            limits: {
+                maxThumbs: 0,
+                timeBetweenThumbs: 750
+            },
             templateIdOrEl: "qq-template",
             containerEl: null,
             fileContainerEl: null,
@@ -6589,391 +6663,507 @@ qq.Templating = function(spec) {
         container,
         fileList,
         showThumbnails,
-        serverScale;
+        serverScale,
 
-    /**
-     * Grabs the HTML from the script tag holding the template markup.  This function will also adjust
-     * some internally-tracked state variables based on the contents of the template.
-     * The template is filtered so that irrelevant elements (such as the drop zone if DnD is not supported)
-     * are omitted from the DOM.  Useful errors will be thrown if the template cannot be parsed.
-     *
-     * @returns {{template: *, fileTemplate: *}} HTML for the top-level file items templates
-     */
-    function parseAndGetTemplate() {
-        var scriptEl,
-            scriptHtml,
-            fileListNode,
-            tempTemplateEl,
-            fileListHtml,
-            defaultButton,
-            dropArea,
-            thumbnail,
-            dropProcessing;
-
-        log("Parsing template");
-
-        /*jshint -W116*/
-        if (options.templateIdOrEl == null) {
-            throw new Error("You MUST specify either a template element or ID!");
-        }
-
-        // Grab the contents of the script tag holding the template.
-        if (qq.isString(options.templateIdOrEl)) {
-            scriptEl = document.getElementById(options.templateIdOrEl);
-
-            if (scriptEl === null) {
-                throw new Error(qq.format("Cannot find template script at ID '{}'!", options.templateIdOrEl));
-            }
-
-            scriptHtml = scriptEl.innerHTML;
-        }
-        else {
-            if (options.templateIdOrEl.innerHTML === undefined) {
-                throw new Error("You have specified an invalid value for the template option!  " +
-                    "It must be an ID or an Element.");
-            }
-
-            scriptHtml = options.templateIdOrEl.innerHTML;
-        }
-
-        scriptHtml = qq.trimStr(scriptHtml);
-        tempTemplateEl = document.createElement("div");
-        tempTemplateEl.appendChild(qq.toElement(scriptHtml));
-
-        // Don't include the default template button in the DOM
-        // if an alternate button container has been specified.
-        if (options.button) {
-            defaultButton = qq(tempTemplateEl).getByClass(selectorClasses.button)[0];
-            if (defaultButton) {
-                qq(defaultButton).remove();
-            }
-        }
-
-        // Omit the drop processing element from the DOM if DnD is not supported by the UA,
-        // or the drag and drop module is not found.
-        // NOTE: We are consciously not removing the drop zone if the UA doesn't support DnD
-        // to support layouts where the drop zone is also a container for visible elements,
-        // such as the file list.
-        if (!qq.DragAndDrop || !qq.supportedFeatures.fileDrop) {
-            dropProcessing = qq(tempTemplateEl).getByClass(selectorClasses.dropProcessing)[0];
-            if (dropProcessing) {
-                qq(dropProcessing).remove();
-            }
-
-        }
-
-        dropArea = qq(tempTemplateEl).getByClass(selectorClasses.drop)[0];
-
-        // If DnD is not available then remove
-        // it from the DOM as well.
-        if (dropArea && !qq.DragAndDrop) {
-            log("DnD module unavailable.", "info");
-            qq(dropArea).remove();
-        }
-
-        // If there is a drop area defined in the template, and the current UA doesn't support DnD,
-        // and the drop area is marked as "hide before enter", ensure it is hidden as the DnD module
-        // will not do this (since we will not be loading the DnD module)
-        if (dropArea && !qq.supportedFeatures.fileDrop &&
-            qq(dropArea).hasAttribute(HIDE_DROPZONE_ATTR)) {
-
-            qq(dropArea).css({
-                display: "none"
-            });
-        }
-
-        // Ensure the `showThumbnails` flag is only set if the thumbnail element
-        // is present in the template AND the current UA is capable of generating client-side previews.
-        thumbnail = qq(tempTemplateEl).getByClass(selectorClasses.thumbnail)[0];
-        if (!showThumbnails) {
-            thumbnail && qq(thumbnail).remove();
-        }
-        else if (thumbnail) {
-            thumbnailMaxSize = parseInt(thumbnail.getAttribute(THUMBNAIL_MAX_SIZE_ATTR));
-            // Only enforce max size if the attr value is non-zero
-            thumbnailMaxSize = thumbnailMaxSize > 0 ? thumbnailMaxSize : null;
-
-            serverScale = qq(thumbnail).hasAttribute(THUMBNAIL_SERVER_SCALE_ATTR);
-        }
-        showThumbnails = showThumbnails && thumbnail;
-
-        isEditElementsExist = qq(tempTemplateEl).getByClass(selectorClasses.editFilenameInput).length > 0;
-        isRetryElementExist = qq(tempTemplateEl).getByClass(selectorClasses.retry).length > 0;
-
-        fileListNode = qq(tempTemplateEl).getByClass(selectorClasses.list)[0];
-        /*jshint -W116*/
-        if (fileListNode == null) {
-            throw new Error("Could not find the file list container in the template!");
-        }
-
-        fileListHtml = fileListNode.innerHTML;
-        fileListNode.innerHTML = "";
-
-        log("Template parsing complete");
-
-        return {
-            template: qq.trimStr(tempTemplateEl.innerHTML),
-            fileTemplate: qq.trimStr(fileListHtml)
-        };
-    }
-
-    function getFile(id) {
-        return qq(fileList).getByClass(FILE_CLASS_PREFIX + id)[0];
-    }
-
-    function getTemplateEl(context, cssClass) {
-        return context && qq(context).getByClass(cssClass)[0];
-    }
-
-    function prependFile(el, index) {
-        var parentEl = fileList,
-            beforeEl = parentEl.firstChild;
-
-        if (index > 0) {
-            beforeEl = qq(parentEl).children()[index].nextSibling;
-
-        }
-
-        parentEl.insertBefore(el, beforeEl);
-    }
-
-    function getCancel(id) {
-        return getTemplateEl(getFile(id), selectorClasses.cancel);
-    }
-
-    function getPause(id) {
-        return getTemplateEl(getFile(id), selectorClasses.pause);
-    }
-
-    function getContinue(id) {
-        return getTemplateEl(getFile(id), selectorClasses.continueButton);
-    }
-
-    function getProgress(id) {
-        /* jshint eqnull:true */
-        // Total progress bar
-        if (id == null) {
-            return getTemplateEl(container, selectorClasses.totalProgressBarContainer) ||
-                getTemplateEl(container, selectorClasses.totalProgressBar);
-        }
-
-        // Per-file progress bar
-        return getTemplateEl(getFile(id), selectorClasses.progressBarContainer) ||
-            getTemplateEl(getFile(id), selectorClasses.progressBar);
-    }
-
-    function getSpinner(id) {
-        return getTemplateEl(getFile(id), selectorClasses.spinner);
-    }
-
-    function getEditIcon(id) {
-        return getTemplateEl(getFile(id), selectorClasses.editNameIcon);
-    }
-
-    function getSize(id) {
-        return getTemplateEl(getFile(id), selectorClasses.size);
-    }
-
-    function getDelete(id) {
-        return getTemplateEl(getFile(id), selectorClasses.deleteButton);
-    }
-
-    function getRetry(id) {
-        return getTemplateEl(getFile(id), selectorClasses.retry);
-    }
-
-    function getFilename(id) {
-        return getTemplateEl(getFile(id), selectorClasses.file);
-    }
-
-    function getDropProcessing() {
-        return getTemplateEl(container, selectorClasses.dropProcessing);
-    }
-
-    function getThumbnail(id) {
-        return showThumbnails && getTemplateEl(getFile(id), selectorClasses.thumbnail);
-    }
-
-    function hide(el) {
-        el && qq(el).addClass(options.classes.hide);
-    }
-
-    function show(el) {
-        el && qq(el).removeClass(options.classes.hide);
-    }
-
-    function setProgressBarWidth(id, percent) {
-        var bar = getProgress(id),
-            /* jshint eqnull:true */
-            progressBarSelector = id == null ? selectorClasses.totalProgressBar : selectorClasses.progressBar;
-
-        if (bar && !qq(bar).hasClass(progressBarSelector)) {
-            bar = qq(bar).getByClass(progressBarSelector)[0];
-        }
-
-        bar && qq(bar).css({width: percent + "%"});
-    }
-
-    // During initialization of the templating module we should cache any
-    // placeholder images so we can quickly swap them into the file list on demand.
-    // Any placeholder images that cannot be loaded/found are simply ignored.
-    function cacheThumbnailPlaceholders() {
-        var notAvailableUrl =  options.placeholders.thumbnailNotAvailable,
-            waitingUrl = options.placeholders.waitingForThumbnail,
-            spec = {
-                maxSize: thumbnailMaxSize,
-                scale: serverScale
-            };
-
-        if (showThumbnails) {
-            if (notAvailableUrl) {
-                options.imageGenerator.generate(notAvailableUrl, new Image(), spec).then(
-                    function(updatedImg) {
-                        cachedThumbnailNotAvailableImg.success(updatedImg);
-                    },
-                    function() {
-                        cachedThumbnailNotAvailableImg.failure();
-                        log("Problem loading 'not available' placeholder image at " + notAvailableUrl, "error");
-                    }
-                );
-            }
-            else {
-                cachedThumbnailNotAvailableImg.failure();
-            }
-
-            if (waitingUrl) {
-                options.imageGenerator.generate(waitingUrl, new Image(), spec).then(
-                    function(updatedImg) {
-                        cachedWaitingForThumbnailImg.success(updatedImg);
-                    },
-                    function() {
-                        cachedWaitingForThumbnailImg.failure();
-                        log("Problem loading 'waiting for thumbnail' placeholder image at " + waitingUrl, "error");
-                    }
-                );
-            }
-            else {
-                cachedWaitingForThumbnailImg.failure();
-            }
-        }
-    }
-
-    // Displays a "waiting for thumbnail" type placeholder image
-    // iff we were able to load it during initialization of the templating module.
-    function displayWaitingImg(thumbnail) {
-        var waitingImgPlacement = new qq.Promise();
-
-        cachedWaitingForThumbnailImg.then(function(img) {
-            maybeScalePlaceholderViaCss(img, thumbnail);
-            /* jshint eqnull:true */
-            if (!thumbnail.src) {
-                thumbnail.src = img.src;
-                thumbnail.onload = function() {
-                    show(thumbnail);
-                    waitingImgPlacement.success();
+        // During initialization of the templating module we should cache any
+        // placeholder images so we can quickly swap them into the file list on demand.
+        // Any placeholder images that cannot be loaded/found are simply ignored.
+        cacheThumbnailPlaceholders = function() {
+            var notAvailableUrl =  options.placeholders.thumbnailNotAvailable,
+                waitingUrl = options.placeholders.waitingForThumbnail,
+                spec = {
+                    maxSize: thumbnailMaxSize,
+                    scale: serverScale
                 };
+
+            if (showThumbnails) {
+                if (notAvailableUrl) {
+                    options.imageGenerator.generate(notAvailableUrl, new Image(), spec).then(
+                        function(updatedImg) {
+                            cachedThumbnailNotAvailableImg.success(updatedImg);
+                        },
+                        function() {
+                            cachedThumbnailNotAvailableImg.failure();
+                            log("Problem loading 'not available' placeholder image at " + notAvailableUrl, "error");
+                        }
+                    );
+                }
+                else {
+                    cachedThumbnailNotAvailableImg.failure();
+                }
+
+                if (waitingUrl) {
+                    options.imageGenerator.generate(waitingUrl, new Image(), spec).then(
+                        function(updatedImg) {
+                            cachedWaitingForThumbnailImg.success(updatedImg);
+                        },
+                        function() {
+                            cachedWaitingForThumbnailImg.failure();
+                            log("Problem loading 'waiting for thumbnail' placeholder image at " + waitingUrl, "error");
+                        }
+                    );
+                }
+                else {
+                    cachedWaitingForThumbnailImg.failure();
+                }
             }
-            else {
+        },
+
+        // Displays a "waiting for thumbnail" type placeholder image
+        // iff we were able to load it during initialization of the templating module.
+        displayWaitingImg = function(thumbnail) {
+            var waitingImgPlacement = new qq.Promise();
+
+            cachedWaitingForThumbnailImg.then(function(img) {
+                maybeScalePlaceholderViaCss(img, thumbnail);
+                /* jshint eqnull:true */
+                if (!thumbnail.src) {
+                    thumbnail.src = img.src;
+                    thumbnail.onload = function() {
+                        thumbnail.onload = null;
+                        show(thumbnail);
+                        waitingImgPlacement.success();
+                    };
+                }
+                else {
+                    waitingImgPlacement.success();
+                }
+            }, function() {
+                // In some browsers (such as IE9 and older) an img w/out a src attribute
+                // are displayed as "broken" images, so we should just hide the img tag
+                // if we aren't going to display the "waiting" placeholder.
+                hide(thumbnail);
                 waitingImgPlacement.success();
-            }
-        }, function() {
-            // In some browsers (such as IE9 and older) an img w/out a src attribute
-            // are displayed as "broken" images, so we should just hide the img tag
-            // if we aren't going to display the "waiting" placeholder.
-            hide(thumbnail);
-            waitingImgPlacement.success();
-        });
+            });
 
-        return waitingImgPlacement;
-    }
+            return waitingImgPlacement;
+        },
 
-    // Displays a "thumbnail not available" type placeholder image
-    // iff we were able to load this placeholder during initialization
-    // of the templating module or after preview generation has failed.
-    function maybeSetDisplayNotAvailableImg(id, thumbnail) {
-        var previewing = previewGeneration[id] || new qq.Promise().failure(),
-            notAvailableImgPlacement = new qq.Promise();
+        generateNewPreview = function(id, blob, spec) {
+            var thumbnail = getThumbnail(id);
 
-        cachedThumbnailNotAvailableImg.then(function(img) {
-            previewing.then(
+            log("Generating new thumbnail for " + id);
+            blob.qqThumbnailId = id;
+
+            return options.imageGenerator.generate(blob, thumbnail, spec).then(
                 function() {
-                    notAvailableImgPlacement.success();
+                    generatedThumbnails++;
+                    show(thumbnail);
+                    previewGeneration[id].success();
                 },
                 function() {
-                    maybeScalePlaceholderViaCss(img, thumbnail);
-                    thumbnail.onload = function() {
-                        notAvailableImgPlacement.success();
-                    };
-                    thumbnail.src = img.src;
-                    show(thumbnail);
-                }
-            );
-        });
+                    previewGeneration[id].failure();
 
-        return notAvailableImgPlacement;
-    }
-
-    // Ensures a placeholder image does not exceed any max size specified
-    // via `style` attribute properties iff <canvas> was not used to scale
-    // the placeholder AND the target <img> doesn't already have these `style` attribute properties set.
-    function maybeScalePlaceholderViaCss(placeholder, thumbnail) {
-        var maxWidth = placeholder.style.maxWidth,
-            maxHeight = placeholder.style.maxHeight;
-
-        if (maxHeight && maxWidth && !thumbnail.style.maxWidth && !thumbnail.style.maxHeight) {
-            qq(thumbnail).css({
-                maxWidth: maxWidth,
-                maxHeight: maxHeight
-            });
-        }
-    }
-
-    function useCachedPreview(targetThumbnailId, cachedThumbnailId) {
-        var targetThumnail = getThumbnail(targetThumbnailId),
-            cachedThumbnail = getThumbnail(cachedThumbnailId);
-
-        log(qq.format("ID {} is the same file as ID {}.  Will use generated thumbnail from ID {} instead.", targetThumbnailId, cachedThumbnailId, cachedThumbnailId));
-
-        // Generation of the related thumbnail may still be in progress, so, wait until it is done.
-        previewGeneration[cachedThumbnailId].then(function() {
-            previewGeneration[targetThumbnailId].success();
-            log(qq.format("Now using previously generated thumbnail created for ID {} on ID {}.", cachedThumbnailId, targetThumbnailId));
-            targetThumnail.src = cachedThumbnail.src;
-            show(targetThumnail);
+                    // Display the "not available" placeholder img only if we are
+                    // not expecting a thumbnail at a later point, such as in a server response.
+                    if (!options.placeholders.waitUntilUpdate) {
+                        maybeSetDisplayNotAvailableImg(id, thumbnail);
+                    }
+                });
         },
-        function() {
-            previewGeneration[targetThumbnailId].failure();
-            if (!options.placeholders.waitUntilUpdate) {
-                maybeSetDisplayNotAvailableImg(targetThumbnailId, targetThumnail);
+
+        generateNextQueuedPreview = function() {
+            if (thumbGenerationQueue.length) {
+                thumbnailQueueMonitorRunning = true;
+
+                var queuedThumbRequest = thumbGenerationQueue.shift();
+
+                if (queuedThumbRequest.update) {
+                    processUpdateQueuedPreviewRequest(queuedThumbRequest);
+                }
+                else {
+                    processNewQueuedPreviewRequest(queuedThumbRequest);
+                }
             }
-        });
-    }
+            else {
+                thumbnailQueueMonitorRunning = false;
+            }
+        },
 
-    function generateNewPreview(id, blob, spec) {
-        var thumbnail = getThumbnail(id);
+        getCancel = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.cancel);
+        },
 
-        log("Generating new thumbnail for " + id);
-        blob.qqThumbnailId = id;
+        getContinue = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.continueButton);
+        },
 
-        return options.imageGenerator.generate(blob, thumbnail, spec).then(
-            function() {
-                show(thumbnail);
-                previewGeneration[id].success();
+        getDelete = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.deleteButton);
+        },
+
+        getDropProcessing = function() {
+            return getTemplateEl(container, selectorClasses.dropProcessing);
+        },
+
+        getEditIcon = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.editNameIcon);
+        },
+
+        getFile = function(id) {
+            return qq(fileList).getByClass(FILE_CLASS_PREFIX + id)[0];
+        },
+
+        getFilename = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.file);
+        },
+
+        getPause = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.pause);
+        },
+
+        getProgress = function(id) {
+            /* jshint eqnull:true */
+            // Total progress bar
+            if (id == null) {
+                return getTemplateEl(container, selectorClasses.totalProgressBarContainer) ||
+                    getTemplateEl(container, selectorClasses.totalProgressBar);
+            }
+
+            // Per-file progress bar
+            return getTemplateEl(getFile(id), selectorClasses.progressBarContainer) ||
+                getTemplateEl(getFile(id), selectorClasses.progressBar);
+        },
+
+        getRetry = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.retry);
+        },
+
+        getSize = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.size);
+        },
+
+        getSpinner = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.spinner);
+        },
+
+        getTemplateEl = function(context, cssClass) {
+            return context && qq(context).getByClass(cssClass)[0];
+        },
+
+        getThumbnail = function(id) {
+            return showThumbnails && getTemplateEl(getFile(id), selectorClasses.thumbnail);
+        },
+
+        hide = function(el) {
+            el && qq(el).addClass(options.classes.hide);
+        },
+
+        // Ensures a placeholder image does not exceed any max size specified
+        // via `style` attribute properties iff <canvas> was not used to scale
+        // the placeholder AND the target <img> doesn't already have these `style` attribute properties set.
+        maybeScalePlaceholderViaCss = function(placeholder, thumbnail) {
+            var maxWidth = placeholder.style.maxWidth,
+                maxHeight = placeholder.style.maxHeight;
+
+            if (maxHeight && maxWidth && !thumbnail.style.maxWidth && !thumbnail.style.maxHeight) {
+                qq(thumbnail).css({
+                    maxWidth: maxWidth,
+                    maxHeight: maxHeight
+                });
+            }
+        },
+
+        // Displays a "thumbnail not available" type placeholder image
+        // iff we were able to load this placeholder during initialization
+        // of the templating module or after preview generation has failed.
+        maybeSetDisplayNotAvailableImg = function(id, thumbnail) {
+            var previewing = previewGeneration[id] || new qq.Promise().failure(),
+                notAvailableImgPlacement = new qq.Promise();
+
+            cachedThumbnailNotAvailableImg.then(function(img) {
+                previewing.then(
+                    function() {
+                        notAvailableImgPlacement.success();
+                    },
+                    function() {
+                        maybeScalePlaceholderViaCss(img, thumbnail);
+
+                        thumbnail.onload = function() {
+                            thumbnail.onload = null;
+                            notAvailableImgPlacement.success();
+                        };
+
+                        thumbnail.src = img.src;
+                        show(thumbnail);
+                    }
+                );
+            });
+
+            return notAvailableImgPlacement;
+        },
+
+        /**
+         * Grabs the HTML from the script tag holding the template markup.  This function will also adjust
+         * some internally-tracked state variables based on the contents of the template.
+         * The template is filtered so that irrelevant elements (such as the drop zone if DnD is not supported)
+         * are omitted from the DOM.  Useful errors will be thrown if the template cannot be parsed.
+         *
+         * @returns {{template: *, fileTemplate: *}} HTML for the top-level file items templates
+         */
+        parseAndGetTemplate = function() {
+            var scriptEl,
+                scriptHtml,
+                fileListNode,
+                tempTemplateEl,
+                fileListHtml,
+                defaultButton,
+                dropArea,
+                thumbnail,
+                dropProcessing;
+
+            log("Parsing template");
+
+            /*jshint -W116*/
+            if (options.templateIdOrEl == null) {
+                throw new Error("You MUST specify either a template element or ID!");
+            }
+
+            // Grab the contents of the script tag holding the template.
+            if (qq.isString(options.templateIdOrEl)) {
+                scriptEl = document.getElementById(options.templateIdOrEl);
+
+                if (scriptEl === null) {
+                    throw new Error(qq.format("Cannot find template script at ID '{}'!", options.templateIdOrEl));
+                }
+
+                scriptHtml = scriptEl.innerHTML;
+            }
+            else {
+                if (options.templateIdOrEl.innerHTML === undefined) {
+                    throw new Error("You have specified an invalid value for the template option!  " +
+                        "It must be an ID or an Element.");
+                }
+
+                scriptHtml = options.templateIdOrEl.innerHTML;
+            }
+
+            scriptHtml = qq.trimStr(scriptHtml);
+            tempTemplateEl = document.createElement("div");
+            tempTemplateEl.appendChild(qq.toElement(scriptHtml));
+
+            // Don't include the default template button in the DOM
+            // if an alternate button container has been specified.
+            if (options.button) {
+                defaultButton = qq(tempTemplateEl).getByClass(selectorClasses.button)[0];
+                if (defaultButton) {
+                    qq(defaultButton).remove();
+                }
+            }
+
+            // Omit the drop processing element from the DOM if DnD is not supported by the UA,
+            // or the drag and drop module is not found.
+            // NOTE: We are consciously not removing the drop zone if the UA doesn't support DnD
+            // to support layouts where the drop zone is also a container for visible elements,
+            // such as the file list.
+            if (!qq.DragAndDrop || !qq.supportedFeatures.fileDrop) {
+                dropProcessing = qq(tempTemplateEl).getByClass(selectorClasses.dropProcessing)[0];
+                if (dropProcessing) {
+                    qq(dropProcessing).remove();
+                }
+
+            }
+
+            dropArea = qq(tempTemplateEl).getByClass(selectorClasses.drop)[0];
+
+            // If DnD is not available then remove
+            // it from the DOM as well.
+            if (dropArea && !qq.DragAndDrop) {
+                log("DnD module unavailable.", "info");
+                qq(dropArea).remove();
+            }
+
+            // If there is a drop area defined in the template, and the current UA doesn't support DnD,
+            // and the drop area is marked as "hide before enter", ensure it is hidden as the DnD module
+            // will not do this (since we will not be loading the DnD module)
+            if (dropArea && !qq.supportedFeatures.fileDrop &&
+                qq(dropArea).hasAttribute(HIDE_DROPZONE_ATTR)) {
+
+                qq(dropArea).css({
+                    display: "none"
+                });
+            }
+
+            // Ensure the `showThumbnails` flag is only set if the thumbnail element
+            // is present in the template AND the current UA is capable of generating client-side previews.
+            thumbnail = qq(tempTemplateEl).getByClass(selectorClasses.thumbnail)[0];
+            if (!showThumbnails) {
+                thumbnail && qq(thumbnail).remove();
+            }
+            else if (thumbnail) {
+                thumbnailMaxSize = parseInt(thumbnail.getAttribute(THUMBNAIL_MAX_SIZE_ATTR));
+                // Only enforce max size if the attr value is non-zero
+                thumbnailMaxSize = thumbnailMaxSize > 0 ? thumbnailMaxSize : null;
+
+                serverScale = qq(thumbnail).hasAttribute(THUMBNAIL_SERVER_SCALE_ATTR);
+            }
+            showThumbnails = showThumbnails && thumbnail;
+
+            isEditElementsExist = qq(tempTemplateEl).getByClass(selectorClasses.editFilenameInput).length > 0;
+            isRetryElementExist = qq(tempTemplateEl).getByClass(selectorClasses.retry).length > 0;
+
+            fileListNode = qq(tempTemplateEl).getByClass(selectorClasses.list)[0];
+            /*jshint -W116*/
+            if (fileListNode == null) {
+                throw new Error("Could not find the file list container in the template!");
+            }
+
+            fileListHtml = fileListNode.innerHTML;
+            fileListNode.innerHTML = "";
+
+            log("Template parsing complete");
+
+            return {
+                template: qq.trimStr(tempTemplateEl.innerHTML),
+                fileTemplate: qq.trimStr(fileListHtml)
+            };
+        },
+
+        prependFile = function(el, index) {
+            var parentEl = fileList,
+                beforeEl = parentEl.firstChild;
+
+            if (index > 0) {
+                beforeEl = qq(parentEl).children()[index].nextSibling;
+
+            }
+
+            parentEl.insertBefore(el, beforeEl);
+        },
+
+        processNewQueuedPreviewRequest = function(queuedThumbRequest) {
+            var id = queuedThumbRequest.id,
+                optFileOrBlob = queuedThumbRequest.optFileOrBlob,
+                relatedThumbnailId = optFileOrBlob && optFileOrBlob.qqThumbnailId,
+                thumbnail = getThumbnail(id),
+                spec = {
+                    maxSize: thumbnailMaxSize,
+                    scale: true,
+                    orient: true
+                };
+
+            if (qq.supportedFeatures.imagePreviews) {
+                if (thumbnail) {
+                    if (options.limits.maxThumbs && options.limits.maxThumbs <= generatedThumbnails) {
+                        maybeSetDisplayNotAvailableImg(id, thumbnail);
+                        generateNextQueuedPreview();
+                    }
+                    else {
+                        displayWaitingImg(thumbnail).done(function() {
+                            previewGeneration[id] = new qq.Promise();
+
+                            previewGeneration[id].done(function() {
+                                setTimeout(generateNextQueuedPreview, options.limits.timeBetweenThumbs);
+                            });
+
+                            /* jshint eqnull: true */
+                            // If we've already generated an <img> for this file, use the one that exists,
+                            // don't waste resources generating a new one.
+                            if (relatedThumbnailId != null) {
+                                useCachedPreview(id, relatedThumbnailId);
+                            }
+                            else {
+                                generateNewPreview(id, optFileOrBlob, spec);
+                            }
+                        });
+                    }
+                }
+            }
+            else if (thumbnail) {
+                displayWaitingImg(thumbnail);
+                generateNextQueuedPreview();
+            }
+        },
+
+        processUpdateQueuedPreviewRequest = function(queuedThumbRequest) {
+            var id = queuedThumbRequest.id,
+                thumbnailUrl = queuedThumbRequest.thumbnailUrl,
+                showWaitingImg = queuedThumbRequest.showWaitingImg,
+                thumbnail = getThumbnail(id),
+                spec = {
+                    maxSize: thumbnailMaxSize,
+                    scale: serverScale
+                };
+
+            if (thumbnail) {
+                if (thumbnailUrl) {
+                    if (options.limits.maxThumbs && options.limits.maxThumbs <= generatedThumbnails) {
+                        maybeSetDisplayNotAvailableImg(id, thumbnail);
+                        generateNextQueuedPreview();
+                    }
+                    else {
+                        if (showWaitingImg) {
+                            displayWaitingImg(thumbnail);
+                        }
+
+                        return options.imageGenerator.generate(thumbnailUrl, thumbnail, spec).then(
+                            function() {
+                                show(thumbnail);
+                                generatedThumbnails++;
+                                setTimeout(generateNextQueuedPreview, options.limits.timeBetweenThumbs);
+                            },
+
+                            function() {
+                                maybeSetDisplayNotAvailableImg(id, thumbnail);
+                                setTimeout(generateNextQueuedPreview, options.limits.timeBetweenThumbs);
+                            }
+                        );
+                    }
+                }
+                else {
+                    maybeSetDisplayNotAvailableImg(id, thumbnail);
+                    generateNextQueuedPreview();
+                }
+            }
+        },
+
+        setProgressBarWidth = function(id, percent) {
+            var bar = getProgress(id),
+                /* jshint eqnull:true */
+                progressBarSelector = id == null ? selectorClasses.totalProgressBar : selectorClasses.progressBar;
+
+            if (bar && !qq(bar).hasClass(progressBarSelector)) {
+                bar = qq(bar).getByClass(progressBarSelector)[0];
+            }
+
+            bar && qq(bar).css({width: percent + "%"});
+        },
+
+        show = function(el) {
+            el && qq(el).removeClass(options.classes.hide);
+        },
+
+        useCachedPreview = function(targetThumbnailId, cachedThumbnailId) {
+            var targetThumnail = getThumbnail(targetThumbnailId),
+                cachedThumbnail = getThumbnail(cachedThumbnailId);
+
+            log(qq.format("ID {} is the same file as ID {}.  Will use generated thumbnail from ID {} instead.", targetThumbnailId, cachedThumbnailId, cachedThumbnailId));
+
+            // Generation of the related thumbnail may still be in progress, so, wait until it is done.
+            previewGeneration[cachedThumbnailId].then(function() {
+                generatedThumbnails++;
+                previewGeneration[targetThumbnailId].success();
+                log(qq.format("Now using previously generated thumbnail created for ID {} on ID {}.", cachedThumbnailId, targetThumbnailId));
+                targetThumnail.src = cachedThumbnail.src;
+                show(targetThumnail);
             },
             function() {
-                previewGeneration[id].failure();
-
-                // Display the "not available" placeholder img only if we are
-                // not expecting a thumbnail at a later point, such as in a server response.
+                previewGeneration[targetThumbnailId].failure();
                 if (!options.placeholders.waitUntilUpdate) {
-                    maybeSetDisplayNotAvailableImg(id, thumbnail);
+                    maybeSetDisplayNotAvailableImg(targetThumbnailId, targetThumnail);
                 }
             });
-    }
-
+        };
 
     qq.extend(options, spec);
     log = options.log;
+
+    // No need to worry about conserving CPU or memory on older browsers,
+    // since there is no ability to preview, and thumbnail display is primitive and quick.
+    if (!qq.supportedFeatures.imagePreviews) {
+        options.limits.timeBetweenThumbs = 0;
+        options.limits.maxThumbs = 0;
+    }
 
     container = options.containerEl;
     showThumbnails = options.imageGenerator !== undefined;
@@ -6984,6 +7174,8 @@ qq.Templating = function(spec) {
     qq.extend(this, {
         render: function() {
             log("Rendering template in DOM.");
+
+            generatedThumbnails = 0;
 
             container.innerHTML = templateHtml.template;
             hide(getDropProcessing());
@@ -7013,7 +7205,8 @@ qq.Templating = function(spec) {
 
         addFile: function(id, name, prependInfo) {
             var fileEl = qq.toElement(templateHtml.fileTemplate),
-                fileNameEl = getTemplateEl(fileEl, selectorClasses.file);
+                fileNameEl = getTemplateEl(fileEl, selectorClasses.file),
+                thumb;
 
             qq(fileEl).addClass(FILE_CLASS_PREFIX + id);
             fileNameEl && qq(fileNameEl).setText(name);
@@ -7035,6 +7228,21 @@ qq.Templating = function(spec) {
 
             if (isCancelDisabled) {
                 this.hideCancel(id);
+            }
+
+            thumb = getThumbnail(id);
+            if (thumb && !thumb.src) {
+                cachedWaitingForThumbnailImg.then(function(waitingImg) {
+                    thumb.src = waitingImg.src;
+                    if (waitingImg.style.maxHeight && waitingImg.style.maxWidth) {
+                        qq(thumb).css({
+                            maxHeight: waitingImg.style.maxHeight,
+                            maxWidth: waitingImg.style.maxWidth
+                        });
+                    }
+
+                    show(thumb);
+                });
             }
         },
 
@@ -7147,7 +7355,7 @@ qq.Templating = function(spec) {
             var bar = getProgress(id),
                 percent;
 
-            if (bar) {
+            if (bar && total > 0) {
                 percent = Math.round(loaded / total * 100);
 
                 if (percent === 100) {
@@ -7177,6 +7385,7 @@ qq.Templating = function(spec) {
 
         resetProgress: function(id) {
             setProgressBarWidth(id, 0);
+            this.hideTotalProgress(id);
         },
 
         resetTotalProgress: function() {
@@ -7280,63 +7489,14 @@ qq.Templating = function(spec) {
             show(getSpinner(id));
         },
 
-        generatePreview: function(id, opt_fileOrBlob) {
-            var relatedThumbnailId = opt_fileOrBlob && opt_fileOrBlob.qqThumbnailId,
-                thumbnail = getThumbnail(id),
-                spec = {
-                    maxSize: thumbnailMaxSize,
-                    scale: true,
-                    orient: true
-                };
-
-            if (qq.supportedFeatures.imagePreviews) {
-                if (thumbnail) {
-                    displayWaitingImg(thumbnail).done(function() {
-                        previewGeneration[id] = new qq.Promise();
-
-                        /* jshint eqnull: true */
-                        // If we've already generated an <img> for this file, use the one that exists,
-                        // don't waste resources generating a new one.
-                        if (relatedThumbnailId != null) {
-                            useCachedPreview(id, relatedThumbnailId);
-                        }
-                        else {
-                            generateNewPreview(id, opt_fileOrBlob, spec);
-                        }
-                    });
-                }
-            }
-            else if (thumbnail) {
-                displayWaitingImg(thumbnail);
-            }
+        generatePreview: function(id, optFileOrBlob) {
+            thumbGenerationQueue.push({id: id, optFileOrBlob: optFileOrBlob});
+            !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
         },
 
         updateThumbnail: function(id, thumbnailUrl, showWaitingImg) {
-            var thumbnail = getThumbnail(id),
-                spec = {
-                    maxSize: thumbnailMaxSize,
-                    scale: serverScale
-                };
-
-            if (thumbnail) {
-                if (thumbnailUrl) {
-                    if (showWaitingImg) {
-                        displayWaitingImg(thumbnail);
-                    }
-
-                    return options.imageGenerator.generate(thumbnailUrl, thumbnail, spec).then(
-                        function() {
-                            show(thumbnail);
-                        },
-                        function() {
-                            maybeSetDisplayNotAvailableImg(id, thumbnail);
-                        }
-                    );
-                }
-                else {
-                    maybeSetDisplayNotAvailableImg(id, thumbnail);
-                }
-            }
+            thumbGenerationQueue.push({update: true, id: id, thumbnailUrl: thumbnailUrl, showWaitingImg: showWaitingImg});
+            !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
         }
     });
 };
@@ -7401,17 +7561,17 @@ qq.azure.util = qq.azure.util || (function() {
 /**
  * Defines the public API for non-traditional FineUploaderBasic mode.
  */
-(function(){
+(function() {
     "use strict";
 
     qq.nonTraditionalBasePublicApi = {
         setUploadSuccessParams: function(params, id) {
             this._uploadSuccessParamsStore.set(params, id);
+        },
+        setUploadSuccessEndpoint: function(endpoint, id) {
+            this._uploadSuccessEndpointStore.set(endpoint, id);
         }
     };
-
-
-
 
     qq.nonTraditionalBasePrivateApi = {
         /**
@@ -7431,11 +7591,12 @@ qq.azure.util = qq.azure.util || (function() {
             var success = result.success ? true : false,
                 self = this,
                 onCompleteArgs = arguments,
-                successEndpoint = this._options.uploadSuccess.endpoint,
+                successEndpoint = this._uploadSuccessEndpointStore.get(id),
                 successCustomHeaders = this._options.uploadSuccess.customHeaders,
                 cors = this._options.cors,
                 promise = new qq.Promise(),
                 uploadSuccessParams = this._uploadSuccessParamsStore.get(id),
+                fileParams = this._paramsStore.get(id),
 
                 // If we are waiting for confirmation from the local server, and have received it,
                 // include properties from the local server response in the `response` parameter
@@ -7483,9 +7644,11 @@ qq.azure.util = qq.azure.util || (function() {
                     log: qq.bind(this.log, this)
                 });
 
-
                 // combine custom params and default params
                 qq.extend(uploadSuccessParams, self._getEndpointSpecificParams(id, result, xhr), true);
+
+                // include any params associated with the file
+                fileParams && qq.extend(uploadSuccessParams, fileParams, true);
 
                 submitSuccessRequest = qq.bind(function() {
                     successAjaxRequester.sendSuccessRequest(id, uploadSuccessParams)
@@ -7516,7 +7679,7 @@ qq.azure.util = qq.azure.util || (function() {
  * functionality of Fine Uploader Basic as well as code to handle uploads directly to Azure.
  * Some inherited options and API methods have a special meaning in the context of the Azure uploader.
  */
-(function(){
+(function() {
     "use strict";
 
     qq.azure.FineUploaderBasic = function(o) {
@@ -7560,6 +7723,7 @@ qq.azure.util = qq.azure.util || (function() {
         qq.FineUploaderBasic.call(this, options);
 
         this._uploadSuccessParamsStore = this._createStore(this._options.uploadSuccess.params);
+        this._uploadSuccessEndpointStore = this._createStore(this._options.uploadSuccess.endpoint);
 
          // This will hold callbacks for failed uploadSuccess requests that will be invoked on retry.
         // Indexed by file ID.
@@ -7612,7 +7776,7 @@ qq.azure.util = qq.azure.util || (function() {
                 fileExtension = qq.getExtension(filename);
 
             if (qq.isString(blobNameOptionValue)) {
-                switch(blobNameOptionValue) {
+                switch (blobNameOptionValue) {
                     case "uuid":
                         return new qq.Promise().success(uuid + "." + fileExtension);
                     case "filename":
@@ -7708,7 +7872,6 @@ qq.azure.util = qq.azure.util || (function() {
                     log: qq.bind(self.log, self)
                 });
 
-
             getSas.request(id, blobUriStore.get(id)).then(
                 qq.bind(getSasSuccess, self, id),
                 qq.bind(getSasFailure, self, id));
@@ -7786,7 +7949,6 @@ qq.azure.XhrUploadHandler = function(spec, proxy) {
             })
         };
 
-
     function combineChunks(id) {
         var promise = new qq.Promise();
 
@@ -7827,10 +7989,10 @@ qq.azure.XhrUploadHandler = function(spec, proxy) {
         return promise;
     }
 
-    function getSignedUrl(id, opt_chunkIdx) {
+    function getSignedUrl(id, optChunkIdx) {
         // We may have multiple SAS requests in progress for the same file, so we must include the chunk idx
         // as part of the ID when communicating with the SAS ajax requester to avoid collisions.
-        var getSasId = opt_chunkIdx == null ? id : id + "." + opt_chunkIdx,
+        var getSasId = optChunkIdx == null ? id : id + "." + optChunkIdx,
 
             promise = new qq.Promise(),
             getSasSuccess = function(sasUri) {
@@ -7866,7 +8028,6 @@ qq.azure.XhrUploadHandler = function(spec, proxy) {
             reset: xhr.status === 403
         });
     }
-
 
     qq.extend(this, {
         uploadChunk: function(id, chunkIdx) {
@@ -7930,8 +8091,8 @@ qq.azure.XhrUploadHandler = function(spec, proxy) {
         }
     });
 
-
-    qq.extend(this, new qq.XhrUploadHandler({
+    qq.extend(this,
+        new qq.XhrUploadHandler({
             options: qq.extend({namespace: "azure"}, spec),
             proxy: qq.extend({getEndpoint: spec.endpointStore.get}, proxy)
         }
@@ -8009,7 +8170,7 @@ qq.azure.GetSas = function(o) {
         validMethods: ["GET"],
         method: "GET",
         successfulResponseCodes: {
-            "GET": [200]
+            GET: [200]
         },
         contentType: null,
         customHeaders: options.customHeaders,
@@ -8018,7 +8179,6 @@ qq.azure.GetSas = function(o) {
         log: options.log,
         onComplete: sasResponseReceived
     }));
-
 
     qq.extend(this, {
         request: function(id, blobUri) {
@@ -8129,7 +8289,6 @@ qq.UploadSuccessAjaxRequester = function(o) {
             POST: [200]
         }
     }));
-
 
     qq.extend(this, {
         /**
@@ -8265,7 +8424,6 @@ qq.azure.PutBlob = function(o) {
             }
         }
     }));
-
 
     qq.extend(this, {
         method: method,
@@ -8485,7 +8643,7 @@ qq.azure.PutBlock = function(o) {
  * specific to the upload-to-Azure workflow.  Some inherited options and API methods have a special meaning
  * in the context of the Azure uploader.
  */
-(function(){
+(function() {
     "use strict";
 
     qq.azure.FineUploader = function(o) {
@@ -8628,7 +8786,7 @@ qq.DragAndDrop = function(o) {
 
                     qq.each(entries, function(idx, entry) {
                         traverseFileTree(entry).done(function() {
-                            entriesLeft-=1;
+                            entriesLeft -= 1;
 
                             if (entriesLeft === 0) {
                                 parseEntryPromise.success();
@@ -8729,14 +8887,14 @@ qq.DragAndDrop = function(o) {
         var dropZone = new qq.UploadDropZone({
             HIDE_ZONES_EVENT_NAME: HIDE_ZONES_EVENT_NAME,
             element: dropArea,
-            onEnter: function(e){
+            onEnter: function(e) {
                 qq(dropArea).addClass(options.classes.dropActive);
                 e.stopPropagation();
             },
-            onLeaveNotDescendants: function(e){
+            onLeaveNotDescendants: function(e) {
                 qq(dropArea).removeClass(options.classes.dropActive);
             },
-            onDrop: function(e){
+            onDrop: function(e) {
                 handleDataTransfer(e.dataTransfer, dropZone).then(
                     function() {
                         uploadDroppedFiles(droppedFiles, dropZone);
@@ -8812,8 +8970,11 @@ qq.DragAndDrop = function(o) {
                 disposeSupport.attach(document, "dragenter", function(e) {
                     if (!uploadDropZone.dropDisabled() && isFileDrag(e)) {
                         qq.each(dropZones, function(idx, dropZone) {
-                            // We can't apply styles to non-HTMLElements, since they lack the `style` property
-                            if (dropZone instanceof HTMLElement) {
+                            // We can't apply styles to non-HTMLElements, since they lack the `style` property.
+                            // Also, if the drop zone isn't initially hidden, let's not mess with `style.display`.
+                            if (dropZone instanceof HTMLElement &&
+                                qq(dropZone).hasAttribute(HIDE_BEFORE_ENTER_ATTR)) {
+
                                 qq(dropZone).css({display: "block"});
                             }
                         });
@@ -8835,7 +8996,7 @@ qq.DragAndDrop = function(o) {
             maybeHideDropZones();
         });
 
-        disposeSupport.attach(document, "drop", function(e){
+        disposeSupport.attach(document, "drop", function(e) {
             e.preventDefault();
             maybeHideDropZones();
         });
@@ -8855,7 +9016,7 @@ qq.DragAndDrop = function(o) {
             var i,
                 dzs = options.dropZoneElements;
 
-            for(i in dzs) {
+            for (i in dzs) {
                 if (dzs[i] === element) {
                     return dzs.splice(i, 1);
                 }
@@ -8886,7 +9047,7 @@ qq.DragAndDrop.callbacks = function() {
     };
 };
 
-qq.UploadDropZone = function(o){
+qq.UploadDropZone = function(o) {
     "use strict";
 
     var disposeSupport = new qq.DisposeSupport(),
@@ -8894,32 +9055,32 @@ qq.UploadDropZone = function(o){
 
     options = {
         element: null,
-        onEnter: function(e){},
-        onLeave: function(e){},
+        onEnter: function(e) {},
+        onLeave: function(e) {},
         // is not fired when leaving element by hovering descendants
-        onLeaveNotDescendants: function(e){},
-        onDrop: function(e){}
+        onLeaveNotDescendants: function(e) {},
+        onDrop: function(e) {}
     };
 
     qq.extend(options, o);
     element = options.element;
 
-    function dragover_should_be_canceled(){
+    function dragoverShouldBeCanceled() {
         return qq.safari() || (qq.firefox() && qq.windows());
     }
 
-    function disableDropOutside(e){
+    function disableDropOutside(e) {
         // run only once for all instances
-        if (!dropOutsideDisabled ){
+        if (!dropOutsideDisabled) {
 
             // for these cases we need to catch onDrop to reset dropArea
-            if (dragover_should_be_canceled){
-                disposeSupport.attach(document, "dragover", function(e){
+            if (dragoverShouldBeCanceled) {
+                disposeSupport.attach(document, "dragover", function(e) {
                     e.preventDefault();
                 });
             } else {
-                disposeSupport.attach(document, "dragover", function(e){
-                    if (e.dataTransfer){
+                disposeSupport.attach(document, "dragover", function(e) {
+                    if (e.dataTransfer) {
                         e.dataTransfer.dropEffect = "none";
                         e.preventDefault();
                     }
@@ -8930,7 +9091,7 @@ qq.UploadDropZone = function(o){
         }
     }
 
-    function isValidFileDrag(e){
+    function isValidFileDrag(e) {
         // e.dataTransfer currently causing IE errors
         // IE9 does NOT support file API, so drag-and-drop is not possible
         if (!qq.supportedFeatures.fileDrop) {
@@ -8980,8 +9141,8 @@ qq.UploadDropZone = function(o){
         document.dispatchEvent(hideZonesEvent);
     }
 
-    function attachEvents(){
-        disposeSupport.attach(element, "dragover", function(e){
+    function attachEvents() {
+        disposeSupport.attach(element, "dragover", function(e) {
             if (!isValidFileDrag(e)) {
                 return;
             }
@@ -8989,7 +9150,7 @@ qq.UploadDropZone = function(o){
             // dt.effectAllowed crashes IE 11 & 10 when files have been dragged from
             // the filesystem
             var effect = qq.ie() && qq.supportedFeatures.fileDrop ? null : e.dataTransfer.effectAllowed;
-            if (effect === "move" || effect === "linkMove"){
+            if (effect === "move" || effect === "linkMove") {
                 e.dataTransfer.dropEffect = "move"; // for FF (only move allowed)
             } else {
                 e.dataTransfer.dropEffect = "copy"; // for Chrome
@@ -8999,7 +9160,7 @@ qq.UploadDropZone = function(o){
             e.preventDefault();
         });
 
-        disposeSupport.attach(element, "dragenter", function(e){
+        disposeSupport.attach(element, "dragenter", function(e) {
             if (!isOrSetDropDisabled()) {
                 if (!isValidFileDrag(e)) {
                     return;
@@ -9008,7 +9169,7 @@ qq.UploadDropZone = function(o){
             }
         });
 
-        disposeSupport.attach(element, "dragleave", function(e){
+        disposeSupport.attach(element, "dragleave", function(e) {
             if (!isValidFileDrag(e)) {
                 return;
             }
@@ -9084,7 +9245,7 @@ qq.DeleteFileAjaxRequester = function(o) {
     function getMandatedParams() {
         if (options.method.toUpperCase() === "POST") {
             return {
-                "_method": "DELETE"
+                _method: "DELETE"
             };
         }
 
@@ -9108,7 +9269,6 @@ qq.DeleteFileAjaxRequester = function(o) {
         onComplete: options.onDeleteComplete,
         cors: options.cors
     }));
-
 
     qq.extend(this, {
         sendDelete: function(id, uuid, additionalMandatedParams) {
@@ -9144,7 +9304,7 @@ qq.DeleteFileAjaxRequester = function(o) {
  * Copyright (c) 2012 Shinichi Tomita <shinichi.tomita@gmail.com>
  * Released under the MIT license
  *
- * Modified by Widen for Fine Uploader
+ * Heavily modified by Widen for Fine Uploader
  */
 (function() {
 
@@ -9153,11 +9313,14 @@ qq.DeleteFileAjaxRequester = function(o) {
      * In iOS, larger images than 2M pixels may be subsampled in rendering.
      */
     function detectSubsampling(img) {
-        var iw = img.naturalWidth, ih = img.naturalHeight;
+        var iw = img.naturalWidth,
+            ih = img.naturalHeight,
+            canvas = document.createElement("canvas"),
+            ctx;
+
         if (iw * ih > 1024 * 1024) { // subsampling may happen over megapixel image
-            var canvas = document.createElement("canvas");
             canvas.width = canvas.height = 1;
-            var ctx = canvas.getContext("2d");
+            ctx = canvas.getContext("2d");
             ctx.drawImage(img, -iw + 1, 0);
             // subsampled image becomes half smaller in rendering size.
             // check alpha channel value to confirm image is covering edge pixel or not.
@@ -9173,18 +9336,21 @@ qq.DeleteFileAjaxRequester = function(o) {
      * Fixes a bug which squash image vertically while drawing into canvas for some images.
      */
     function detectVerticalSquash(img, iw, ih) {
-        var canvas = document.createElement("canvas");
+        var canvas = document.createElement("canvas"),
+            sy = 0,
+            ey = ih,
+            py = ih,
+            ctx, data, alpha, ratio;
+
         canvas.width = 1;
         canvas.height = ih;
-        var ctx = canvas.getContext("2d");
+        ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0);
-        var data = ctx.getImageData(0, 0, 1, ih).data;
+        data = ctx.getImageData(0, 0, 1, ih).data;
+
         // search image edge pixel position in case it is squashed vertically.
-        var sy = 0;
-        var ey = ih;
-        var py = ih;
         while (py > sy) {
-            var alpha = data[(py - 1) * 4 + 3];
+            alpha = data[(py - 1) * 4 + 3];
             if (alpha === 0) {
                 ey = py;
             } else {
@@ -9192,8 +9358,9 @@ qq.DeleteFileAjaxRequester = function(o) {
             }
             py = (ey + sy) >> 1;
         }
-        var ratio = (py / ih);
-        return (ratio===0)?1:ratio;
+
+        ratio = (py / ih);
+        return (ratio === 0) ? 1 : ratio;
     }
 
     /**
@@ -9226,13 +9393,17 @@ qq.DeleteFileAjaxRequester = function(o) {
      * Rendering image element (with resizing) into the canvas element
      */
     function renderImageToCanvas(img, canvas, options, doSquash) {
-        var iw = img.naturalWidth, ih = img.naturalHeight;
-        var width = options.width, height = options.height;
-        var ctx = canvas.getContext("2d");
+        var iw = img.naturalWidth,
+            ih = img.naturalHeight,
+            width = options.width,
+            height = options.height,
+            ctx = canvas.getContext("2d"),
+            modifiedDimensions;
+
         ctx.save();
 
         if (!qq.supportedFeatures.unlimitedScaledImageSize) {
-            var modifiedDimensions = maybeCalculateDownsampledDimensions({
+            modifiedDimensions = maybeCalculateDownsampledDimensions({
                 origWidth: width,
                 origHeight: height
             });
@@ -9252,35 +9423,40 @@ qq.DeleteFileAjaxRequester = function(o) {
         // Fine Uploader specific: Save some CPU cycles if not using iOS
         // Assumption: This logic is only needed to overcome iOS image sampling issues
         if (qq.ios()) {
-            var subsampled = detectSubsampling(img);
-            if (subsampled) {
-                iw /= 2;
-                ih /= 2;
-            }
-            var d = 1024; // size of tiling canvas
-            var tmpCanvas = document.createElement("canvas");
-            tmpCanvas.width = tmpCanvas.height = d;
-            var tmpCtx = tmpCanvas.getContext("2d");
-            var vertSquashRatio = doSquash ? detectVerticalSquash(img, iw, ih) : 1;
-            var dw = Math.ceil(d * width / iw);
-            var dh = Math.ceil(d * height / ih / vertSquashRatio);
-            var sy = 0;
-            var dy = 0;
-            while (sy < ih) {
-                var sx = 0;
-                var dx = 0;
-                while (sx < iw) {
-                    tmpCtx.clearRect(0, 0, d, d);
-                    tmpCtx.drawImage(img, -sx, -sy);
-                    ctx.drawImage(tmpCanvas, 0, 0, d, d, dx, dy, dw, dh);
-                    sx += d;
-                    dx += dw;
+            (function() {
+                if (detectSubsampling(img)) {
+                    iw /= 2;
+                    ih /= 2;
                 }
-                sy += d;
-                dy += dh;
-            }
-            ctx.restore();
-            tmpCanvas = tmpCtx = null;
+
+                var d = 1024, // size of tiling canvas
+                    tmpCanvas = document.createElement("canvas"),
+                    vertSquashRatio = doSquash ? detectVerticalSquash(img, iw, ih) : 1,
+                    dw = Math.ceil(d * width / iw),
+                    dh = Math.ceil(d * height / ih / vertSquashRatio),
+                    sy = 0,
+                    dy = 0,
+                    tmpCtx, sx, dx;
+
+                tmpCanvas.width = tmpCanvas.height = d;
+                tmpCtx = tmpCanvas.getContext("2d");
+
+                while (sy < ih) {
+                    sx = 0,
+                    dx = 0;
+                    while (sx < iw) {
+                        tmpCtx.clearRect(0, 0, d, d);
+                        tmpCtx.drawImage(img, -sx, -sy);
+                        ctx.drawImage(tmpCanvas, 0, 0, d, d, dx, dy, dw, dh);
+                        sx += d;
+                        dx += dw;
+                    }
+                    sy += d;
+                    dy += dh;
+                }
+                ctx.restore();
+                tmpCanvas = tmpCtx = null;
+            }())
         }
         else {
             ctx.drawImage(img, 0, 0, width, height);
@@ -9349,31 +9525,32 @@ qq.DeleteFileAjaxRequester = function(o) {
         }
     }
 
-
     /**
      * MegaPixImage class
      */
     function MegaPixImage(srcImage, errorCallback) {
+        var self = this;
+
         if (window.Blob && srcImage instanceof Blob) {
-            var img = new Image();
-            var URL = window.URL && window.URL.createObjectURL ? window.URL :
-                    window.webkitURL && window.webkitURL.createObjectURL ? window.webkitURL :
-                null;
-            if (!URL) { throw Error("No createObjectURL function found to create blob url"); }
-            img.src = URL.createObjectURL(srcImage);
-            this.blob = srcImage;
-            srcImage = img;
+            (function() {
+                var img = new Image(),
+                    URL = window.URL && window.URL.createObjectURL ? window.URL :
+                        window.webkitURL && window.webkitURL.createObjectURL ? window.webkitURL : null;
+                if (!URL) { throw Error("No createObjectURL function found to create blob url"); }
+                img.src = URL.createObjectURL(srcImage);
+                self.blob = srcImage;
+                srcImage = img;
+            }());
         }
         if (!srcImage.naturalWidth && !srcImage.naturalHeight) {
-            var _this = this;
             srcImage.onload = function() {
-                var listeners = _this.imageLoadListeners;
+                var listeners = self.imageLoadListeners;
                 if (listeners) {
-                    _this.imageLoadListeners = null;
+                    self.imageLoadListeners = null;
                     // IE11 doesn't reliably report actual image dimensions immediately after onload for small files,
                     // so let's push this to the end of the UI thread queue.
                     setTimeout(function() {
-                        for (var i=0, len=listeners.length; i<len; i++) {
+                        for (var i = 0, len = listeners.length; i < len; i++) {
                             listeners[i]();
                         }
                     }, 0);
@@ -9389,16 +9566,24 @@ qq.DeleteFileAjaxRequester = function(o) {
      * Rendering megapix image into specified target element
      */
     MegaPixImage.prototype.render = function(target, options) {
+        options = options || {};
+
+        var self = this,
+            imgWidth = this.srcImage.naturalWidth,
+            imgHeight = this.srcImage.naturalHeight,
+            width = options.width,
+            height = options.height,
+            maxWidth = options.maxWidth,
+            maxHeight = options.maxHeight,
+            doSquash = !this.blob || this.blob.type === "image/jpeg",
+            tagName = target.tagName.toLowerCase(),
+            opt;
+
         if (this.imageLoadListeners) {
-            var _this = this;
-            this.imageLoadListeners.push(function() { _this.render(target, options) });
+            this.imageLoadListeners.push(function() { self.render(target, options) });
             return;
         }
-        options = options || {};
-        var imgWidth = this.srcImage.naturalWidth, imgHeight = this.srcImage.naturalHeight,
-            width = options.width, height = options.height,
-            maxWidth = options.maxWidth, maxHeight = options.maxHeight,
-            doSquash = !this.blob || this.blob.type === "image/jpeg";
+
         if (width && !height) {
             height = (imgHeight * width / imgWidth) << 0;
         } else if (height && !width) {
@@ -9415,12 +9600,18 @@ qq.DeleteFileAjaxRequester = function(o) {
             height = maxHeight;
             width = (imgWidth * height / imgHeight) << 0;
         }
-        var opt = { width : width, height : height };
-        for (var k in options) opt[k] = options[k];
 
-        var tagName = target.tagName.toLowerCase();
+        opt = { width: width, height: height },
+        qq.each(options, function(optionsKey, optionsValue) {
+            opt[optionsKey] = optionsValue;
+        });
+
         if (tagName === "img") {
-            target.src = renderImageToDataURL(this.srcImage, opt, doSquash);
+            (function() {
+                var oldTargetSrc = target.src;
+                target.src = renderImageToDataURL(self.srcImage, opt, doSquash);
+                oldTargetSrc === target.src && target.onload();
+            }())
         } else if (tagName === "canvas") {
             renderImageToCanvas(this.srcImage, target, opt, doSquash);
         }
@@ -9470,7 +9661,7 @@ qq.ImageGenerator = function(log) {
 
         extension = extension && extension.toLowerCase();
 
-        switch(extension) {
+        switch (extension) {
             case "jpeg":
             case "jpg":
                 return "image/jpeg";
@@ -9639,20 +9830,28 @@ qq.ImageGenerator = function(log) {
 
         tempImg.src = url;
 
-        tempImgRender.then(function() {
-            registerThumbnailRenderedListener(canvasOrImg, draw);
+        tempImgRender.then(
+            function rendered() {
+                registerThumbnailRenderedListener(canvasOrImg, draw);
 
-            var mpImg = new qq.MegaPixImage(tempImg);
-            mpImg.render(canvasOrImg, {
-                maxWidth: maxSize,
-                maxHeight: maxSize,
-                mime: determineMimeOfFileName(url)
-            });
-        });
+                var mpImg = new qq.MegaPixImage(tempImg);
+                mpImg.render(canvasOrImg, {
+                    maxWidth: maxSize,
+                    maxHeight: maxSize,
+                    mime: determineMimeOfFileName(url)
+                });
+            },
+
+            draw.failure
+        );
     }
 
     function drawOnImgFromUrlWithCssScaling(url, img, draw, maxSize) {
         registerThumbnailRenderedListener(img, draw);
+        // NOTE: The fact that maxWidth/height is set on the thumbnail for scaled images
+        // that must drop back to CSS is known and exploited by the templating module.
+        // In this module, we pre-render "waiting" thumbs for all files immediately after they
+        // are submitted, and we must be sure to pass any style associated with the "waiting" preview.
         qq(img).css({
             maxWidth: maxSize + "px",
             maxHeight: maxSize + "px"
@@ -9705,7 +9904,6 @@ qq.ImageGenerator = function(log) {
         return draw;
     }
 
-
     qq.extend(this, {
         /**
          * Generate a thumbnail.  Depending on the arguments, this may either result in
@@ -9729,13 +9927,6 @@ qq.ImageGenerator = function(log) {
         }
     });
 
-    /*<testing>*/
-    this._testing = {};
-    this._testing.isImg = isImg;
-    this._testing.isCanvas = isCanvas;
-    this._testing.isCrossOrigin = isCrossOrigin;
-    this._testing.determineMimeOfFileName = determineMimeOfFileName;
-    /*</testing>*/
 };
 
 /*globals qq */
@@ -9783,10 +9974,12 @@ qq.Exif = function(fileOrBlob, log) {
         }
 
         qq.readBlobToHex(fileOrBlob, theOffset, 4).then(function(hex) {
-            var match = /^ffe([0-9])/.exec(hex);
+            var match = /^ffe([0-9])/.exec(hex),
+                segmentLength;
+
             if (match) {
                 if (match[1] !== "1") {
-                    var segmentLength = parseInt(hex.slice(4, 8), 16);
+                    segmentLength = parseInt(hex.slice(4, 8), 16);
                     seekToApp1(theOffset + segmentLength + 2, thePromise);
                 }
                 else {
@@ -9862,7 +10055,7 @@ qq.Exif = function(fileOrBlob, log) {
         var entries = [],
             offset = 0;
 
-        while (offset+24 <= ifdHex.length) {
+        while (offset + 24 <= ifdHex.length) {
             entries.push(ifdHex.slice(offset, offset + 24));
             offset += 24;
         }
@@ -9885,7 +10078,7 @@ qq.Exif = function(fileOrBlob, log) {
             if (tagsToFindIdx >= 0) {
                 tagName = TAG_INFO[id].name;
                 tagValLength = TAG_INFO[id].bytes;
-                tagValHex = entry.slice(TAG_VAL_OFFSET, TAG_VAL_OFFSET + (tagValLength*2));
+                tagValHex = entry.slice(TAG_VAL_OFFSET, TAG_VAL_OFFSET + (tagValLength * 2));
                 vals[tagName] = littleEndian ? parseLittleEndian(tagValHex) : parseInt(tagValHex, 16);
 
                 tagsToFind.splice(tagsToFindIdx, 1);
@@ -9940,10 +10133,6 @@ qq.Exif = function(fileOrBlob, log) {
         }
     });
 
-    /*<testing>*/
-    this._testing = {};
-    this._testing.parseLittleEndian = parseLittleEndian;
-    /*</testing>*/
 };
 
 /*globals qq */
@@ -10139,7 +10328,7 @@ qq.ImageValidation = function(blob, log) {
                     actualValue = dimensions[dimensionPropName];
 
                 /*jshint -W015*/
-                switch(limitMatcher[1]) {
+                switch (limitMatcher[1]) {
                     case "min":
                         if (actualValue < limitValue) {
                             failingLimit = limitName;
@@ -10212,7 +10401,6 @@ qq.Session = function(spec) {
 
     qq.extend(options, spec, true);
 
-
     function isJsonResponseValid(response) {
         if (qq.isArray(response)) {
             return true;
@@ -10242,7 +10430,7 @@ qq.Session = function(spec) {
                         options.addFileRecord(fileItem);
                         return true;
                     }
-                    catch(err) {
+                    catch (err) {
                         someItemsIgnored = true;
                         options.log(err.message, "error");
                     }
@@ -10308,7 +10496,7 @@ qq.SessionAjaxRequester = function(spec) {
             try {
                 response = qq.parseJson(xhrOrXdr.responseText);
             }
-            catch(err) {
+            catch (err) {
                 options.log("Problem parsing session response: " + err.message, "error");
                 isError = true;
             }
@@ -10331,7 +10519,6 @@ qq.SessionAjaxRequester = function(spec) {
         onComplete: onComplete,
         cors: options.cors
     }));
-
 
     qq.extend(this, {
         queryServer: function() {
@@ -10565,17 +10752,16 @@ qq.Scaler = function(spec, log) {
                             refType: originalBlob.type
                         }),
                         blob: new qq.BlobProxy(originalBlob,
-                            qq.bind(self._generateScaledImage, self, {
-                                maxSize: sizeRecord.maxSize,
-                                orient: orient,
-                                type: outputType,
-                                quality: defaultQuality,
-                                failedText: failedToScaleText,
-                                includeExif: includeExif,
-                                log: log
-                            }))
-                        }
-                    );
+                        qq.bind(self._generateScaledImage, self, {
+                            maxSize: sizeRecord.maxSize,
+                            orient: orient,
+                            type: outputType,
+                            quality: defaultQuality,
+                            failedText: failedToScaleText,
+                            includeExif: includeExif,
+                            log: log
+                        }))
+                    });
                 });
 
                 includeReference && records.push({
@@ -10820,7 +11006,7 @@ qq.extend(qq.Scaler.prototype, {
             var scaledImageDataUri = canvas.toDataURL(type, quality),
                 signalSuccess = function() {
                     log("Success generating scaled version for " + sourceFile.name);
-                    var blob = self._dataUriToBlob(scaledImageDataUri);
+                    var blob = qq.dataUriToBlob(scaledImageDataUri);
                     scalingEffort.success(blob);
                 };
 
@@ -10867,7 +11053,6 @@ qq.extend(qq.Scaler.prototype, {
 
         return insertionEffort;
     },
-
 
     _dataUriToBlob: function(dataUri) {
         "use strict";
@@ -11240,7 +11425,6 @@ qq.UiEventHandler = function(s, protectedApi) {
             onHandled: function(target, event) {}
         };
 
-
     // This makes up the "public" API methods that will be accessible
     // to instances constructing a base or child handler
     qq.extend(this, {
@@ -11275,7 +11459,6 @@ qq.UiEventHandler = function(s, protectedApi) {
             return disposer;
         }
     });
-
 
     qq.extend(spec, s);
 
@@ -11438,7 +11621,6 @@ qq.FilenameEditHandler = function(s, inheritedInternalApi) {
             onEditingStatusChange: function(fileId, isEditing) {}
         };
 
-
     function getFilenameSansExtension(fileId) {
         var filenameSansExt = spec.onGetName(fileId),
             extIdx = filenameSansExt.lastIndexOf(".");
@@ -11516,405 +11698,4 @@ qq.FilenameEditHandler = function(s, inheritedInternalApi) {
     });
 };
 
-/*globals jQuery, qq*/
-(function($) {
-    "use strict";
-    var $el,
-        pluginOptions = ["uploaderType", "endpointType"];
-
-    function init(options) {
-        var xformedOpts = transformVariables(options || {}),
-            newUploaderInstance = getNewUploaderInstance(xformedOpts);
-
-        uploader(newUploaderInstance);
-        addCallbacks(xformedOpts, newUploaderInstance);
-
-        return $el;
-    }
-
-    function getNewUploaderInstance(params) {
-        var uploaderType = pluginOption("uploaderType"),
-            namespace = pluginOption("endpointType");
-
-        // If the integrator has defined a specific type of uploader to load, use that, otherwise assume `qq.FineUploader`
-        if (uploaderType) {
-            // We can determine the correct constructor function to invoke by combining "FineUploader"
-            // with the upper camel cased `uploaderType` value.
-            uploaderType = uploaderType.charAt(0).toUpperCase() + uploaderType.slice(1).toLowerCase();
-
-            if (namespace) {
-                return new qq[namespace]["FineUploader" + uploaderType](params);
-            }
-
-            return new qq["FineUploader" + uploaderType](params);
-        }
-        else {
-            if (namespace) {
-                return new qq[namespace].FineUploader(params);
-            }
-
-            return new qq.FineUploader(params);
-        }
-    }
-
-    function dataStore(key, val) {
-        var data = $el.data("fineuploader");
-
-        if (val) {
-            if (data === undefined) {
-                data = {};
-            }
-            data[key] = val;
-            $el.data("fineuploader", data);
-        }
-        else {
-            if (data === undefined) {
-                return null;
-            }
-            return data[key];
-        }
-    }
-
-    //the underlying Fine Uploader instance is stored in jQuery's data stored, associated with the element
-    // tied to this instance of the plug-in
-    function uploader(instanceToStore) {
-        return dataStore("uploader", instanceToStore);
-    }
-
-    function pluginOption(option, optionVal) {
-        return dataStore(option, optionVal);
-    }
-
-    // Implement all callbacks defined in Fine Uploader as functions that trigger appropriately names events and
-    // return the result of executing the bound handler back to Fine Uploader
-    function addCallbacks(transformedOpts, newUploaderInstance) {
-        var callbacks = transformedOpts.callbacks = {};
-
-        $.each(newUploaderInstance._options.callbacks, function(prop, nonJqueryCallback) {
-            var name, callbackEventTarget;
-
-            name = /^on(\w+)/.exec(prop)[1];
-            name = name.substring(0, 1).toLowerCase() + name.substring(1);
-            callbackEventTarget = $el;
-
-            callbacks[prop] = function() {
-                var originalArgs = Array.prototype.slice.call(arguments),
-                    transformedArgs = [],
-                    nonJqueryCallbackRetVal, jqueryEventCallbackRetVal;
-
-                $.each(originalArgs, function(idx, arg) {
-                    transformedArgs.push(maybeWrapInJquery(arg));
-                });
-
-                nonJqueryCallbackRetVal = nonJqueryCallback.apply(this, originalArgs);
-
-                try {
-                    jqueryEventCallbackRetVal = callbackEventTarget.triggerHandler(name, transformedArgs);
-                }
-                catch (error) {
-                    qq.log("Caught error in Fine Uploader jQuery event handler: " + error.message, "error");
-                }
-
-                /*jshint -W116*/
-                if (nonJqueryCallbackRetVal != null) {
-                    return nonJqueryCallbackRetVal;
-                }
-                return jqueryEventCallbackRetVal;
-            };
-        });
-
-        newUploaderInstance._options.callbacks = callbacks;
-    }
-
-    //transform jQuery objects into HTMLElements, and pass along all other option properties
-    function transformVariables(source, dest) {
-        var xformed, arrayVals;
-
-        if (dest === undefined) {
-            if (source.uploaderType !== "basic") {
-                xformed = { element : $el[0] };
-            }
-            else {
-                xformed = {};
-            }
-        }
-        else {
-            xformed = dest;
-        }
-
-        $.each(source, function(prop, val) {
-            if ($.inArray(prop, pluginOptions) >= 0) {
-                pluginOption(prop, val);
-            }
-            else if (val instanceof $) {
-                xformed[prop] = val[0];
-            }
-            else if ($.isPlainObject(val)) {
-                xformed[prop] = {};
-                transformVariables(val, xformed[prop]);
-            }
-            else if ($.isArray(val)) {
-                arrayVals = [];
-                $.each(val, function(idx, arrayVal) {
-                    var arrayObjDest = {};
-
-                    if (arrayVal instanceof $) {
-                        $.merge(arrayVals, arrayVal);
-                    }
-                    else if ($.isPlainObject(arrayVal)) {
-                        transformVariables(arrayVal, arrayObjDest);
-                        arrayVals.push(arrayObjDest);
-                    }
-                    else {
-                        arrayVals.push(arrayVal);
-                    }
-                });
-                xformed[prop] = arrayVals;
-            }
-            else {
-                xformed[prop] = val;
-            }
-        });
-
-        if (dest === undefined) {
-            return xformed;
-        }
-    }
-
-    function isValidCommand(command) {
-        return $.type(command) === "string" &&
-            !command.match(/^_/) && //enforce private methods convention
-            uploader()[command] !== undefined;
-    }
-
-    // Assuming we have already verified that this is a valid command, call the associated function in the underlying
-    // Fine Uploader instance (passing along the arguments from the caller) and return the result of the call back to the caller
-    function delegateCommand(command) {
-        var xformedArgs = [],
-            origArgs = Array.prototype.slice.call(arguments, 1),
-            retVal;
-
-        transformVariables(origArgs, xformedArgs);
-
-        retVal = uploader()[command].apply(uploader(), xformedArgs);
-
-        return maybeWrapInJquery(retVal);
-    }
-
-    // If the value is an `HTMLElement` or `HTMLDocument`, wrap it in a `jQuery` object
-    function maybeWrapInJquery(val) {
-        var transformedVal = val;
-
-        // If the command is returning an `HTMLElement` or `HTMLDocument`, wrap it in a `jQuery` object
-        /*jshint -W116*/
-        if (val != null && typeof val === "object" &&
-           (val.nodeType === 1 || val.nodeType === 9) && val.cloneNode) {
-
-            transformedVal = $(val);
-        }
-
-        return transformedVal;
-    }
-
-    $.fn.fineUploader = function(optionsOrCommand) {
-        var self = this, selfArgs = arguments, retVals = [];
-
-        this.each(function(index, el) {
-            $el = $(el);
-
-            if (uploader() && isValidCommand(optionsOrCommand)) {
-                retVals.push(delegateCommand.apply(self, selfArgs));
-
-                if (self.length === 1) {
-                    return false;
-                }
-            }
-            else if (typeof optionsOrCommand === "object" || !optionsOrCommand) {
-                init.apply(self, selfArgs);
-            }
-            else {
-                $.error("Method " +  optionsOrCommand + " does not exist on jQuery.fineUploader");
-            }
-        });
-
-        if (retVals.length === 1) {
-            return retVals[0];
-        }
-        else if (retVals.length > 1) {
-            return retVals;
-        }
-
-        return this;
-    };
-
-}(jQuery));
-
-/*globals jQuery*/
-/**
- * Simply an alias for the `fineUploader` plug-in wrapper, but hides the required `endpointType` option from the
- * integrator.  I thought it may be confusing to convey to the integrator that, when using Fine Uploader in Azure mode,
- * you need to specify an `endpointType` with a value of "azure", and perhaps an `uploaderType` with a value of "basic" if
- * you want to use basic mode when uploading directly to Azure as well.  So, you can use this plug-in alias and not worry
- * about the `endpointType` option at all.
- */
-(function($) {
-    "use strict";
-
-    $.fn.fineUploaderAzure = function(optionsOrCommand) {
-        if (typeof optionsOrCommand === "object") {
-
-            // This option is used to tell the plug-in wrapper to instantiate the appropriate Azure-namespace modules.
-            optionsOrCommand.endpointType = "azure";
-        }
-
-        return $.fn.fineUploader.apply(this, arguments);
-    };
-
-}(jQuery));
-
-/*globals jQuery, qq*/
-(function($) {
-    "use strict";
-    var rootDataKey = "fineUploaderDnd",
-        $el;
-
-    function init (options) {
-        if (!options) {
-            options = {};
-        }
-
-        options.dropZoneElements = [$el];
-        var xformedOpts = transformVariables(options);
-        addCallbacks(xformedOpts);
-        dnd(new qq.DragAndDrop(xformedOpts));
-
-        return $el;
-    }
-
-    function dataStore(key, val) {
-        var data = $el.data(rootDataKey);
-
-        if (val) {
-            if (data === undefined) {
-                data = {};
-            }
-            data[key] = val;
-            $el.data(rootDataKey, data);
-        }
-        else {
-            if (data === undefined) {
-                return null;
-            }
-            return data[key];
-        }
-    }
-
-    function dnd(instanceToStore) {
-        return dataStore("dndInstance", instanceToStore);
-    }
-
-    function addCallbacks(transformedOpts) {
-        var callbacks = transformedOpts.callbacks = {};
-
-        $.each(new qq.DragAndDrop.callbacks(), function(prop, func) {
-            var name = prop,
-                $callbackEl;
-
-            $callbackEl = $el;
-
-            callbacks[prop] = function() {
-                var args = Array.prototype.slice.call(arguments),
-                    jqueryHandlerResult = $callbackEl.triggerHandler(name, args);
-
-                return jqueryHandlerResult;
-            };
-        });
-    }
-
-    //transform jQuery objects into HTMLElements, and pass along all other option properties
-    function transformVariables(source, dest) {
-        var xformed, arrayVals;
-
-        if (dest === undefined) {
-            xformed = {};
-        }
-        else {
-            xformed = dest;
-        }
-
-        $.each(source, function(prop, val) {
-            if (val instanceof $) {
-                xformed[prop] = val[0];
-            }
-            else if ($.isPlainObject(val)) {
-                xformed[prop] = {};
-                transformVariables(val, xformed[prop]);
-            }
-            else if ($.isArray(val)) {
-                arrayVals = [];
-                $.each(val, function(idx, arrayVal) {
-                    if (arrayVal instanceof $) {
-                        $.merge(arrayVals, arrayVal);
-                    }
-                    else {
-                        arrayVals.push(arrayVal);
-                    }
-                });
-                xformed[prop] = arrayVals;
-            }
-            else {
-                xformed[prop] = val;
-            }
-        });
-
-        if (dest === undefined) {
-            return xformed;
-        }
-    }
-
-    function isValidCommand(command) {
-        return $.type(command) === "string" &&
-            command === "dispose" &&
-            dnd()[command] !== undefined;
-    }
-
-    function delegateCommand(command) {
-        var xformedArgs = [], origArgs = Array.prototype.slice.call(arguments, 1);
-        transformVariables(origArgs, xformedArgs);
-        return dnd()[command].apply(dnd(), xformedArgs);
-    }
-
-    $.fn.fineUploaderDnd = function(optionsOrCommand) {
-        var self = this, selfArgs = arguments, retVals = [];
-
-        this.each(function(index, el) {
-            $el = $(el);
-
-            if (dnd() && isValidCommand(optionsOrCommand)) {
-                retVals.push(delegateCommand.apply(self, selfArgs));
-
-                if (self.length === 1) {
-                    return false;
-                }
-            }
-            else if (typeof optionsOrCommand === "object" || !optionsOrCommand) {
-                init.apply(self, selfArgs);
-            }
-            else {
-                $.error("Method " +  optionsOrCommand + " does not exist in Fine Uploader's DnD module.");
-            }
-        });
-
-        if (retVals.length === 1) {
-            return retVals[0];
-        }
-        else if (retVals.length > 1) {
-            return retVals;
-        }
-
-        return this;
-    };
-
-}(jQuery));
-
-/*! 2014-12-22 */
+/*! 2015-04-02 */
