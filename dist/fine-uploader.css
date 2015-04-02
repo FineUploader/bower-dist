@@ -1,15 +1,15 @@
 /*!
 * Fine Uploader
 *
-* Copyright 2013, Widen Enterprises, Inc. info@fineuploader.com
+* Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.0.9
+* Version: 5.1.1
 *
 * Homepage: http://fineuploader.com
 *
 * Repository: git://github.com/Widen/fine-uploader.git
 *
-* Licensed under GNU GPL v3, see LICENSE
+* Licensed only under the Widen Commercial License (http://fineuploader.com/licensing).
 */ 
 
 
@@ -208,4 +208,4 @@ INPUT.qq-edit-filename.qq-editing ~ .qq-upload-cancel {
     display: none;
 }
 
-/*! 2014-12-22 */
+/*! 2015-04-02 */

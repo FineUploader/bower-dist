@@ -1,6 +1,6 @@
 {
   "name": "fineuploader-dist",
-  "version": "5.0.7",
+  "version": "5.1.1",
   "author": "Fery Wardiyanto",
   "description": "A bower build for Widen/fine-uploader",
   "license": "GPLv3",
@@ -31,6 +31,7 @@
   ],
   "ignore": [
     ".*",
+    "build.sh",
     "src"
   ]
 }

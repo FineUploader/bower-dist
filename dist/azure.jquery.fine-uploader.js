@@ -1,15 +1,15 @@
 /*!
 * Fine Uploader
 *
-* Copyright 2013, Widen Enterprises, Inc. info@fineuploader.com
+* Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.0.9
+* Version: 5.1.1
 *
 * Homepage: http://fineuploader.com
 *
 * Repository: git://github.com/Widen/fine-uploader.git
 *
-* Licensed under GNU GPL v3, see LICENSE
+* Licensed only under the Widen Commercial License (http://fineuploader.com/licensing).
 */ 
 
 
@@ -26,9 +26,9 @@ var qq = function(element) {
 
         /** Returns the function which detaches attached event */
         attach: function(type, fn) {
-            if (element.addEventListener){
+            if (element.addEventListener) {
                 element.addEventListener(type, fn, false);
-            } else if (element.attachEvent){
+            } else if (element.attachEvent) {
                 element.attachEvent("on" + type, fn);
             }
             return function() {
@@ -37,9 +37,9 @@ var qq = function(element) {
         },
 
         detach: function(type, fn) {
-            if (element.removeEventListener){
+            if (element.removeEventListener) {
                 element.removeEventListener(type, fn, false);
-            } else if (element.attachEvent){
+            } else if (element.attachEvent) {
                 element.detachEvent("on" + type, fn);
             }
             return this;
@@ -59,7 +59,7 @@ var qq = function(element) {
                 return true;
             }
 
-            if (element.contains){
+            if (element.contains) {
                 return element.contains(descendant);
             } else {
                 /*jslint bitwise: true*/
@@ -91,8 +91,8 @@ var qq = function(element) {
             }
 
             /*jshint -W116*/
-            if (styles.opacity != null){
-                if (typeof element.style.opacity !== "string" && typeof(element.filters) !== "undefined"){
+            if (styles.opacity != null) {
+                if (typeof element.style.opacity !== "string" && typeof (element.filters) !== "undefined") {
                     styles.filter = "alpha(opacity=" + Math.round(100 * styles.opacity) + ")";
                 }
             }
@@ -107,7 +107,7 @@ var qq = function(element) {
         },
 
         addClass: function(name) {
-            if (!qq(element).hasClass(name)){
+            if (!qq(element).hasClass(name)) {
                 element.className += " " + name;
             }
             return this;
@@ -123,14 +123,14 @@ var qq = function(element) {
             var candidates,
                 result = [];
 
-            if (element.querySelectorAll){
+            if (element.querySelectorAll) {
                 return element.querySelectorAll("." + className);
             }
 
             candidates = element.getElementsByTagName("*");
 
             qq.each(candidates, function(idx, val) {
-                if (qq(val).hasClass(className)){
+                if (qq(val).hasClass(className)) {
                     result.push(val);
                 }
             });
@@ -141,8 +141,8 @@ var qq = function(element) {
             var children = [],
                 child = element.firstChild;
 
-            while (child){
-                if (child.nodeType === 1){
+            while (child) {
+                if (child.nodeType === 1) {
                     children.push(child);
                 }
                 child = child.nextSibling;
@@ -189,8 +189,54 @@ var qq = function(element) {
     };
 };
 
-(function(){
+(function() {
     "use strict";
+
+    qq.canvasToBlob = function(canvas, mime, quality) {
+        return qq.dataUriToBlob(canvas.toDataURL(mime, quality));
+    };
+
+    qq.dataUriToBlob = function(dataUri) {
+        var arrayBuffer, byteString,
+            createBlob = function(data, mime) {
+                var BlobBuilder = window.BlobBuilder ||
+                        window.WebKitBlobBuilder ||
+                        window.MozBlobBuilder ||
+                        window.MSBlobBuilder,
+                    blobBuilder = BlobBuilder && new BlobBuilder();
+
+                if (blobBuilder) {
+                    blobBuilder.append(data);
+                    return blobBuilder.getBlob(mime);
+                }
+                else {
+                    return new Blob([data], {type: mime});
+                }
+            },
+            intArray, mimeString;
+
+        // convert base64 to raw binary data held in a string
+        if (dataUri.split(",")[0].indexOf("base64") >= 0) {
+            byteString = atob(dataUri.split(",")[1]);
+        }
+        else {
+            byteString = decodeURI(dataUri.split(",")[1]);
+        }
+
+        // extract the MIME
+        mimeString = dataUri.split(",")[0]
+            .split(":")[1]
+            .split(";")[0];
+
+        // write the bytes of the binary string to an ArrayBuffer
+        arrayBuffer = new ArrayBuffer(byteString.length);
+        intArray = new Uint8Array(arrayBuffer);
+        qq.each(byteString, function(idx, character) {
+            intArray[idx] = character.charCodeAt(0);
+        });
+
+        return createBlob(arrayBuffer, mimeString);
+    };
 
     qq.log = function(message, level) {
         if (window.console) {
@@ -214,7 +260,7 @@ var qq = function(element) {
     };
 
     qq.isFunction = function(variable) {
-        return typeof(variable) === "function";
+        return typeof (variable) === "function";
     };
 
     /**
@@ -251,9 +297,8 @@ var qq = function(element) {
             return string.trim();
         }
 
-        return string.replace(/^\s+|\s+$/g,"");
+        return string.replace(/^\s+|\s+$/g, "");
     };
-
 
     /**
      * @param str String to format.
@@ -267,7 +312,7 @@ var qq = function(element) {
 
         qq.each(args, function(idx, val) {
             var strBefore = newStr.substring(0, nextIdxToReplace),
-                strAfter = newStr.substring(nextIdxToReplace+2);
+                strAfter = newStr.substring(nextIdxToReplace + 2);
 
             newStr = strBefore + val + strAfter;
             nextIdxToReplace = newStr.indexOf("{}", nextIdxToReplace + val.length);
@@ -336,7 +381,7 @@ var qq = function(element) {
             input.multiple !== undefined &&
                 typeof File !== "undefined" &&
                 typeof FormData !== "undefined" &&
-                typeof (qq.createXhrInstance()).upload !== "undefined" );
+                typeof (qq.createXhrInstance()).upload !== "undefined");
     };
 
     // Fall back to ActiveX is native XHR is disabled (possible in any version of IE).
@@ -348,7 +393,7 @@ var qq = function(element) {
         try {
             return new ActiveXObject("MSXML2.XMLHTTP.3.0");
         }
-        catch(error) {
+        catch (error) {
             qq.log("Neither XHR or ActiveX are supported!", "error");
             return null;
         }
@@ -375,7 +420,6 @@ var qq = function(element) {
     qq.arrayBufferToHex = function(buffer) {
         var bytesAsHex = "",
             bytes = new Uint8Array(buffer);
-
 
         qq.each(bytes, function(idx, byt) {
             var byteAsHexStr = byt.toString(16);
@@ -451,7 +495,7 @@ var qq = function(element) {
      * Searches for a given element in the array, returns -1 if it is not present.
      * @param {Number} [from] The index at which to begin the search
      */
-    qq.indexOf = function(arr, elt, from){
+    qq.indexOf = function(arr, elt, from) {
         if (arr.indexOf) {
             return arr.indexOf(elt, from);
         }
@@ -463,8 +507,8 @@ var qq = function(element) {
             from += len;
         }
 
-        for (; from < len; from+=1){
-            if (arr.hasOwnProperty(from) && arr[from] === elt){
+        for (; from < len; from += 1) {
+            if (arr.hasOwnProperty(from) && arr[from] === elt) {
                 return from;
             }
         }
@@ -472,10 +516,10 @@ var qq = function(element) {
     };
 
     //this is a version 4 UUID
-    qq.getUniqueId = function(){
+    qq.getUniqueId = function() {
         return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {
             /*jslint eqeq: true, bitwise: true*/
-            var r = Math.random()*16|0, v = c == "x" ? r : (r&0x3|0x8);
+            var r = Math.random() * 16 | 0, v = c == "x" ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
     };
@@ -572,10 +616,10 @@ var qq = function(element) {
     //
     // Events
 
-    qq.preventDefault = function(e){
-        if (e.preventDefault){
+    qq.preventDefault = function(e) {
+        if (e.preventDefault) {
             e.preventDefault();
-        } else{
+        } else {
             e.returnValue = false;
         }
     };
@@ -584,9 +628,9 @@ var qq = function(element) {
      * Creates and returns element from html string
      * Uses innerHTML to create an element
      */
-    qq.toElement = (function(){
+    qq.toElement = (function() {
         var div = document.createElement("div");
-        return function(html){
+        return function(html) {
             div.innerHTML = html;
             var element = div.firstChild;
             div.removeChild(element);
@@ -672,15 +716,15 @@ var qq = function(element) {
      * @param  String current querystring-part
      * @return String encoded querystring
      */
-    qq.obj2url = function(obj, temp, prefixDone){
+    qq.obj2url = function(obj, temp, prefixDone) {
         /*jshint laxbreak: true*/
         var uristrings = [],
             prefix = "&",
-            add = function(nextObj, i){
+            add = function(nextObj, i) {
                 var nextTemp = temp
                     ? (/\[\]$/.test(temp)) // prevent double-encoding
                     ? temp
-                    : temp+"["+i+"]"
+                    : temp + "[" + i + "]"
                     : i;
                 if ((nextTemp !== "undefined") && (i !== "undefined")) {
                     uristrings.push(
@@ -697,11 +741,11 @@ var qq = function(element) {
             prefix = (/\?/.test(temp)) ? (/\?$/.test(temp)) ? "" : "&" : "?";
             uristrings.push(temp);
             uristrings.push(qq.obj2url(obj));
-        } else if ((Object.prototype.toString.call(obj) === "[object Array]") && (typeof obj !== "undefined") ) {
+        } else if ((Object.prototype.toString.call(obj) === "[object Array]") && (typeof obj !== "undefined")) {
             qq.each(obj, function(idx, val) {
                 add(val, idx);
             });
-        } else if ((typeof obj !== "undefined") && (obj !== null) && (typeof obj === "object")){
+        } else if ((typeof obj !== "undefined") && (obj !== null) && (typeof obj === "object")) {
             qq.each(obj, function(prop, val) {
                 add(val, prop);
             });
@@ -851,10 +895,10 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version="5.0.9";
+qq.version = "5.1.1";
 
 /* globals qq */
-qq.supportedFeatures = (function () {
+qq.supportedFeatures = (function() {
     "use strict";
 
     var supportsUploading,
@@ -871,7 +915,6 @@ qq.supportedFeatures = (function () {
         supportsFolderSelection,
         supportsImagePreviews,
         supportsUploadProgress;
-
 
     function testSupportsFileInputElement() {
         var supported = true,
@@ -937,7 +980,7 @@ qq.supportedFeatures = (function () {
         return document.createElement("input").webkitdirectory !== undefined;
     }
 
-    function isLocalStorageSupported () {
+    function isLocalStorageSupported() {
         try {
             return !!window.localStorage;
         }
@@ -946,7 +989,6 @@ qq.supportedFeatures = (function () {
             return false;
         }
     }
-
 
     supportsUploading = testSupportsFileInputElement();
 
@@ -980,7 +1022,6 @@ qq.supportedFeatures = (function () {
         }
         return false;
     }());
-
 
     return {
         ajaxUploading: supportsAjaxFileUploading,
@@ -1042,7 +1083,7 @@ qq.Promise = function() {
                 onFailure && onFailure.apply(null, failureArgs);
             }
             else if (onSuccess) {
-                onSuccess.apply(null,successArgs);
+                onSuccess.apply(null, successArgs);
             }
 
             return this;
@@ -1069,7 +1110,7 @@ qq.Promise = function() {
                 });
             }
 
-            if(doneCallbacks.length) {
+            if (doneCallbacks.length) {
                 qq.each(doneCallbacks, function(idx, callback) {
                     callback.apply(null, successArgs);
                 });
@@ -1088,7 +1129,7 @@ qq.Promise = function() {
                 });
             }
 
-            if(doneCallbacks.length) {
+            if (doneCallbacks.length) {
                 qq.each(doneCallbacks, function(idx, callback) {
                     callback.apply(null, failureArgs);
                 });
@@ -1134,7 +1175,6 @@ qq.BlobProxy = function(referenceBlob, onCreate) {
  */
 qq.UploadButton = function(o) {
     "use strict";
-
 
     var self = this,
 
@@ -1201,9 +1241,9 @@ qq.UploadButton = function(o) {
             right: 0,
             top: 0,
             fontFamily: "Arial",
-            // It's especially important to make this an arbitrarily large value 
-            // to ensure the rendered input button in IE takes up the entire 
-            // space of the container element.  Otherwise, the left side of the 
+            // It's especially important to make this an arbitrarily large value
+            // to ensure the rendered input button in IE takes up the entire
+            // space of the container element.  Otherwise, the left side of the
             // button will require a double-click to invoke the file chooser.
             // In other browsers, this might cause other issues, so a large font-size
             // is only used in IE.  There is a bug in IE8 where the opacity style is  ignored
@@ -1215,29 +1255,29 @@ qq.UploadButton = function(o) {
             cursor: "pointer",
             opacity: 0
         });
-        
-        // Setting the file input's height to 100% in IE7 causes 
+
+        // Setting the file input's height to 100% in IE7 causes
         // most of the visible button to be unclickable.
         !qq.ie7() && qq(input).css({height: "100%"});
 
         options.element.appendChild(input);
 
-        disposeSupport.attach(input, "change", function(){
+        disposeSupport.attach(input, "change", function() {
             options.onChange(input);
         });
 
         // **These event handlers will be removed** in the future as the :hover CSS pseudo-class is available on all supported browsers
-        disposeSupport.attach(input, "mouseover", function(){
+        disposeSupport.attach(input, "mouseover", function() {
             qq(options.element).addClass(options.hoverClass);
         });
-        disposeSupport.attach(input, "mouseout", function(){
+        disposeSupport.attach(input, "mouseout", function() {
             qq(options.element).removeClass(options.hoverClass);
         });
 
-        disposeSupport.attach(input, "focus", function(){
+        disposeSupport.attach(input, "focus", function() {
             qq(options.element).addClass(options.focusClass);
         });
-        disposeSupport.attach(input, "blur", function(){
+        disposeSupport.attach(input, "blur", function() {
             qq(options.element).removeClass(options.focusClass);
         });
 
@@ -1269,8 +1309,8 @@ qq.UploadButton = function(o) {
             return buttonId;
         },
 
-        setMultiple: function(isMultiple, opt_input) {
-            var input = opt_input || this.getInput();
+        setMultiple: function(isMultiple, optInput) {
+            var input = optInput || this.getInput();
 
             // Temporary workaround for bug in in iOS8 UIWebView that causes the browser to crash
             // before the file chooser appears if the file input doesn't contain a multiple attribute.
@@ -1295,8 +1335,8 @@ qq.UploadButton = function(o) {
             }
         },
 
-        reset: function(){
-            if (input.parentNode){
+        reset: function() {
+            if (input.parentNode) {
                 qq(input).remove();
             }
 
@@ -1320,7 +1360,6 @@ qq.UploadData = function(uploaderProxy) {
         byStatus = {},
         byProxyGroupId = {},
         byBatchId = {};
-
 
     function getDataByIds(idOrIds) {
         if (qq.isArray(idOrIds)) {
@@ -1383,15 +1422,14 @@ qq.UploadData = function(uploaderProxy) {
          * @returns {number} Internal ID for this file.
          */
         addFile: function(spec) {
-            var status = spec.status || qq.status.SUBMITTING;
-
-            var id = data.push({
-                name: spec.name,
-                originalName: spec.name,
-                uuid: spec.uuid,
-                size: spec.size || -1,
-                status: status
-            }) - 1;
+            var status = spec.status || qq.status.SUBMITTING,
+                id = data.push({
+                    name: spec.name,
+                    originalName: spec.name,
+                    uuid: spec.uuid,
+                    size: spec.size || -1,
+                    status: status
+                }) - 1;
 
             if (spec.batchId) {
                 data[id].batchId = spec.batchId;
@@ -1524,85 +1562,103 @@ qq.status = {
 /**
  * Defines the public API for FineUploaderBasic mode.
  */
-(function(){
+(function() {
     "use strict";
 
     qq.basePublicApi = {
+        // DEPRECATED - TODO REMOVE IN NEXT MAJOR RELEASE (replaced by addFiles)
         addBlobs: function(blobDataOrArray, params, endpoint) {
-            if (!qq.supportedFeatures.blobUploading) {
-                throw new qq.Error("Blob uploading is not supported in this browser!");
-            }
-
-            this._maybeHandleIos8SafariWorkaround();
-
-            if (blobDataOrArray) {
-                var blobDataArray = [].concat(blobDataOrArray),
-                    verifiedBlobDataList = [],
-                    batchId = this._storedIds.length === 0 ? qq.getUniqueId() : this._currentBatchId,
-                    self = this;
-
-                this._currentBatchId = batchId;
-
-                qq.each(blobDataArray, function(idx, blobData) {
-                    var blobOrBlobData;
-
-                    if (qq.isBlob(blobData) && !qq.isFileOrInput(blobData)) {
-                        blobOrBlobData = {
-                            blob: blobData,
-                            name: self._options.blobs.defaultName
-                        };
-                    }
-                    else if (qq.isObject(blobData) && blobData.blob && blobData.name) {
-                        blobOrBlobData = blobData;
-                    }
-                    else {
-                        self.log("addBlobs: entry at index " + idx + " is not a Blob or a BlobData object", "error");
-                    }
-
-                    blobOrBlobData && self._handleNewFile(blobOrBlobData, batchId, verifiedBlobDataList);
-                });
-
-                this._prepareItemsForUpload(verifiedBlobDataList, params, endpoint);
-            }
-            else {
-                this.log("undefined or non-array parameter passed into addBlobs", "error");
-            }
+            this.addFiles(blobDataOrArray, params, endpoint);
         },
 
-        addFiles: function(filesOrInputs, params, endpoint) {
+        addFiles: function(data, params, endpoint) {
             this._maybeHandleIos8SafariWorkaround();
 
-            var verifiedFilesOrInputs = [],
-                batchId = this._storedIds.length === 0 ? qq.getUniqueId() : this._currentBatchId,
-                fileOrInputIndex, fileOrInput, fileIndex;
+            var batchId = this._storedIds.length === 0 ? qq.getUniqueId() : this._currentBatchId,
+
+                processBlob = qq.bind(function(blob) {
+                    this._handleNewFile({
+                        blob: blob,
+                        name: this._options.blobs.defaultName
+                    }, batchId, verifiedFiles);
+                }, this),
+
+                processBlobData = qq.bind(function(blobData) {
+                    this._handleNewFile(blobData, batchId, verifiedFiles);
+                }, this),
+
+                processCanvas = qq.bind(function(canvas) {
+                    var blob = qq.canvasToBlob(canvas);
+
+                    this._handleNewFile({
+                        blob: blob,
+                        name: this._options.blobs.defaultName + ".png"
+                    }, batchId, verifiedFiles);
+                }, this),
+
+                processCanvasData = qq.bind(function(canvasData) {
+                    var normalizedQuality = canvasData.quality && canvasData.quality / 100,
+                        blob = qq.canvasToBlob(canvasData.canvas, canvasData.type, normalizedQuality);
+
+                    this._handleNewFile({
+                        blob: blob,
+                        name: canvasData.name
+                    }, batchId, verifiedFiles);
+                }, this),
+
+                processFileOrInput = qq.bind(function(fileOrInput) {
+                    if (qq.isInput(fileOrInput) && qq.supportedFeatures.ajaxUploading) {
+                        var files = Array.prototype.slice.call(fileOrInput.files);
+
+                        qq.each(files, function(idx, file) {
+                            this._handleNewFile(file, batchId, verifiedFiles);
+                        });
+                    }
+                    else {
+                        this._handleNewFile(fileOrInput, batchId, verifiedFiles);
+                    }
+                }, this),
+
+                normalizeData = function() {
+                    if (qq.isFileList(data)) {
+                        data = Array.prototype.slice.call(data);
+                    }
+                    data = [].concat(data);
+                },
+
+                self = this,
+                verifiedFiles = [];
 
             this._currentBatchId = batchId;
 
-            if (filesOrInputs) {
-                if (!qq.isFileList(filesOrInputs)) {
-                    filesOrInputs = [].concat(filesOrInputs);
-                }
+            if (data) {
+                normalizeData();
 
-                for (fileOrInputIndex = 0; fileOrInputIndex < filesOrInputs.length; fileOrInputIndex+=1) {
-                    fileOrInput = filesOrInputs[fileOrInputIndex];
-
-                    if (qq.isFileOrInput(fileOrInput)) {
-                        if (qq.isInput(fileOrInput) && qq.supportedFeatures.ajaxUploading) {
-                            for (fileIndex = 0; fileIndex < fileOrInput.files.length; fileIndex++) {
-                                this._handleNewFile(fileOrInput.files[fileIndex], batchId, verifiedFilesOrInputs);
-                            }
+                qq.each(data, function(idx, fileContainer) {
+                    if (qq.isFileOrInput(fileContainer)) {
+                        processFileOrInput(fileContainer);
+                    }
+                    else if (qq.isBlob(fileContainer)) {
+                        processBlob(fileContainer);
+                    }
+                    else if (qq.isObject(fileContainer)) {
+                        if (fileContainer.blob && fileContainer.name) {
+                            processBlobData(fileContainer);
                         }
-                        else {
-                            this._handleNewFile(fileOrInput, batchId, verifiedFilesOrInputs);
+                        else if (fileContainer.canvas && fileContainer.name) {
+                            processCanvasData(fileContainer);
                         }
+                    }
+                    else if (fileContainer.tagName && fileContainer.tagName.toLowerCase() === "canvas") {
+                        processCanvas(fileContainer);
                     }
                     else {
-                        this.log(fileOrInput + " is not a File or INPUT element!  Ignoring!", "warn");
+                        self.log(fileContainer + " is not a valid file container!  Ignoring!", "warn");
                     }
-                }
+                });
 
-                this.log("Received " + verifiedFilesOrInputs.length + " files or inputs.");
-                this._prepareItemsForUpload(verifiedFilesOrInputs, params, endpoint);
+                this.log("Received " + verifiedFiles.length + " files.");
+                this._prepareItemsForUpload(verifiedFiles, params, endpoint);
             }
         },
 
@@ -1622,7 +1678,7 @@ qq.status = {
             this._handler.cancelAll();
         },
 
-        clearStoredFiles: function(){
+        clearStoredFiles: function() {
             this._storedIds = [];
         },
 
@@ -1654,19 +1710,20 @@ qq.status = {
             return this._handler.isValid(fileOrBlobId);
         },
 
-                // Generate a variable size thumbnail on an img or canvas,
+        // Generate a variable size thumbnail on an img or canvas,
         // returning a promise that is fulfilled when the attempt completes.
         // Thumbnail can either be based off of a URL for an image returned
         // by the server in the upload response, or the associated `Blob`.
         drawThumbnail: function(fileId, imgOrCanvas, maxSize, fromServer) {
-            var promiseToReturn = new qq.Promise();
+            var promiseToReturn = new qq.Promise(),
+                fileOrUrl, options;
 
             if (this._imageGenerator) {
-                var fileOrUrl = this._thumbnailUrls[fileId],
-                    options = {
-                        scale: maxSize > 0,
-                        maxSize: maxSize > 0 ? maxSize : null
-                    };
+                fileOrUrl = this._thumbnailUrls[fileId];
+                options = {
+                    scale: maxSize > 0,
+                    maxSize: maxSize > 0 ? maxSize : null
+                };
 
                 // If client-side preview generation is possible
                 // and we are not specifically looking for the image URl returned by the server...
@@ -1699,6 +1756,10 @@ qq.status = {
 
         getButton: function(fileId) {
             return this._getButton(this._buttonIdsForFileIds[fileId]);
+        },
+
+        getEndpoint: function(fileId) {
+            return this._endpointStore.get(fileId);
         },
 
         getFile: function(fileOrBlobId) {
@@ -1746,10 +1807,10 @@ qq.status = {
         },
 
         getRemainingAllowedItems: function() {
-            var allowedItems = this._options.validation.itemLimit;
+            var allowedItems = this._currentItemLimit;
 
             if (allowedItems > 0) {
-                return this._options.validation.itemLimit - this._netUploadedOrQueued;
+                return allowedItems - this._netUploadedOrQueued;
             }
 
             return null;
@@ -1862,6 +1923,10 @@ qq.status = {
             this._endpointStore.set(endpoint, id);
         },
 
+        setItemLimit: function(newItemLimit) {
+            this._currentItemLimit = newItemLimit;
+        },
+
         setName: function(id, newName) {
             this._uploadData.updateName(id, newName);
         },
@@ -1888,9 +1953,6 @@ qq.status = {
             }
         }
     };
-
-
-
 
     /**
      * Defines the private (internal) API for FineUploaderBasic mode.
@@ -2084,7 +2146,8 @@ qq.status = {
         _createUploadButton: function(spec) {
             var self = this,
                 acceptFiles = spec.accept || this._options.validation.acceptFiles,
-                allowedExtensions = spec.allowedExtensions || this._options.validation.allowedExtensions;
+                allowedExtensions = spec.allowedExtensions || this._options.validation.allowedExtensions,
+                button;
 
             function allowMultiple() {
                 if (qq.supportedFeatures.ajaxUploading) {
@@ -2107,7 +2170,7 @@ qq.status = {
                 return false;
             }
 
-            var button = new qq.UploadButton({
+            button = new qq.UploadButton({
                 element: spec.element,
                 folders: spec.folders,
                 name: this._options.request.inputName,
@@ -2167,7 +2230,8 @@ qq.status = {
                     onComplete: function(id, name, result, xhr) {
                         delete lastOnProgress[id];
 
-                        var status = self.getUploads({id: id}).status;
+                        var status = self.getUploads({id: id}).status,
+                            retVal;
 
                         // This is to deal with some observed cases where the XHR readyStateChange handler is
                         // invoked by the browser multiple times for the same XHR instance with the same state
@@ -2177,7 +2241,7 @@ qq.status = {
                             return;
                         }
 
-                        var retVal = self._onComplete(id, name, result, xhr);
+                        retVal = self._onComplete(id, name, result, xhr);
 
                         // If the internal `_onComplete` handler returns a promise, don't invoke the `onComplete` callback
                         // until the promise has been fulfilled.
@@ -2269,7 +2333,7 @@ qq.status = {
             this._uploadData.setStatus(id, qq.status.REJECTED);
         },
 
-        _formatSize: function(bytes){
+        _formatSize: function(bytes) {
             var i = -1;
             do {
                 bytes = bytes / 1000;
@@ -2529,7 +2593,7 @@ qq.status = {
 
             name += "." + extension;
 
-            this.addBlobs({
+            this.addFiles({
                 name: name,
                 blob: blob
             });
@@ -2631,7 +2695,7 @@ qq.status = {
                 validationBase = this._getValidationBase(buttonId),
                 extensionsForMessage, placeholderMatch;
 
-            function r(name, replacement){ message = message.replace(name, replacement); }
+            function r(name, replacement) { message = message.replace(name, replacement); }
 
             qq.each(validationBase.allowedExtensions, function(idx, allowedExtension) {
                 /**
@@ -2721,7 +2785,7 @@ qq.status = {
         _maybeParseAndSendUploadError: function(id, name, response, xhr) {
             // Assuming no one will actually set the response code to something other than 200
             // and still set 'success' to true...
-            if (!response.success){
+            if (!response.success) {
                 if (xhr && xhr.status !== 200 && !response.error) {
                     this._options.callbacks.onError(id, name, "XHR returned response code " + xhr.status, xhr);
                 }
@@ -2813,20 +2877,21 @@ qq.status = {
 
         //return false if we should not attempt the requested retry
         _onBeforeManualRetry: function(id) {
-            var itemLimit = this._options.validation.itemLimit;
+            var itemLimit = this._currentItemLimit,
+                fileName;
 
             if (this._preventRetries[id]) {
                 this.log("Retries are forbidden for id " + id, "warn");
                 return false;
             }
             else if (this._handler.isValid(id)) {
-                var fileName = this.getName(id);
+                fileName = this.getName(id);
 
                 if (this._options.callbacks.onManualRetry(id, fileName) === false) {
                     return false;
                 }
 
-                if (itemLimit > 0 && this._netUploadedOrQueued+1 > itemLimit) {
+                if (itemLimit > 0 && this._netUploadedOrQueued + 1 > itemLimit) {
                     this._itemError("retryFailTooManyItems");
                     return false;
                 }
@@ -3009,7 +3074,7 @@ qq.status = {
 
         _onValidateBatchCallbackSuccess: function(validationDescriptors, items, params, endpoint, button) {
             var errorMessage,
-                itemLimit = this._options.validation.itemLimit,
+                itemLimit = this._currentItemLimit,
                 proposedNetFilesUploadedOrQueued = this._netUploadedOrQueued;
 
             if (itemLimit === 0 || proposedNetFilesUploadedOrQueued <= itemLimit) {
@@ -3036,7 +3101,7 @@ qq.status = {
         },
 
         _onValidateCallbackFailure: function(items, index, params, endpoint) {
-            var nextIndex = index+ 1;
+            var nextIndex = index + 1;
 
             this._fileOrBlobRejected(items[0].id, items[0].file.name);
 
@@ -3045,7 +3110,7 @@ qq.status = {
 
         _onValidateCallbackSuccess: function(items, index, params, endpoint) {
             var self = this,
-                nextIndex = index+1,
+                nextIndex = index + 1,
                 validationDescriptor = this._getValidationDescriptor(items[index]);
 
             this._validateFileOrBlobData(items[index], validationDescriptor)
@@ -3079,10 +3144,10 @@ qq.status = {
             });
         },
 
-        _preventLeaveInProgress: function(){
+        _preventLeaveInProgress: function() {
             var self = this;
 
-            this._disposeSupport.attach(window, "beforeunload", function(e){
+            this._disposeSupport.attach(window, "beforeunload", function(e) {
                 if (self.getInProgress()) {
                     e = e || window.event;
                     // for ie, ff
@@ -3261,7 +3326,7 @@ qq.status = {
         },
 
         _wrapCallbacks: function() {
-            var self, safeCallback;
+            var self, safeCallback, prop;
 
             self = this;
 
@@ -3278,7 +3343,7 @@ qq.status = {
             };
 
             /* jshint forin: false, loopfunc: true */
-            for (var prop in this._options.callbacks) {
+            for (prop in this._options.callbacks) {
                 (function() {
                     var callbackName, callbackFunc;
                     callbackName = prop;
@@ -3293,7 +3358,7 @@ qq.status = {
 }());
 
 /*globals qq*/
-(function(){
+(function() {
     "use strict";
 
     qq.FineUploaderBasic = function(o) {
@@ -3336,25 +3401,25 @@ qq.status = {
             },
 
             callbacks: {
-                onSubmit: function(id, name){},
-                onSubmitted: function(id, name){},
-                onComplete: function(id, name, responseJSON, maybeXhr){},
+                onSubmit: function(id, name) {},
+                onSubmitted: function(id, name) {},
+                onComplete: function(id, name, responseJSON, maybeXhr) {},
                 onAllComplete: function(successful, failed) {},
-                onCancel: function(id, name){},
-                onUpload: function(id, name){},
-                onUploadChunk: function(id, name, chunkData){},
-                onUploadChunkSuccess: function(id, chunkData, responseJSON, xhr){},
-                onResume: function(id, fileName, chunkData){},
-                onProgress: function(id, name, loaded, total){},
-                onTotalProgress: function(loaded, total){},
+                onCancel: function(id, name) {},
+                onUpload: function(id, name) {},
+                onUploadChunk: function(id, name, chunkData) {},
+                onUploadChunkSuccess: function(id, chunkData, responseJSON, xhr) {},
+                onResume: function(id, fileName, chunkData) {},
+                onProgress: function(id, name, loaded, total) {},
+                onTotalProgress: function(loaded, total) {},
                 onError: function(id, name, reason, maybeXhrOrXdr) {},
                 onAutoRetry: function(id, name, attemptNumber) {},
                 onManualRetry: function(id, name) {},
                 onValidateBatch: function(fileOrBlobData) {},
                 onValidate: function(fileOrBlobData) {},
                 onSubmitDelete: function(id) {},
-                onDelete: function(id){},
-                onDeleteComplete: function(id, xhrOrXdr, isError){},
+                onDelete: function(id) {},
+                onDeleteComplete: function(id, xhrOrXdr, isError) {},
                 onPasteReceived: function(blob) {},
                 onStatusChange: function(id, oldStatus, newStatus) {},
                 onSessionRequestComplete: function(response, success, xhrOrXdr) {}
@@ -3393,6 +3458,7 @@ qq.status = {
                 concurrent: {
                     enabled: false
                 },
+                mandatory: false,
                 paramNames: {
                     partIndex: "qqpartindex",
                     partByteOffset: "qqpartbyteoffset",
@@ -3427,7 +3493,7 @@ qq.status = {
                 sizeSymbols: ["kB", "MB", "GB", "TB", "PB", "EB"]
             },
 
-            deleteFile : {
+            deleteFile: {
                 enabled: false,
                 method: "DELETE",
                 endpoint: "/server/upload",
@@ -3589,6 +3655,8 @@ qq.status = {
                 }
             );
         }
+
+        this._currentItemLimit = this._options.validation.itemLimit;
     };
 
     // Define the private & public API methods.
@@ -3598,7 +3666,7 @@ qq.status = {
 
 /*globals qq, XDomainRequest*/
 /** Generic class for sending non-upload ajax requests and handling the associated responses **/
-qq.AjaxRequester = function (o) {
+qq.AjaxRequester = function(o) {
     "use strict";
 
     var log, shouldParamsBeInQueryString,
@@ -3616,17 +3684,17 @@ qq.AjaxRequester = function (o) {
             mandatedParams: {},
             allowXRequestedWithAndCacheControl: true,
             successfulResponseCodes: {
-                "DELETE": [200, 202, 204],
-                "POST": [200, 204],
-                "GET": [200]
+                DELETE: [200, 202, 204],
+                POST: [200, 204],
+                GET: [200]
             },
             cors: {
                 expected: false,
                 sendCredentials: false
             },
-            log: function (str, level) {},
-            onSend: function (id) {},
-            onComplete: function (id, xhrOrXdr, isError) {},
+            log: function(str, level) {},
+            onSend: function(id) {},
+            onComplete: function(id, xhrOrXdr, isError) {},
             onProgress: null
         };
 
@@ -3746,14 +3814,14 @@ qq.AjaxRequester = function (o) {
         }
 
         if (onDemandParams) {
-            qq.each(onDemandParams, function (name, val) {
+            qq.each(onDemandParams, function(name, val) {
                 params = params || {};
                 params[name] = val;
             });
         }
 
         if (mandatedParams) {
-            qq.each(mandatedParams, function (name, val) {
+            qq.each(mandatedParams, function(name, val) {
                 params = params || {};
                 params[name] = val;
             });
@@ -3762,8 +3830,8 @@ qq.AjaxRequester = function (o) {
         return params;
     }
 
-    function sendRequest(id, opt_xhr) {
-        var xhr = getXhrOrXdr(id, opt_xhr),
+    function sendRequest(id, optXhr) {
+        var xhr = getXhrOrXdr(id, optXhr),
             method = options.method,
             params = getParams(id),
             payload = requestData[id].payload,
@@ -3781,7 +3849,6 @@ qq.AjaxRequester = function (o) {
         else {
             xhr.onreadystatechange = getXhrReadyStateChangeHandler(id);
         }
-
 
         registerForUploadProgress(id);
 
@@ -3837,7 +3904,7 @@ qq.AjaxRequester = function (o) {
     // Invoked by the UA to indicate a number of possible states that describe
     // a live `XMLHttpRequest` transport.
     function getXhrReadyStateChangeHandler(id) {
-        return function () {
+        return function() {
             if (getXhrOrXdr(id).readyState === 4) {
                 onComplete(id);
             }
@@ -3859,7 +3926,7 @@ qq.AjaxRequester = function (o) {
     // This will be called by IE to indicate **success** for an associated
     // `XDomainRequest` transported request.
     function getXdrLoadHandler(id) {
-        return function () {
+        return function() {
             onComplete(id);
         };
     }
@@ -3867,7 +3934,7 @@ qq.AjaxRequester = function (o) {
     // This will be called by IE to indicate **failure** for an associated
     // `XDomainRequest` transported request.
     function getXdrErrorHandler(id) {
-        return function () {
+        return function() {
             onComplete(id, true);
         };
     }
@@ -3902,7 +3969,7 @@ qq.AjaxRequester = function (o) {
             qq.extend(allHeaders, qq.isFunction(customHeaders) ? customHeaders(id) : customHeaders);
             qq.extend(allHeaders, onDemandHeaders);
 
-            qq.each(allHeaders, function (name, val) {
+            qq.each(allHeaders, function(name, val) {
                 xhr.setRequestHeader(name, val);
             });
         }
@@ -3912,7 +3979,7 @@ qq.AjaxRequester = function (o) {
         return qq.indexOf(options.successfulResponseCodes[options.method], responseCode) >= 0;
     }
 
-    function prepareToSend(id, opt_xhr, addToPath, additionalParams, additionalHeaders, payload) {
+    function prepareToSend(id, optXhr, addToPath, additionalParams, additionalHeaders, payload) {
         requestData[id] = {
             addToPath: addToPath,
             additionalParams: additionalParams,
@@ -3924,10 +3991,9 @@ qq.AjaxRequester = function (o) {
 
         // if too many active connections, wait...
         if (len <= options.maxConnections) {
-            return sendRequest(id, opt_xhr);
+            return sendRequest(id, optXhr);
         }
     }
-
 
     shouldParamsBeInQueryString = options.method === "GET" || options.method === "DELETE";
 
@@ -3971,12 +4037,12 @@ qq.AjaxRequester = function (o) {
                 },
 
                 // Send the constructed request.
-                send: function(opt_xhr) {
+                send: function(optXhr) {
                     if (cacheBuster && qq.indexOf(["GET", "DELETE"], options.method) >= 0) {
                         params.qqtimestamp = new Date().getTime();
                     }
 
-                    return prepareToSend(id, opt_xhr, path, params, headers, payload);
+                    return prepareToSend(id, optXhr, path, params, headers, payload);
                 }
             };
         },
@@ -4000,7 +4066,6 @@ qq.UploadHandler = function(spec) {
         fileState = {},
         onCancel = proxy.onCancel,
         getName = proxy.getName;
-
 
     qq.extend(this, {
         add: function(id, fileItem) {
@@ -4077,23 +4142,22 @@ qq.UploadHandlerController = function(o, namespace) {
             }
         },
         log: function(str, level) {},
-        onProgress: function(id, fileName, loaded, total){},
-        onComplete: function(id, fileName, response, xhr){},
-        onCancel: function(id, fileName){},
-        onUploadPrep: function(id){}, // Called if non-trivial operations will be performed before onUpload
-        onUpload: function(id, fileName){},
-        onUploadChunk: function(id, fileName, chunkData){},
-        onUploadChunkSuccess: function(id, chunkData, response, xhr){},
-        onAutoRetry: function(id, fileName, response, xhr){},
-        onResume: function(id, fileName, chunkData){},
-        onUuidChanged: function(id, newUuid){},
+        onProgress: function(id, fileName, loaded, total) {},
+        onComplete: function(id, fileName, response, xhr) {},
+        onCancel: function(id, fileName) {},
+        onUploadPrep: function(id) {}, // Called if non-trivial operations will be performed before onUpload
+        onUpload: function(id, fileName) {},
+        onUploadChunk: function(id, fileName, chunkData) {},
+        onUploadChunkSuccess: function(id, chunkData, response, xhr) {},
+        onAutoRetry: function(id, fileName, response, xhr) {},
+        onResume: function(id, fileName, chunkData) {},
+        onUuidChanged: function(id, newUuid) {},
         getName: function(id) {},
         setSize: function(id, newSize) {},
         isQueued: function(id) {},
         getIdsInProxyGroup: function(id) {},
         getIdsInBatch: function(id) {}
     },
-
 
     chunked = {
         // Called when each chunk has uploaded successfully
@@ -4190,7 +4254,7 @@ qq.UploadHandlerController = function(o, namespace) {
 
             // Send the next chunk
             else {
-                log("Sending chunked upload request for item " + id + ": bytes " + (chunkData.start+1) + "-" + chunkData.end + " of " + size);
+                log("Sending chunked upload request for item " + id + ": bytes " + (chunkData.start + 1) + "-" + chunkData.end + " of " + size);
                 options.onUploadChunk(id, name, handler._getChunkDataForCallback(chunkData));
 
                 inProgressChunks.push(chunkIdx);
@@ -4239,13 +4303,14 @@ qq.UploadHandlerController = function(o, namespace) {
 
                         handler.clearCachedChunk(id, chunkIdx);
 
-                        var responseToReport = upload.normalizeResponse(response, false);
+                        var responseToReport = upload.normalizeResponse(response, false),
+                            inProgressIdx;
 
                         if (responseToReport.reset) {
                             chunked.reset(id);
                         }
                         else {
-                            var inProgressIdx = qq.indexOf(handler._getFileState(id).chunking.inProgress, chunkIdx);
+                            inProgressIdx = qq.indexOf(handler._getFileState(id).chunking.inProgress, chunkIdx);
                             if (inProgressIdx >= 0) {
                                 handler._getFileState(id).chunking.inProgress.splice(inProgressIdx, 1);
                                 handler._getFileState(id).chunking.remaining.unshift(chunkIdx);
@@ -4403,31 +4468,29 @@ qq.UploadHandlerController = function(o, namespace) {
 
             log("Sending simple upload request for " + id);
             handler.uploadFile(id).then(
-                function(response, opt_xhr) {
+                function(response, optXhr) {
                     log("Simple upload request succeeded for " + id);
 
-                    var responseToReport = upload.normalizeResponse(response, true);
-
-                    var size = options.getSize(id);
+                    var responseToReport = upload.normalizeResponse(response, true),
+                        size = options.getSize(id);
 
                     options.onProgress(id, name, size, size);
                     upload.maybeNewUuid(id, responseToReport);
-                    upload.cleanup(id, responseToReport, opt_xhr);
+                    upload.cleanup(id, responseToReport, optXhr);
                 },
 
-                function(response, opt_xhr) {
+                function(response, optXhr) {
                     log("Simple upload request failed for " + id);
 
                     var responseToReport = upload.normalizeResponse(response, false);
 
-                    if (!options.onAutoRetry(id, name, responseToReport, opt_xhr)) {
-                        upload.cleanup(id, responseToReport, opt_xhr);
+                    if (!options.onAutoRetry(id, name, responseToReport, optXhr)) {
+                        upload.cleanup(id, responseToReport, optXhr);
                     }
                 }
             );
         }
     },
-
 
     upload = {
         cancel: function(id) {
@@ -4436,10 +4499,10 @@ qq.UploadHandlerController = function(o, namespace) {
             connectionManager.free(id);
         },
 
-        cleanup: function(id, response, opt_xhr) {
+        cleanup: function(id, response, optXhr) {
             var name = options.getName(id);
 
-            options.onComplete(id, name, response, opt_xhr);
+            options.onComplete(id, name, response, optXhr);
 
             if (handler._getFileState(id)) {
                 handler._clearXhrs && handler._clearXhrs(id);
@@ -4560,7 +4623,7 @@ qq.UploadHandlerController = function(o, namespace) {
             return uploadedThisId;
         },
 
-        maybeNewUuid: function (id, response) {
+        maybeNewUuid: function(id, response) {
             if (response.newUuid !== undefined) {
                 options.onUuidChanged(id, response.newUuid);
             }
@@ -4629,7 +4692,7 @@ qq.UploadHandlerController = function(o, namespace) {
          * Sends the file identified by id
          */
         upload: function(id) {
-            if(connectionManager.open(id)) {
+            if (connectionManager.open(id)) {
                 return upload.start(id);
             }
             return false;
@@ -4643,7 +4706,7 @@ qq.UploadHandlerController = function(o, namespace) {
             if (concurrentChunkingPossible) {
                 handler._getFileState(id).temp.ignoreFailure = false;
             }
-            
+
             // If we are attempting to retry a file that is already consuming a connection, this is likely an auto-retry.
             // Just go ahead and ask the handler to upload again.
             if (connectionManager.isUsingConnection(id)) {
@@ -4678,12 +4741,13 @@ qq.UploadHandlerController = function(o, namespace) {
          * Cancels all queued or in-progress uploads
          */
         cancelAll: function() {
-            var waitingOrConnected = connectionManager.getWaitingOrConnected();
+            var waitingOrConnected = connectionManager.getWaitingOrConnected(),
+                i;
 
             // ensure files are cancelled in reverse order which they were added
             // to avoid a flash of time where a queued file begins to upload before it is canceled
             if (waitingOrConnected.length) {
-                for (var i = waitingOrConnected.length-1; i >= 0; i--) {
+                for (i = waitingOrConnected.length - 1; i >= 0; i--) {
                     controller.cancel(waitingOrConnected[i]);
                 }
             }
@@ -4812,7 +4876,6 @@ qq.FormUploadHandler = function(spec) {
         log = proxy.log,
         corsMessageReceiver = new qq.WindowReceiveMessage({log: log});
 
-
     /**
      * Remove any trace of the file from the handler.
      *
@@ -4938,7 +5001,7 @@ qq.FormUploadHandler = function(spec) {
                 fileInput.setAttribute("name", inputName);
 
                 // remove file input from DOM
-                if (fileInput.parentNode){
+                if (fileInput.parentNode) {
                     qq(fileInput).remove();
                 }
             },
@@ -4976,13 +5039,13 @@ qq.FormUploadHandler = function(spec) {
                 registerPostMessageCallback(iframe, callback);
             }
             else {
-                detachLoadEvents[iframe.id] = qq(iframe).attach("load", function(){
+                detachLoadEvents[iframe.id] = qq(iframe).attach("load", function() {
                     log("Received response for " + iframe.id);
 
                     // when we remove iframe from dom
                     // the request stops, but in IE load
                     // event fires
-                    if (!iframe.parentNode){
+                    if (!iframe.parentNode) {
                         return;
                     }
 
@@ -4990,7 +5053,7 @@ qq.FormUploadHandler = function(spec) {
                         // fixing Opera 10.53
                         if (iframe.contentDocument &&
                             iframe.contentDocument.body &&
-                            iframe.contentDocument.body.innerHTML == "false"){
+                            iframe.contentDocument.body.innerHTML == "false") {
                             // In Opera event is fired second time
                             // when body.innerHTML changed from false
                             // to server response approx. after 1 sec
@@ -5073,21 +5136,21 @@ qq.FormUploadHandler = function(spec) {
 
             return form;
         },
-        
+
         /**
          * @param innerHtmlOrMessage JSON message
          * @returns {*} The parsed response, or an empty object if the response could not be parsed
          */
         _parseJsonResponse: function(innerHtmlOrMessage) {
             var response = {};
-    
+
             try {
                 response = qq.parseJson(innerHtmlOrMessage);
             }
-            catch(error) {
+            catch (error) {
                 log("Error when attempting to parse iframe upload response (" + error.message + ")", "error");
             }
-    
+
             return response;
         }
     });
@@ -5118,7 +5181,6 @@ qq.XhrUploadHandler = function(spec) {
         onUuidChanged = proxy.onUuidChanged,
         onProgress = proxy.onProgress,
         log = proxy.log;
-
 
     function abort(id) {
         qq.each(handler._getXhrs(id), function(xhrId, xhr) {
@@ -5231,9 +5293,9 @@ qq.XhrUploadHandler = function(spec) {
             return !!chunking && handler.isValid(id) && !handler._getFileState(id).notResumable;
         },
 
-        moveInProgressToRemaining: function(id, opt_inProgress, opt_remaining) {
-            var inProgress = opt_inProgress || handler._getFileState(id).chunking.inProgress,
-                remaining = opt_remaining || handler._getFileState(id).chunking.remaining;
+        moveInProgressToRemaining: function(id, optInProgress, optRemaining) {
+            var inProgress = optInProgress || handler._getFileState(id).chunking.inProgress,
+                remaining = optRemaining || handler._getFileState(id).chunking.remaining;
 
             if (inProgress) {
                 inProgress.reverse();
@@ -5245,7 +5307,7 @@ qq.XhrUploadHandler = function(spec) {
         },
 
         pause: function(id) {
-            if(handler.isValid(id)) {
+            if (handler.isValid(id)) {
                 log(qq.format("Aborting XHR upload for {} '{}' due to pause instruction.", id, getName(id)));
                 handler._getFileState(id).paused = true;
                 abort(id);
@@ -5256,18 +5318,19 @@ qq.XhrUploadHandler = function(spec) {
         reevaluateChunking: function(id) {
             if (chunking && handler.isValid(id)) {
                 var state = handler._getFileState(id),
-                    totalChunks;
+                    totalChunks,
+                    i;
 
                 delete state.chunking;
 
                 state.chunking = {};
                 totalChunks = handler._getTotalChunks(id);
-                if (totalChunks > 1) {
+                if (totalChunks > 1 || chunking.mandatory) {
                     state.chunking.enabled = true;
                     state.chunking.parts = totalChunks;
                     state.chunking.remaining = [];
 
-                    for (var i = 0; i < totalChunks; i++) {
+                    for (i = 0; i < totalChunks; i++) {
                         state.chunking.remaining.push(i);
                     }
 
@@ -5301,15 +5364,15 @@ qq.XhrUploadHandler = function(spec) {
          * Creates an XHR instance for this file and stores it in the fileState.
          *
          * @param id File ID
-         * @param opt_chunkIdx The chunk index associated with this XHR, if applicable
+         * @param optChunkIdx The chunk index associated with this XHR, if applicable
          * @returns {XMLHttpRequest}
          */
-        _createXhr: function(id, opt_chunkIdx) {
-            return handler._registerXhr(id, opt_chunkIdx, qq.createXhrInstance());
+        _createXhr: function(id, optChunkIdx) {
+            return handler._registerXhr(id, optChunkIdx, qq.createXhrInstance());
         },
 
-        _getAjaxRequester: function(id, opt_chunkIdx) {
-            var chunkIdx = opt_chunkIdx == null ? -1 : opt_chunkIdx;
+        _getAjaxRequester: function(id, optChunkIdx) {
+            var chunkIdx = optChunkIdx == null ? -1 : optChunkIdx;
             return handler._getFileState(id).temp.ajaxRequesters[chunkIdx];
         },
 
@@ -5318,7 +5381,7 @@ qq.XhrUploadHandler = function(spec) {
                 fileSize = getSize(id),
                 fileOrBlob = handler.getFile(id),
                 startBytes = chunkSize * chunkIndex,
-                endBytes = startBytes+chunkSize >= fileSize ? fileSize : startBytes+chunkSize,
+                endBytes = startBytes + chunkSize >= fileSize ? fileSize : startBytes + chunkSize,
                 totalChunks = handler._getTotalChunks(id),
                 cachedChunks = this._getFileState(id).temp.cachedChunks,
 
@@ -5382,8 +5445,8 @@ qq.XhrUploadHandler = function(spec) {
             }
         },
 
-        _getXhr: function(id, opt_chunkIdx) {
-            var chunkIdx = opt_chunkIdx == null ? -1 : opt_chunkIdx;
+        _getXhr: function(id, optChunkIdx) {
+            var chunkIdx = optChunkIdx == null ? -1 : optChunkIdx;
             return handler._getFileState(id).temp.xhrs[chunkIdx];
         },
 
@@ -5505,7 +5568,7 @@ qq.XhrUploadHandler = function(spec) {
                             onProgress(id, name, fileSize, fileSize);
                         }
                         else {
-                            onProgress(id, name, (loaded >= fileSize ? fileSize-1 : loaded), fileSize);
+                            onProgress(id, name, (loaded >= fileSize ? fileSize - 1 : loaded), fileSize);
                         }
                     },
 
@@ -5541,13 +5604,13 @@ qq.XhrUploadHandler = function(spec) {
          * Registers an XHR transport instance created elsewhere.
          *
          * @param id ID of the associated file
-         * @param opt_chunkIdx The chunk index associated with this XHR, if applicable
+         * @param optChunkIdx The chunk index associated with this XHR, if applicable
          * @param xhr XMLHttpRequest object instance
-         * @param opt_ajaxRequester `qq.AjaxRequester` associated with this request, if applicable.
+         * @param optAjaxRequester `qq.AjaxRequester` associated with this request, if applicable.
          * @returns {XMLHttpRequest}
          */
-        _registerXhr: function(id, opt_chunkIdx, xhr, opt_ajaxRequester) {
-            var xhrsId = opt_chunkIdx == null ? -1 : opt_chunkIdx,
+        _registerXhr: function(id, optChunkIdx, xhr, optAjaxRequester) {
+            var xhrsId = optChunkIdx == null ? -1 : optChunkIdx,
                 tempState = handler._getFileState(id).temp;
 
             tempState.xhrs = tempState.xhrs || {};
@@ -5555,8 +5618,8 @@ qq.XhrUploadHandler = function(spec) {
 
             tempState.xhrs[xhrsId] = xhr;
 
-            if (opt_ajaxRequester) {
-                tempState.ajaxRequesters[xhrsId] = opt_ajaxRequester;
+            if (optAjaxRequester) {
+                tempState.ajaxRequesters[xhrsId] = optAjaxRequester;
             }
 
             return xhr;
@@ -5610,7 +5673,7 @@ qq.WindowReceiveMessage = function(o) {
     qq.extend(options, o);
 
     qq.extend(this, {
-        receiveMessage : function(id, callback) {
+        receiveMessage: function(id, callback) {
             var onMessageCallbackWrapper = function(event) {
                     callback(event.data);
                 };
@@ -5623,7 +5686,7 @@ qq.WindowReceiveMessage = function(o) {
             }
         },
 
-        stopReceivingMessages : function(id) {
+        stopReceivingMessages: function(id) {
             if (window.postMessage) {
                 var detacher = callbackWrapperDetachers[id];
                 if (detacher) {
@@ -5638,7 +5701,7 @@ qq.WindowReceiveMessage = function(o) {
 /**
  * Defines the public API for FineUploader mode.
  */
-(function(){
+(function() {
     "use strict";
 
     qq.uiPublicApi = {
@@ -5647,11 +5710,11 @@ qq.WindowReceiveMessage = function(o) {
             this._templating.clearFiles();
         },
 
-        addExtraDropzone: function(element){
+        addExtraDropzone: function(element) {
             this._dnd && this._dnd.setupExtraDropzone(element);
         },
 
-        removeExtraDropzone: function(element){
+        removeExtraDropzone: function(element) {
             if (this._dnd) {
                 return this._dnd.removeDropzone(element);
             }
@@ -5711,9 +5774,6 @@ qq.WindowReceiveMessage = function(o) {
             return file.qqDropTarget;
         }
     };
-
-
-
 
     /**
      * Defines the private (internal) API for FineUploader mode.
@@ -5943,7 +6003,7 @@ qq.WindowReceiveMessage = function(o) {
         },
 
         // Update the progress bar & percentage as the file is uploaded
-        _onProgress: function(id, name, loaded, total){
+        _onProgress: function(id, name, loaded, total) {
             this._parent.prototype._onProgress.apply(this, arguments);
 
             this._templating.updateProgress(id, loaded, total);
@@ -6036,7 +6096,7 @@ qq.WindowReceiveMessage = function(o) {
             this._templating.showSpinner(id);
         },
 
-        _onUpload: function(id, name){
+        _onUpload: function(id, name) {
             var parentRetVal = this._parent.prototype._onUpload.apply(this, arguments);
 
             this._templating.showSpinner(id);
@@ -6147,7 +6207,7 @@ qq.WindowReceiveMessage = function(o) {
             retVal = this._options.showConfirm(confirmMessage);
 
             if (qq.isGenericPromise(retVal)) {
-                retVal.then(function () {
+                retVal.then(function() {
                     self._sendDeleteRequest.apply(self, deleteRequestArgs);
                 });
             }
@@ -6159,7 +6219,8 @@ qq.WindowReceiveMessage = function(o) {
         _addToList: function(id, name, canned) {
             var prependData,
                 prependIndex = 0,
-                dontDisplay = this._handler.isProxied(id) && this._options.scaling.hideScaled;
+                dontDisplay = this._handler.isProxied(id) && this._options.scaling.hideScaled,
+                record;
 
             // If we don't want this file to appear in the UI, skip all of this UI-related logic.
             if (dontDisplay) {
@@ -6181,12 +6242,12 @@ qq.WindowReceiveMessage = function(o) {
                     this._templating.disableCancel();
                 }
 
-                // Cancel all existing (previous) files and clear the list if this file is not part of 
-                // a scaled file group that has already been accepted, or if this file is not part of 
+                // Cancel all existing (previous) files and clear the list if this file is not part of
+                // a scaled file group that has already been accepted, or if this file is not part of
                 // a scaled file group at all.
                 if (!this._options.multiple) {
-                    var record = this.getUploads({id: id});
-                    
+                    record = this.getUploads({id: id});
+
                     this._handledProxyGroup = this._handledProxyGroup || record.proxyGroupId;
 
                     if (record.proxyGroupId !== this._handledProxyGroup || !record.proxyGroupId) {
@@ -6215,7 +6276,7 @@ qq.WindowReceiveMessage = function(o) {
             }
         },
 
-        _clearList: function(){
+        _clearList: function() {
             this._templating.clearFiles();
             this.clearStoredFiles();
         },
@@ -6233,7 +6294,7 @@ qq.WindowReceiveMessage = function(o) {
             }
         },
 
-        _formatProgress: function (uploadedSize, totalSize) {
+        _formatProgress: function(uploadedSize, totalSize) {
             var message = this._options.text.formatProgress;
             function r(name, replacement) { message = message.replace(name, replacement); }
 
@@ -6422,18 +6483,20 @@ qq.FineUploader = function(o, namespace) {
         },
 
         thumbnails: {
+            maxCount: 0,
             placeholders: {
                 waitUntilResponse: false,
                 notAvailablePath: null,
                 waitingPath: null
-            }
+            },
+            timeBetweenThumbs: 750
         },
 
         scaling: {
             hideScaled: false
         },
 
-        showMessage: function(message){
+        showMessage: function(message) {
             setTimeout(function() {
                 window.alert(message);
             }, 0);
@@ -6461,6 +6524,10 @@ qq.FineUploader = function(o, namespace) {
         classes: {
             hide: this._options.classes.hide,
             editable: this._options.classes.editable
+        },
+        limits: {
+            maxThumbs: this._options.thumbnails.maxCount,
+            timeBetweenThumbs: this._options.thumbnails.timeBetweenThumbs
         },
         placeholders: {
             waitUntilUpdate: this._options.thumbnails.placeholders.waitUntilResponse,
@@ -6535,9 +6602,16 @@ qq.Templating = function(spec) {
         // This variable is duplicated in the DnD module since it can function as a standalone as well
         HIDE_DROPZONE_ATTR = "qq-hide-dropzone",
         isCancelDisabled = false,
+        generatedThumbnails = 0,
+        thumbnailQueueMonitorRunning = false,
+        thumbGenerationQueue = [],
         thumbnailMaxSize = -1,
         options = {
             log: null,
+            limits: {
+                maxThumbs: 0,
+                timeBetweenThumbs: 750
+            },
             templateIdOrEl: "qq-template",
             containerEl: null,
             fileContainerEl: null,
@@ -6589,391 +6663,507 @@ qq.Templating = function(spec) {
         container,
         fileList,
         showThumbnails,
-        serverScale;
+        serverScale,
 
-    /**
-     * Grabs the HTML from the script tag holding the template markup.  This function will also adjust
-     * some internally-tracked state variables based on the contents of the template.
-     * The template is filtered so that irrelevant elements (such as the drop zone if DnD is not supported)
-     * are omitted from the DOM.  Useful errors will be thrown if the template cannot be parsed.
-     *
-     * @returns {{template: *, fileTemplate: *}} HTML for the top-level file items templates
-     */
-    function parseAndGetTemplate() {
-        var scriptEl,
-            scriptHtml,
-            fileListNode,
-            tempTemplateEl,
-            fileListHtml,
-            defaultButton,
-            dropArea,
-            thumbnail,
-            dropProcessing;
-
-        log("Parsing template");
-
-        /*jshint -W116*/
-        if (options.templateIdOrEl == null) {
-            throw new Error("You MUST specify either a template element or ID!");
-        }
-
-        // Grab the contents of the script tag holding the template.
-        if (qq.isString(options.templateIdOrEl)) {
-            scriptEl = document.getElementById(options.templateIdOrEl);
-
-            if (scriptEl === null) {
-                throw new Error(qq.format("Cannot find template script at ID '{}'!", options.templateIdOrEl));
-            }
-
-            scriptHtml = scriptEl.innerHTML;
-        }
-        else {
-            if (options.templateIdOrEl.innerHTML === undefined) {
-                throw new Error("You have specified an invalid value for the template option!  " +
-                    "It must be an ID or an Element.");
-            }
-
-            scriptHtml = options.templateIdOrEl.innerHTML;
-        }
-
-        scriptHtml = qq.trimStr(scriptHtml);
-        tempTemplateEl = document.createElement("div");
-        tempTemplateEl.appendChild(qq.toElement(scriptHtml));
-
-        // Don't include the default template button in the DOM
-        // if an alternate button container has been specified.
-        if (options.button) {
-            defaultButton = qq(tempTemplateEl).getByClass(selectorClasses.button)[0];
-            if (defaultButton) {
-                qq(defaultButton).remove();
-            }
-        }
-
-        // Omit the drop processing element from the DOM if DnD is not supported by the UA,
-        // or the drag and drop module is not found.
-        // NOTE: We are consciously not removing the drop zone if the UA doesn't support DnD
-        // to support layouts where the drop zone is also a container for visible elements,
-        // such as the file list.
-        if (!qq.DragAndDrop || !qq.supportedFeatures.fileDrop) {
-            dropProcessing = qq(tempTemplateEl).getByClass(selectorClasses.dropProcessing)[0];
-            if (dropProcessing) {
-                qq(dropProcessing).remove();
-            }
-
-        }
-
-        dropArea = qq(tempTemplateEl).getByClass(selectorClasses.drop)[0];
-
-        // If DnD is not available then remove
-        // it from the DOM as well.
-        if (dropArea && !qq.DragAndDrop) {
-            log("DnD module unavailable.", "info");
-            qq(dropArea).remove();
-        }
-
-        // If there is a drop area defined in the template, and the current UA doesn't support DnD,
-        // and the drop area is marked as "hide before enter", ensure it is hidden as the DnD module
-        // will not do this (since we will not be loading the DnD module)
-        if (dropArea && !qq.supportedFeatures.fileDrop &&
-            qq(dropArea).hasAttribute(HIDE_DROPZONE_ATTR)) {
-
-            qq(dropArea).css({
-                display: "none"
-            });
-        }
-
-        // Ensure the `showThumbnails` flag is only set if the thumbnail element
-        // is present in the template AND the current UA is capable of generating client-side previews.
-        thumbnail = qq(tempTemplateEl).getByClass(selectorClasses.thumbnail)[0];
-        if (!showThumbnails) {
-            thumbnail && qq(thumbnail).remove();
-        }
-        else if (thumbnail) {
-            thumbnailMaxSize = parseInt(thumbnail.getAttribute(THUMBNAIL_MAX_SIZE_ATTR));
-            // Only enforce max size if the attr value is non-zero
-            thumbnailMaxSize = thumbnailMaxSize > 0 ? thumbnailMaxSize : null;
-
-            serverScale = qq(thumbnail).hasAttribute(THUMBNAIL_SERVER_SCALE_ATTR);
-        }
-        showThumbnails = showThumbnails && thumbnail;
-
-        isEditElementsExist = qq(tempTemplateEl).getByClass(selectorClasses.editFilenameInput).length > 0;
-        isRetryElementExist = qq(tempTemplateEl).getByClass(selectorClasses.retry).length > 0;
-
-        fileListNode = qq(tempTemplateEl).getByClass(selectorClasses.list)[0];
-        /*jshint -W116*/
-        if (fileListNode == null) {
-            throw new Error("Could not find the file list container in the template!");
-        }
-
-        fileListHtml = fileListNode.innerHTML;
-        fileListNode.innerHTML = "";
-
-        log("Template parsing complete");
-
-        return {
-            template: qq.trimStr(tempTemplateEl.innerHTML),
-            fileTemplate: qq.trimStr(fileListHtml)
-        };
-    }
-
-    function getFile(id) {
-        return qq(fileList).getByClass(FILE_CLASS_PREFIX + id)[0];
-    }
-
-    function getTemplateEl(context, cssClass) {
-        return context && qq(context).getByClass(cssClass)[0];
-    }
-
-    function prependFile(el, index) {
-        var parentEl = fileList,
-            beforeEl = parentEl.firstChild;
-
-        if (index > 0) {
-            beforeEl = qq(parentEl).children()[index].nextSibling;
-
-        }
-
-        parentEl.insertBefore(el, beforeEl);
-    }
-
-    function getCancel(id) {
-        return getTemplateEl(getFile(id), selectorClasses.cancel);
-    }
-
-    function getPause(id) {
-        return getTemplateEl(getFile(id), selectorClasses.pause);
-    }
-
-    function getContinue(id) {
-        return getTemplateEl(getFile(id), selectorClasses.continueButton);
-    }
-
-    function getProgress(id) {
-        /* jshint eqnull:true */
-        // Total progress bar
-        if (id == null) {
-            return getTemplateEl(container, selectorClasses.totalProgressBarContainer) ||
-                getTemplateEl(container, selectorClasses.totalProgressBar);
-        }
-
-        // Per-file progress bar
-        return getTemplateEl(getFile(id), selectorClasses.progressBarContainer) ||
-            getTemplateEl(getFile(id), selectorClasses.progressBar);
-    }
-
-    function getSpinner(id) {
-        return getTemplateEl(getFile(id), selectorClasses.spinner);
-    }
-
-    function getEditIcon(id) {
-        return getTemplateEl(getFile(id), selectorClasses.editNameIcon);
-    }
-
-    function getSize(id) {
-        return getTemplateEl(getFile(id), selectorClasses.size);
-    }
-
-    function getDelete(id) {
-        return getTemplateEl(getFile(id), selectorClasses.deleteButton);
-    }
-
-    function getRetry(id) {
-        return getTemplateEl(getFile(id), selectorClasses.retry);
-    }
-
-    function getFilename(id) {
-        return getTemplateEl(getFile(id), selectorClasses.file);
-    }
-
-    function getDropProcessing() {
-        return getTemplateEl(container, selectorClasses.dropProcessing);
-    }
-
-    function getThumbnail(id) {
-        return showThumbnails && getTemplateEl(getFile(id), selectorClasses.thumbnail);
-    }
-
-    function hide(el) {
-        el && qq(el).addClass(options.classes.hide);
-    }
-
-    function show(el) {
-        el && qq(el).removeClass(options.classes.hide);
-    }
-
-    function setProgressBarWidth(id, percent) {
-        var bar = getProgress(id),
-            /* jshint eqnull:true */
-            progressBarSelector = id == null ? selectorClasses.totalProgressBar : selectorClasses.progressBar;
-
-        if (bar && !qq(bar).hasClass(progressBarSelector)) {
-            bar = qq(bar).getByClass(progressBarSelector)[0];
-        }
-
-        bar && qq(bar).css({width: percent + "%"});
-    }
-
-    // During initialization of the templating module we should cache any
-    // placeholder images so we can quickly swap them into the file list on demand.
-    // Any placeholder images that cannot be loaded/found are simply ignored.
-    function cacheThumbnailPlaceholders() {
-        var notAvailableUrl =  options.placeholders.thumbnailNotAvailable,
-            waitingUrl = options.placeholders.waitingForThumbnail,
-            spec = {
-                maxSize: thumbnailMaxSize,
-                scale: serverScale
-            };
-
-        if (showThumbnails) {
-            if (notAvailableUrl) {
-                options.imageGenerator.generate(notAvailableUrl, new Image(), spec).then(
-                    function(updatedImg) {
-                        cachedThumbnailNotAvailableImg.success(updatedImg);
-                    },
-                    function() {
-                        cachedThumbnailNotAvailableImg.failure();
-                        log("Problem loading 'not available' placeholder image at " + notAvailableUrl, "error");
-                    }
-                );
-            }
-            else {
-                cachedThumbnailNotAvailableImg.failure();
-            }
-
-            if (waitingUrl) {
-                options.imageGenerator.generate(waitingUrl, new Image(), spec).then(
-                    function(updatedImg) {
-                        cachedWaitingForThumbnailImg.success(updatedImg);
-                    },
-                    function() {
-                        cachedWaitingForThumbnailImg.failure();
-                        log("Problem loading 'waiting for thumbnail' placeholder image at " + waitingUrl, "error");
-                    }
-                );
-            }
-            else {
-                cachedWaitingForThumbnailImg.failure();
-            }
-        }
-    }
-
-    // Displays a "waiting for thumbnail" type placeholder image
-    // iff we were able to load it during initialization of the templating module.
-    function displayWaitingImg(thumbnail) {
-        var waitingImgPlacement = new qq.Promise();
-
-        cachedWaitingForThumbnailImg.then(function(img) {
-            maybeScalePlaceholderViaCss(img, thumbnail);
-            /* jshint eqnull:true */
-            if (!thumbnail.src) {
-                thumbnail.src = img.src;
-                thumbnail.onload = function() {
-                    show(thumbnail);
-                    waitingImgPlacement.success();
+        // During initialization of the templating module we should cache any
+        // placeholder images so we can quickly swap them into the file list on demand.
+        // Any placeholder images that cannot be loaded/found are simply ignored.
+        cacheThumbnailPlaceholders = function() {
+            var notAvailableUrl =  options.placeholders.thumbnailNotAvailable,
+                waitingUrl = options.placeholders.waitingForThumbnail,
+                spec = {
+                    maxSize: thumbnailMaxSize,
+                    scale: serverScale
                 };
+
+            if (showThumbnails) {
+                if (notAvailableUrl) {
+                    options.imageGenerator.generate(notAvailableUrl, new Image(), spec).then(
+                        function(updatedImg) {
+                            cachedThumbnailNotAvailableImg.success(updatedImg);
+                        },
+                        function() {
+                            cachedThumbnailNotAvailableImg.failure();
+                            log("Problem loading 'not available' placeholder image at " + notAvailableUrl, "error");
+                        }
+                    );
+                }
+                else {
+                    cachedThumbnailNotAvailableImg.failure();
+                }
+
+                if (waitingUrl) {
+                    options.imageGenerator.generate(waitingUrl, new Image(), spec).then(
+                        function(updatedImg) {
+                            cachedWaitingForThumbnailImg.success(updatedImg);
+                        },
+                        function() {
+                            cachedWaitingForThumbnailImg.failure();
+                            log("Problem loading 'waiting for thumbnail' placeholder image at " + waitingUrl, "error");
+                        }
+                    );
+                }
+                else {
+                    cachedWaitingForThumbnailImg.failure();
+                }
             }
-            else {
+        },
+
+        // Displays a "waiting for thumbnail" type placeholder image
+        // iff we were able to load it during initialization of the templating module.
+        displayWaitingImg = function(thumbnail) {
+            var waitingImgPlacement = new qq.Promise();
+
+            cachedWaitingForThumbnailImg.then(function(img) {
+                maybeScalePlaceholderViaCss(img, thumbnail);
+                /* jshint eqnull:true */
+                if (!thumbnail.src) {
+                    thumbnail.src = img.src;
+                    thumbnail.onload = function() {
+                        thumbnail.onload = null;
+                        show(thumbnail);
+                        waitingImgPlacement.success();
+                    };
+                }
+                else {
+                    waitingImgPlacement.success();
+                }
+            }, function() {
+                // In some browsers (such as IE9 and older) an img w/out a src attribute
+                // are displayed as "broken" images, so we should just hide the img tag
+                // if we aren't going to display the "waiting" placeholder.
+                hide(thumbnail);
                 waitingImgPlacement.success();
-            }
-        }, function() {
-            // In some browsers (such as IE9 and older) an img w/out a src attribute
-            // are displayed as "broken" images, so we should just hide the img tag
-            // if we aren't going to display the "waiting" placeholder.
-            hide(thumbnail);
-            waitingImgPlacement.success();
-        });
+            });
 
-        return waitingImgPlacement;
-    }
+            return waitingImgPlacement;
+        },
 
-    // Displays a "thumbnail not available" type placeholder image
-    // iff we were able to load this placeholder during initialization
-    // of the templating module or after preview generation has failed.
-    function maybeSetDisplayNotAvailableImg(id, thumbnail) {
-        var previewing = previewGeneration[id] || new qq.Promise().failure(),
-            notAvailableImgPlacement = new qq.Promise();
+        generateNewPreview = function(id, blob, spec) {
+            var thumbnail = getThumbnail(id);
 
-        cachedThumbnailNotAvailableImg.then(function(img) {
-            previewing.then(
+            log("Generating new thumbnail for " + id);
+            blob.qqThumbnailId = id;
+
+            return options.imageGenerator.generate(blob, thumbnail, spec).then(
                 function() {
-                    notAvailableImgPlacement.success();
+                    generatedThumbnails++;
+                    show(thumbnail);
+                    previewGeneration[id].success();
                 },
                 function() {
-                    maybeScalePlaceholderViaCss(img, thumbnail);
-                    thumbnail.onload = function() {
-                        notAvailableImgPlacement.success();
-                    };
-                    thumbnail.src = img.src;
-                    show(thumbnail);
-                }
-            );
-        });
+                    previewGeneration[id].failure();
 
-        return notAvailableImgPlacement;
-    }
-
-    // Ensures a placeholder image does not exceed any max size specified
-    // via `style` attribute properties iff <canvas> was not used to scale
-    // the placeholder AND the target <img> doesn't already have these `style` attribute properties set.
-    function maybeScalePlaceholderViaCss(placeholder, thumbnail) {
-        var maxWidth = placeholder.style.maxWidth,
-            maxHeight = placeholder.style.maxHeight;
-
-        if (maxHeight && maxWidth && !thumbnail.style.maxWidth && !thumbnail.style.maxHeight) {
-            qq(thumbnail).css({
-                maxWidth: maxWidth,
-                maxHeight: maxHeight
-            });
-        }
-    }
-
-    function useCachedPreview(targetThumbnailId, cachedThumbnailId) {
-        var targetThumnail = getThumbnail(targetThumbnailId),
-            cachedThumbnail = getThumbnail(cachedThumbnailId);
-
-        log(qq.format("ID {} is the same file as ID {}.  Will use generated thumbnail from ID {} instead.", targetThumbnailId, cachedThumbnailId, cachedThumbnailId));
-
-        // Generation of the related thumbnail may still be in progress, so, wait until it is done.
-        previewGeneration[cachedThumbnailId].then(function() {
-            previewGeneration[targetThumbnailId].success();
-            log(qq.format("Now using previously generated thumbnail created for ID {} on ID {}.", cachedThumbnailId, targetThumbnailId));
-            targetThumnail.src = cachedThumbnail.src;
-            show(targetThumnail);
+                    // Display the "not available" placeholder img only if we are
+                    // not expecting a thumbnail at a later point, such as in a server response.
+                    if (!options.placeholders.waitUntilUpdate) {
+                        maybeSetDisplayNotAvailableImg(id, thumbnail);
+                    }
+                });
         },
-        function() {
-            previewGeneration[targetThumbnailId].failure();
-            if (!options.placeholders.waitUntilUpdate) {
-                maybeSetDisplayNotAvailableImg(targetThumbnailId, targetThumnail);
+
+        generateNextQueuedPreview = function() {
+            if (thumbGenerationQueue.length) {
+                thumbnailQueueMonitorRunning = true;
+
+                var queuedThumbRequest = thumbGenerationQueue.shift();
+
+                if (queuedThumbRequest.update) {
+                    processUpdateQueuedPreviewRequest(queuedThumbRequest);
+                }
+                else {
+                    processNewQueuedPreviewRequest(queuedThumbRequest);
+                }
             }
-        });
-    }
+            else {
+                thumbnailQueueMonitorRunning = false;
+            }
+        },
 
-    function generateNewPreview(id, blob, spec) {
-        var thumbnail = getThumbnail(id);
+        getCancel = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.cancel);
+        },
 
-        log("Generating new thumbnail for " + id);
-        blob.qqThumbnailId = id;
+        getContinue = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.continueButton);
+        },
 
-        return options.imageGenerator.generate(blob, thumbnail, spec).then(
-            function() {
-                show(thumbnail);
-                previewGeneration[id].success();
+        getDelete = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.deleteButton);
+        },
+
+        getDropProcessing = function() {
+            return getTemplateEl(container, selectorClasses.dropProcessing);
+        },
+
+        getEditIcon = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.editNameIcon);
+        },
+
+        getFile = function(id) {
+            return qq(fileList).getByClass(FILE_CLASS_PREFIX + id)[0];
+        },
+
+        getFilename = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.file);
+        },
+
+        getPause = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.pause);
+        },
+
+        getProgress = function(id) {
+            /* jshint eqnull:true */
+            // Total progress bar
+            if (id == null) {
+                return getTemplateEl(container, selectorClasses.totalProgressBarContainer) ||
+                    getTemplateEl(container, selectorClasses.totalProgressBar);
+            }
+
+            // Per-file progress bar
+            return getTemplateEl(getFile(id), selectorClasses.progressBarContainer) ||
+                getTemplateEl(getFile(id), selectorClasses.progressBar);
+        },
+
+        getRetry = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.retry);
+        },
+
+        getSize = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.size);
+        },
+
+        getSpinner = function(id) {
+            return getTemplateEl(getFile(id), selectorClasses.spinner);
+        },
+
+        getTemplateEl = function(context, cssClass) {
+            return context && qq(context).getByClass(cssClass)[0];
+        },
+
+        getThumbnail = function(id) {
+            return showThumbnails && getTemplateEl(getFile(id), selectorClasses.thumbnail);
+        },
+
+        hide = function(el) {
+            el && qq(el).addClass(options.classes.hide);
+        },
+
+        // Ensures a placeholder image does not exceed any max size specified
+        // via `style` attribute properties iff <canvas> was not used to scale
+        // the placeholder AND the target <img> doesn't already have these `style` attribute properties set.
+        maybeScalePlaceholderViaCss = function(placeholder, thumbnail) {
+            var maxWidth = placeholder.style.maxWidth,
+                maxHeight = placeholder.style.maxHeight;
+
+            if (maxHeight && maxWidth && !thumbnail.style.maxWidth && !thumbnail.style.maxHeight) {
+                qq(thumbnail).css({
+                    maxWidth: maxWidth,
+                    maxHeight: maxHeight
+                });
+            }
+        },
+
+        // Displays a "thumbnail not available" type placeholder image
+        // iff we were able to load this placeholder during initialization
+        // of the templating module or after preview generation has failed.
+        maybeSetDisplayNotAvailableImg = function(id, thumbnail) {
+            var previewing = previewGeneration[id] || new qq.Promise().failure(),
+                notAvailableImgPlacement = new qq.Promise();
+
+            cachedThumbnailNotAvailableImg.then(function(img) {
+                previewing.then(
+                    function() {
+                        notAvailableImgPlacement.success();
+                    },
+                    function() {
+                        maybeScalePlaceholderViaCss(img, thumbnail);
+
+                        thumbnail.onload = function() {
+                            thumbnail.onload = null;
+                            notAvailableImgPlacement.success();
+                        };
+
+                        thumbnail.src = img.src;
+                        show(thumbnail);
+                    }
+                );
+            });
+
+            return notAvailableImgPlacement;
+        },
+
+        /**
+         * Grabs the HTML from the script tag holding the template markup.  This function will also adjust
+         * some internally-tracked state variables based on the contents of the template.
+         * The template is filtered so that irrelevant elements (such as the drop zone if DnD is not supported)
+         * are omitted from the DOM.  Useful errors will be thrown if the template cannot be parsed.
+         *
+         * @returns {{template: *, fileTemplate: *}} HTML for the top-level file items templates
+         */
+        parseAndGetTemplate = function() {
+            var scriptEl,
+                scriptHtml,
+                fileListNode,
+                tempTemplateEl,
+                fileListHtml,
+                defaultButton,
+                dropArea,
+                thumbnail,
+                dropProcessing;
+
+            log("Parsing template");
+
+            /*jshint -W116*/
+            if (options.templateIdOrEl == null) {
+                throw new Error("You MUST specify either a template element or ID!");
+            }
+
+            // Grab the contents of the script tag holding the template.
+            if (qq.isString(options.templateIdOrEl)) {
+                scriptEl = document.getElementById(options.templateIdOrEl);
+
+                if (scriptEl === null) {
+                    throw new Error(qq.format("Cannot find template script at ID '{}'!", options.templateIdOrEl));
+                }
+
+                scriptHtml = scriptEl.innerHTML;
+            }
+            else {
+                if (options.templateIdOrEl.innerHTML === undefined) {
+                    throw new Error("You have specified an invalid value for the template option!  " +
+                        "It must be an ID or an Element.");
+                }
+
+                scriptHtml = options.templateIdOrEl.innerHTML;
+            }
+
+            scriptHtml = qq.trimStr(scriptHtml);
+            tempTemplateEl = document.createElement("div");
+            tempTemplateEl.appendChild(qq.toElement(scriptHtml));
+
+            // Don't include the default template button in the DOM
+            // if an alternate button container has been specified.
+            if (options.button) {
+                defaultButton = qq(tempTemplateEl).getByClass(selectorClasses.button)[0];
+                if (defaultButton) {
+                    qq(defaultButton).remove();
+                }
+            }
+
+            // Omit the drop processing element from the DOM if DnD is not supported by the UA,
+            // or the drag and drop module is not found.
+            // NOTE: We are consciously not removing the drop zone if the UA doesn't support DnD
+            // to support layouts where the drop zone is also a container for visible elements,
+            // such as the file list.
+            if (!qq.DragAndDrop || !qq.supportedFeatures.fileDrop) {
+                dropProcessing = qq(tempTemplateEl).getByClass(selectorClasses.dropProcessing)[0];
+                if (dropProcessing) {
+                    qq(dropProcessing).remove();
+                }
+
+            }
+
+            dropArea = qq(tempTemplateEl).getByClass(selectorClasses.drop)[0];
+
+            // If DnD is not available then remove
+            // it from the DOM as well.
+            if (dropArea && !qq.DragAndDrop) {
+                log("DnD module unavailable.", "info");
+                qq(dropArea).remove();
+            }
+
+            // If there is a drop area defined in the template, and the current UA doesn't support DnD,
+            // and the drop area is marked as "hide before enter", ensure it is hidden as the DnD module
+            // will not do this (since we will not be loading the DnD module)
+            if (dropArea && !qq.supportedFeatures.fileDrop &&
+                qq(dropArea).hasAttribute(HIDE_DROPZONE_ATTR)) {
+
+                qq(dropArea).css({
+                    display: "none"
+                });
+            }
+
+            // Ensure the `showThumbnails` flag is only set if the thumbnail element
+            // is present in the template AND the current UA is capable of generating client-side previews.
+            thumbnail = qq(tempTemplateEl).getByClass(selectorClasses.thumbnail)[0];
+            if (!showThumbnails) {
+                thumbnail && qq(thumbnail).remove();
+            }
+            else if (thumbnail) {
+                thumbnailMaxSize = parseInt(thumbnail.getAttribute(THUMBNAIL_MAX_SIZE_ATTR));
+                // Only enforce max size if the attr value is non-zero
+                thumbnailMaxSize = thumbnailMaxSize > 0 ? thumbnailMaxSize : null;
+
+                serverScale = qq(thumbnail).hasAttribute(THUMBNAIL_SERVER_SCALE_ATTR);
+            }
+            showThumbnails = showThumbnails && thumbnail;
+
+            isEditElementsExist = qq(tempTemplateEl).getByClass(selectorClasses.editFilenameInput).length > 0;
+            isRetryElementExist = qq(tempTemplateEl).getByClass(selectorClasses.retry).length > 0;
+
+            fileListNode = qq(tempTemplateEl).getByClass(selectorClasses.list)[0];
+            /*jshint -W116*/
+            if (fileListNode == null) {
+                throw new Error("Could not find the file list container in the template!");
+            }
+
+            fileListHtml = fileListNode.innerHTML;
+            fileListNode.innerHTML = "";
+
+            log("Template parsing complete");
+
+            return {
+                template: qq.trimStr(tempTemplateEl.innerHTML),
+                fileTemplate: qq.trimStr(fileListHtml)
+            };
+        },
+
+        prependFile = function(el, index) {
+            var parentEl = fileList,
+                beforeEl = parentEl.firstChild;
+
+            if (index > 0) {
+                beforeEl = qq(parentEl).children()[index].nextSibling;
+
+            }
+
+            parentEl.insertBefore(el, beforeEl);
+        },
+
+        processNewQueuedPreviewRequest = function(queuedThumbRequest) {
+            var id = queuedThumbRequest.id,
+                optFileOrBlob = queuedThumbRequest.optFileOrBlob,
+                relatedThumbnailId = optFileOrBlob && optFileOrBlob.qqThumbnailId,
+                thumbnail = getThumbnail(id),
+                spec = {
+                    maxSize: thumbnailMaxSize,
+                    scale: true,
+                    orient: true
+                };
+
+            if (qq.supportedFeatures.imagePreviews) {
+                if (thumbnail) {
+                    if (options.limits.maxThumbs && options.limits.maxThumbs <= generatedThumbnails) {
+                        maybeSetDisplayNotAvailableImg(id, thumbnail);
+                        generateNextQueuedPreview();
+                    }
+                    else {
+                        displayWaitingImg(thumbnail).done(function() {
+                            previewGeneration[id] = new qq.Promise();
+
+                            previewGeneration[id].done(function() {
+                                setTimeout(generateNextQueuedPreview, options.limits.timeBetweenThumbs);
+                            });
+
+                            /* jshint eqnull: true */
+                            // If we've already generated an <img> for this file, use the one that exists,
+                            // don't waste resources generating a new one.
+                            if (relatedThumbnailId != null) {
+                                useCachedPreview(id, relatedThumbnailId);
+                            }
+                            else {
+                                generateNewPreview(id, optFileOrBlob, spec);
+                            }
+                        });
+                    }
+                }
+            }
+            else if (thumbnail) {
+                displayWaitingImg(thumbnail);
+                generateNextQueuedPreview();
+            }
+        },
+
+        processUpdateQueuedPreviewRequest = function(queuedThumbRequest) {
+            var id = queuedThumbRequest.id,
+                thumbnailUrl = queuedThumbRequest.thumbnailUrl,
+                showWaitingImg = queuedThumbRequest.showWaitingImg,
+                thumbnail = getThumbnail(id),
+                spec = {
+                    maxSize: thumbnailMaxSize,
+                    scale: serverScale
+                };
+
+            if (thumbnail) {
+                if (thumbnailUrl) {
+                    if (options.limits.maxThumbs && options.limits.maxThumbs <= generatedThumbnails) {
+                        maybeSetDisplayNotAvailableImg(id, thumbnail);
+                        generateNextQueuedPreview();
+                    }
+                    else {
+                        if (showWaitingImg) {
+                            displayWaitingImg(thumbnail);
+                        }
+
+                        return options.imageGenerator.generate(thumbnailUrl, thumbnail, spec).then(
+                            function() {
+                                show(thumbnail);
+                                generatedThumbnails++;
+                                setTimeout(generateNextQueuedPreview, options.limits.timeBetweenThumbs);
+                            },
+
+                            function() {
+                                maybeSetDisplayNotAvailableImg(id, thumbnail);
+                                setTimeout(generateNextQueuedPreview, options.limits.timeBetweenThumbs);
+                            }
+                        );
+                    }
+                }
+                else {
+                    maybeSetDisplayNotAvailableImg(id, thumbnail);
+                    generateNextQueuedPreview();
+                }
+            }
+        },
+
+        setProgressBarWidth = function(id, percent) {
+            var bar = getProgress(id),
+                /* jshint eqnull:true */
+                progressBarSelector = id == null ? selectorClasses.totalProgressBar : selectorClasses.progressBar;
+
+            if (bar && !qq(bar).hasClass(progressBarSelector)) {
+                bar = qq(bar).getByClass(progressBarSelector)[0];
+            }
+
+            bar && qq(bar).css({width: percent + "%"});
+        },
+
+        show = function(el) {
+            el && qq(el).removeClass(options.classes.hide);
+        },
+
+        useCachedPreview = function(targetThumbnailId, cachedThumbnailId) {
+            var targetThumnail = getThumbnail(targetThumbnailId),
+                cachedThumbnail = getThumbnail(cachedThumbnailId);
+
+            log(qq.format("ID {} is the same file as ID {}.  Will use generated thumbnail from ID {} instead.", targetThumbnailId, cachedThumbnailId, cachedThumbnailId));
+
+            // Generation of the related thumbnail may still be in progress, so, wait until it is done.
+            previewGeneration[cachedThumbnailId].then(function() {
+                generatedThumbnails++;
+                previewGeneration[targetThumbnailId].success();
+                log(qq.format("Now using previously generated thumbnail created for ID {} on ID {}.", cachedThumbnailId, targetThumbnailId));
+                targetThumnail.src = cachedThumbnail.src;
+                show(targetThumnail);
             },
             function() {
-                previewGeneration[id].failure();
-
-                // Display the "not available" placeholder img only if we are
-                // not expecting a thumbnail at a later point, such as in a server response.
+                previewGeneration[targetThumbnailId].failure();
                 if (!options.placeholders.waitUntilUpdate) {
-                    maybeSetDisplayNotAvailableImg(id, thumbnail);
+                    maybeSetDisplayNotAvailableImg(targetThumbnailId, targetThumnail);
                 }
             });
-    }
-
+        };
 
     qq.extend(options, spec);
     log = options.log;
+
+    // No need to worry about conserving CPU or memory on older browsers,
+    // since there is no ability to preview, and thumbnail display is primitive and quick.
+    if (!qq.supportedFeatures.imagePreviews) {
+        options.limits.timeBetweenThumbs = 0;
+        options.limits.maxThumbs = 0;
+    }
 
     container = options.containerEl;
     showThumbnails = options.imageGenerator !== undefined;
@@ -6984,6 +7174,8 @@ qq.Templating = function(spec) {
     qq.extend(this, {
         render: function() {
             log("Rendering template in DOM.");
+
+            generatedThumbnails = 0;
 
             container.innerHTML = templateHtml.template;
             hide(getDropProcessing());
@@ -7013,7 +7205,8 @@ qq.Templating = function(spec) {
 
         addFile: function(id, name, prependInfo) {
             var fileEl = qq.toElement(templateHtml.fileTemplate),
-                fileNameEl = getTemplateEl(fileEl, selectorClasses.file);
+                fileNameEl = getTemplateEl(fileEl, selectorClasses.file),
+                thumb;
 
             qq(fileEl).addClass(FILE_CLASS_PREFIX + id);
             fileNameEl && qq(fileNameEl).setText(name);
@@ -7035,6 +7228,21 @@ qq.Templating = function(spec) {
 
             if (isCancelDisabled) {
                 this.hideCancel(id);
+            }
+
+            thumb = getThumbnail(id);
+            if (thumb && !thumb.src) {
+                cachedWaitingForThumbnailImg.then(function(waitingImg) {
+                    thumb.src = waitingImg.src;
+                    if (waitingImg.style.maxHeight && waitingImg.style.maxWidth) {
+                        qq(thumb).css({
+                            maxHeight: waitingImg.style.maxHeight,
+                            maxWidth: waitingImg.style.maxWidth
+                        });
+                    }
+
+                    show(thumb);
+                });
             }
         },
 
@@ -7147,7 +7355,7 @@ qq.Templating = function(spec) {
             var bar = getProgress(id),
                 percent;
 
-            if (bar) {
+            if (bar && total > 0) {
                 percent = Math.round(loaded / total * 100);
 
                 if (percent === 100) {
@@ -7177,6 +7385,7 @@ qq.Templating = function(spec) {
 
         resetProgress: function(id) {
             setProgressBarWidth(id, 0);
+            this.hideTotalProgress(id);
         },
 
         resetTotalProgress: function() {
@@ -7280,425 +7489,70 @@ qq.Templating = function(spec) {
             show(getSpinner(id));
         },
 
-        generatePreview: function(id, opt_fileOrBlob) {
-            var relatedThumbnailId = opt_fileOrBlob && opt_fileOrBlob.qqThumbnailId,
-                thumbnail = getThumbnail(id),
-                spec = {
-                    maxSize: thumbnailMaxSize,
-                    scale: true,
-                    orient: true
-                };
-
-            if (qq.supportedFeatures.imagePreviews) {
-                if (thumbnail) {
-                    displayWaitingImg(thumbnail).done(function() {
-                        previewGeneration[id] = new qq.Promise();
-
-                        /* jshint eqnull: true */
-                        // If we've already generated an <img> for this file, use the one that exists,
-                        // don't waste resources generating a new one.
-                        if (relatedThumbnailId != null) {
-                            useCachedPreview(id, relatedThumbnailId);
-                        }
-                        else {
-                            generateNewPreview(id, opt_fileOrBlob, spec);
-                        }
-                    });
-                }
-            }
-            else if (thumbnail) {
-                displayWaitingImg(thumbnail);
-            }
+        generatePreview: function(id, optFileOrBlob) {
+            thumbGenerationQueue.push({id: id, optFileOrBlob: optFileOrBlob});
+            !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
         },
 
         updateThumbnail: function(id, thumbnailUrl, showWaitingImg) {
-            var thumbnail = getThumbnail(id),
-                spec = {
-                    maxSize: thumbnailMaxSize,
-                    scale: serverScale
-                };
-
-            if (thumbnail) {
-                if (thumbnailUrl) {
-                    if (showWaitingImg) {
-                        displayWaitingImg(thumbnail);
-                    }
-
-                    return options.imageGenerator.generate(thumbnailUrl, thumbnail, spec).then(
-                        function() {
-                            show(thumbnail);
-                        },
-                        function() {
-                            maybeSetDisplayNotAvailableImg(id, thumbnail);
-                        }
-                    );
-                }
-                else {
-                    maybeSetDisplayNotAvailableImg(id, thumbnail);
-                }
-            }
+            thumbGenerationQueue.push({update: true, id: id, thumbnailUrl: thumbnailUrl, showWaitingImg: showWaitingImg});
+            !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
         }
     });
 };
 
 /*globals qq */
-qq.s3 = qq.s3 || {};
-
-qq.s3.util = qq.s3.util || (function() {
+qq.azure = qq.azure || {};
+qq.azure.util = qq.azure.util || (function() {
     "use strict";
 
     return {
-        AWS_PARAM_PREFIX: "x-amz-meta-",
+        AZURE_PARAM_PREFIX: "x-ms-meta-",
 
-        SESSION_TOKEN_PARAM_NAME: "x-amz-security-token",
+        getParamsAsHeaders: function(params) {
+            var headers = {};
 
-        REDUCED_REDUNDANCY_PARAM_NAME: "x-amz-storage-class",
-        REDUCED_REDUNDANCY_PARAM_VALUE: "REDUCED_REDUNDANCY",
-
-        SERVER_SIDE_ENCRYPTION_PARAM_NAME: "x-amz-server-side-encryption",
-        SERVER_SIDE_ENCRYPTION_PARAM_VALUE: "AES256",
-
-        /**
-         * This allows for the region to be specified in the bucket's endpoint URL, or not.
-         *
-         * Examples of some valid endpoints are:
-         *     http://foo.s3.amazonaws.com
-         *     https://foo.s3.amazonaws.com
-         *     http://foo.s3-ap-northeast-1.amazonaws.com
-         *     foo.s3.amazonaws.com
-         *     http://foo.bar.com
-         *     http://s3.amazonaws.com/foo.bar.com
-         * ...etc
-         *
-         * @param endpoint The bucket's URL.
-         * @returns {String || undefined} The bucket name, or undefined if the URL cannot be parsed.
-         */
-        getBucket: function(endpoint) {
-            var patterns = [
-                    //bucket in domain
-                    /^(?:https?:\/\/)?([a-z0-9.\-_]+)\.s3(?:-[a-z0-9\-]+)?\.amazonaws\.com/i,
-                    //bucket in path
-                    /^(?:https?:\/\/)?s3(?:-[a-z0-9\-]+)?\.amazonaws\.com\/([a-z0-9.\-_]+)/i,
-                    //custom domain
-                    /^(?:https?:\/\/)?([a-z0-9.\-_]+)/i
-                ],
-                bucket;
-
-            qq.each(patterns, function(idx, pattern) {
-                var match = pattern.exec(endpoint);
-
-                if (match) {
-                    bucket = match[1];
-                    return false;
-                }
-            });
-
-            return bucket;
-        },
-
-        /**
-         * Create a policy document to be signed and sent along with the S3 upload request.
-         *
-         * @param spec Object with properties use to construct the policy document.
-         * @returns {Object} Policy doc.
-         */
-        getPolicy: function(spec) {
-            var policy = {},
-                conditions = [],
-                bucket = qq.s3.util.getBucket(spec.endpoint),
-                key = spec.key,
-                acl = spec.acl,
-                type = spec.type,
-                expirationDate = new Date(),
-                expectedStatus = spec.expectedStatus,
-                sessionToken = spec.sessionToken,
-                params = spec.params,
-                successRedirectUrl = qq.s3.util.getSuccessRedirectAbsoluteUrl(spec.successRedirectUrl),
-                minFileSize = spec.minFileSize,
-                maxFileSize = spec.maxFileSize,
-                reducedRedundancy = spec.reducedRedundancy,
-                serverSideEncryption = spec.serverSideEncryption;
-
-            policy.expiration = qq.s3.util.getPolicyExpirationDate(expirationDate);
-
-            conditions.push({acl: acl});
-            conditions.push({bucket: bucket});
-
-            if (type) {
-                conditions.push({"Content-Type": type});
-            }
-
-            if (expectedStatus) {
-                conditions.push({success_action_status: expectedStatus.toString()});
-            }
-
-            if (successRedirectUrl) {
-                conditions.push({success_action_redirect: successRedirectUrl});
-            }
-
-            if (reducedRedundancy) {
-                conditions.push({});
-                conditions[conditions.length - 1][qq.s3.util.REDUCED_REDUNDANCY_PARAM_NAME] = qq.s3.util.REDUCED_REDUNDANCY_PARAM_VALUE;
-            }
-
-            if (sessionToken) {
-                conditions.push({});
-                conditions[conditions.length - 1][qq.s3.util.SESSION_TOKEN_PARAM_NAME] = sessionToken;
-            }
-
-            if (serverSideEncryption) {
-                conditions.push({});
-                conditions[conditions.length - 1][qq.s3.util.SERVER_SIDE_ENCRYPTION_PARAM_NAME] = qq.s3.util.SERVER_SIDE_ENCRYPTION_PARAM_VALUE;
-            }
-
-            conditions.push({key: key});
-
-            // user metadata
             qq.each(params, function(name, val) {
-                var awsParamName = qq.s3.util.AWS_PARAM_PREFIX + name,
-                    param = {};
+                var headerName = qq.azure.util.AZURE_PARAM_PREFIX + name;
 
-                param[awsParamName] = encodeURIComponent(val);
-                conditions.push(param);
-            });
-
-            policy.conditions = conditions;
-
-            qq.s3.util.enforceSizeLimits(policy, minFileSize, maxFileSize);
-
-            return policy;
-        },
-
-        /**
-         * Update a previously constructed policy document with updated credentials.  Currently, this only requires we
-         * update the session token.  This is only relevant if requests are being signed client-side.
-         *
-         * @param policy Live policy document
-         * @param newSessionToken Updated session token.
-         */
-        refreshPolicyCredentials: function(policy, newSessionToken) {
-            var sessionTokenFound = false;
-
-            qq.each(policy.conditions, function(oldCondIdx, oldCondObj) {
-                qq.each(oldCondObj, function(oldCondName, oldCondVal) {
-                    if (oldCondName === qq.s3.util.SESSION_TOKEN_PARAM_NAME) {
-                        oldCondObj[oldCondName] = newSessionToken;
-                        sessionTokenFound = true;
-                    }
-                });
-            });
-
-            if (!sessionTokenFound) {
-                policy.conditions.push({});
-                policy.conditions[policy.conditions.length - 1][qq.s3.util.SESSION_TOKEN_PARAM_NAME] = newSessionToken;
-            }
-        },
-
-        /**
-         * Generates all parameters to be passed along with the S3 upload request.  This includes invoking a callback
-         * that is expected to asynchronously retrieve a signature for the policy document.  Note that the server
-         * signing the request should reject a "tainted" policy document that includes unexpected values, since it is
-         * still possible for a malicious user to tamper with these values during policy document generation, b
-         * before it is sent to the server for signing.
-         *
-         * @param spec Object with properties: `params`, `type`, `key`, `accessKey`, `acl`, `expectedStatus`, `successRedirectUrl`,
-         * `reducedRedundancy`, serverSideEncryption, and `log()`, along with any options associated with `qq.s3.util.getPolicy()`.
-         * @returns {qq.Promise} Promise that will be fulfilled once all parameters have been determined.
-         */
-        generateAwsParams: function(spec, signPolicyCallback) {
-            var awsParams = {},
-                customParams = spec.params,
-                promise = new qq.Promise(),
-                policyJson = qq.s3.util.getPolicy(spec),
-                sessionToken = spec.sessionToken,
-                type = spec.type,
-                key = spec.key,
-                accessKey = spec.accessKey,
-                acl = spec.acl,
-                expectedStatus = spec.expectedStatus,
-                successRedirectUrl = qq.s3.util.getSuccessRedirectAbsoluteUrl(spec.successRedirectUrl),
-                reducedRedundancy = spec.reducedRedundancy,
-                serverSideEncryption = spec.serverSideEncryption,
-                log = spec.log;
-
-            awsParams.key = key;
-            awsParams.AWSAccessKeyId = accessKey;
-
-            if (type) {
-                awsParams["Content-Type"] = type;
-            }
-
-            if (expectedStatus) {
-                awsParams.success_action_status = expectedStatus;
-            }
-
-            if (successRedirectUrl) {
-                awsParams.success_action_redirect = successRedirectUrl;
-            }
-
-            if (reducedRedundancy) {
-                awsParams[qq.s3.util.REDUCED_REDUNDANCY_PARAM_NAME] = qq.s3.util.REDUCED_REDUNDANCY_PARAM_VALUE;
-            }
-
-            if (serverSideEncryption) {
-                awsParams[qq.s3.util.SERVER_SIDE_ENCRYPTION_PARAM_NAME] = qq.s3.util.SERVER_SIDE_ENCRYPTION_PARAM_VALUE;
-            }
-
-            if (sessionToken) {
-                awsParams[qq.s3.util.SESSION_TOKEN_PARAM_NAME] = sessionToken;
-            }
-
-            awsParams.acl = acl;
-
-            // Custom (user-supplied) params must be prefixed with the value of `qq.s3.util.AWS_PARAM_PREFIX`.
-            // Custom param values will be URI encoded as well.
-            qq.each(customParams, function(name, val) {
-                var awsParamName = qq.s3.util.AWS_PARAM_PREFIX + name;
-                awsParams[awsParamName] = encodeURIComponent(val);
-            });
-
-            // Invoke a promissory callback that should provide us with a base64-encoded policy doc and an
-            // HMAC signature for the policy doc.
-            signPolicyCallback(policyJson).then(
-                function(policyAndSignature, updatedAccessKey, updatedSessionToken) {
-                    awsParams.policy = policyAndSignature.policy;
-                    awsParams.signature = policyAndSignature.signature;
-
-                    if (updatedAccessKey) {
-                        awsParams.AWSAccessKeyId = updatedAccessKey;
-                    }
-                    if (updatedSessionToken) {
-                        awsParams[qq.s3.util.SESSION_TOKEN_PARAM_NAME] = updatedSessionToken;
-                    }
-
-                    promise.success(awsParams);
-                },
-                function(errorMessage) {
-                    errorMessage = errorMessage || "Can't continue further with request to S3 as we did not receive " +
-                                                   "a valid signature and policy from the server.";
-
-                    log("Policy signing failed.  " + errorMessage, "error");
-                    promise.failure(errorMessage);
+                if (qq.isFunction(val)) {
+                    headers[headerName] = encodeURIComponent(String(val()));
                 }
-            );
-
-            return promise;
-        },
-
-        /**
-         * Add a condition to an existing S3 upload request policy document used to ensure AWS enforces any size
-         * restrictions placed on files server-side.  This is important to do, in case users mess with the client-side
-         * checks already in place.
-         *
-         * @param policy Policy document as an `Object`, with a `conditions` property already attached
-         * @param minSize Minimum acceptable size, in bytes
-         * @param maxSize Maximum acceptable size, in bytes (0 = unlimited)
-         */
-        enforceSizeLimits: function(policy, minSize, maxSize) {
-            var adjustedMinSize = minSize < 0 ? 0 : minSize,
-                // Adjust a maxSize of 0 to the largest possible integer, since we must specify a high and a low in the request
-                adjustedMaxSize = maxSize <= 0 ? 9007199254740992 : maxSize;
-
-            if (minSize > 0 || maxSize > 0) {
-                policy.conditions.push(["content-length-range", adjustedMinSize.toString(), adjustedMaxSize.toString()]);
-            }
-        },
-
-        getPolicyExpirationDate: function(date) {
-            /*jshint -W014 */
-            // Is this going to be a problem if we encounter this moments before 2 AM just before daylight savings time ends?
-            date.setMinutes(date.getMinutes() + 5);
-
-            if (Date.prototype.toISOString) {
-                return date.toISOString();
-            }
-            else {
-                var pad = function(number) {
-                    var r = String(number);
-
-                    if ( r.length === 1 ) {
-                        r = "0" + r;
-                    }
-
-                    return r;
-                };
-
-                return date.getUTCFullYear()
-                        + "-" + pad( date.getUTCMonth() + 1 )
-                        + "-" + pad( date.getUTCDate() )
-                        + "T" + pad( date.getUTCHours() )
-                        + ":" + pad( date.getUTCMinutes() )
-                        + ":" + pad( date.getUTCSeconds() )
-                        + "." + String( (date.getUTCMilliseconds()/1000).toFixed(3) ).slice( 2, 5 )
-                        + "Z";
-            }
-        },
-
-        /**
-         * Looks at a response from S3 contained in an iframe and parses the query string in an attempt to identify
-         * the associated resource.
-         *
-         * @param iframe Iframe containing response
-         * @returns {{bucket: *, key: *, etag: *}}
-         */
-        parseIframeResponse: function(iframe) {
-            var doc = iframe.contentDocument || iframe.contentWindow.document,
-                queryString = doc.location.search,
-                match = /bucket=(.+)&key=(.+)&etag=(.+)/.exec(queryString);
-
-            if (match) {
-                return {
-                    bucket: match[1],
-                    key: match[2],
-                    etag: match[3].replace(/%22/g, "")
-                };
-            }
-        },
-
-        /**
-         * @param successRedirectUrl Relative or absolute location of success redirect page
-         * @returns {*|string} undefined if the parameter is undefined, otherwise the absolute location of the success redirect page
-         */
-        getSuccessRedirectAbsoluteUrl: function(successRedirectUrl) {
-            if (successRedirectUrl) {
-                var targetAnchorContainer = document.createElement("div"),
-                    targetAnchor;
-
-                if (qq.ie7()) {
-                    // Note that we must make use of `innerHTML` for IE7 only instead of simply creating an anchor via
-                    // `document.createElement('a')` and setting the `href` attribute.  The latter approach does not allow us to
-                    // obtain an absolute URL in IE7 if the `endpoint` is a relative URL.
-                    targetAnchorContainer.innerHTML = "<a href='" + successRedirectUrl + "'></a>";
-                    targetAnchor = targetAnchorContainer.firstChild;
-                    return targetAnchor.href;
+                else if (qq.isObject(val)) {
+                    qq.extend(headers, qq.azure.util.getParamsAsHeaders(val));
                 }
                 else {
-                    // IE8 and IE9 do not seem to derive an absolute URL from a relative URL using the `innerHTML`
-                    // approach above, so we'll just create an anchor this way and set it's `href` attribute.
-                    // Due to yet another quirk in IE8 and IE9, we have to set the `href` equal to itself
-                    // in order to ensure relative URLs will be properly parsed.
-                    targetAnchor = document.createElement("a");
-                    targetAnchor.href = successRedirectUrl;
-                    targetAnchor.href = targetAnchor.href;
-                    return targetAnchor.href;
+                    headers[headerName] = encodeURIComponent(String(val));
                 }
-            }
+            });
+
+            return headers;
         },
 
-        // AWS employs a strict interpretation of [RFC 3986](http://tools.ietf.org/html/rfc3986#page-12).
-        // So, we must ensure all reserved characters listed in the spec are percent-encoded,
-        // and spaces are replaced with "+".
-        encodeQueryStringParam: function(param) {
-            var percentEncoded = encodeURIComponent(param);
+        parseAzureError: function(responseText, log) {
+            var domParser = new DOMParser(),
+                responseDoc = domParser.parseFromString(responseText, "application/xml"),
+                errorTag = responseDoc.getElementsByTagName("Error")[0],
+                errorDetails = {},
+                codeTag, messageTag;
 
-            // %-encode characters not handled by `encodeURIComponent` (to follow RFC 3986)
-            percentEncoded = percentEncoded.replace(/[!'()]/g, escape);
+            log("Received error response: " + responseText, "error");
 
-            // %-encode characters not handled by `escape` (to follow RFC 3986)
-            percentEncoded = percentEncoded.replace(/\*/g, "%2A");
+            if (errorTag) {
+                messageTag = errorTag.getElementsByTagName("Message")[0];
+                if (messageTag) {
+                    errorDetails.message = messageTag.textContent;
+                }
 
-            // replace percent-encoded spaces with a "+"
-            return percentEncoded.replace(/%20/g, "+");
+                codeTag = errorTag.getElementsByTagName("Code")[0];
+                if (codeTag) {
+                    errorDetails.code = codeTag.textContent;
+                }
+
+                log("Parsed Azure error: " + JSON.stringify(errorDetails), "error");
+
+                return errorDetails;
+            }
         }
     };
 }());
@@ -7707,17 +7561,17 @@ qq.s3.util = qq.s3.util || (function() {
 /**
  * Defines the public API for non-traditional FineUploaderBasic mode.
  */
-(function(){
+(function() {
     "use strict";
 
     qq.nonTraditionalBasePublicApi = {
         setUploadSuccessParams: function(params, id) {
             this._uploadSuccessParamsStore.set(params, id);
+        },
+        setUploadSuccessEndpoint: function(endpoint, id) {
+            this._uploadSuccessEndpointStore.set(endpoint, id);
         }
     };
-
-
-
 
     qq.nonTraditionalBasePrivateApi = {
         /**
@@ -7737,11 +7591,12 @@ qq.s3.util = qq.s3.util || (function() {
             var success = result.success ? true : false,
                 self = this,
                 onCompleteArgs = arguments,
-                successEndpoint = this._options.uploadSuccess.endpoint,
+                successEndpoint = this._uploadSuccessEndpointStore.get(id),
                 successCustomHeaders = this._options.uploadSuccess.customHeaders,
                 cors = this._options.cors,
                 promise = new qq.Promise(),
                 uploadSuccessParams = this._uploadSuccessParamsStore.get(id),
+                fileParams = this._paramsStore.get(id),
 
                 // If we are waiting for confirmation from the local server, and have received it,
                 // include properties from the local server response in the `response` parameter
@@ -7789,9 +7644,11 @@ qq.s3.util = qq.s3.util || (function() {
                     log: qq.bind(this.log, this)
                 });
 
-
                 // combine custom params and default params
                 qq.extend(uploadSuccessParams, self._getEndpointSpecificParams(id, result, xhr), true);
+
+                // include any params associated with the file
+                fileParams && qq.extend(uploadSuccessParams, fileParams, true);
 
                 submitSuccessRequest = qq.bind(function() {
                     successAjaxRequester.sendSuccessRequest(id, uploadSuccessParams)
@@ -7818,47 +7675,28 @@ qq.s3.util = qq.s3.util || (function() {
 
 /*globals qq */
 /**
- * This defines FineUploaderBasic mode w/ support for uploading to S3, which provides all the basic
- * functionality of Fine Uploader Basic as well as code to handle uploads directly to S3.
- * Some inherited options and API methods have a special meaning in the context of the S3 uploader.
+ * This defines FineUploaderBasic mode w/ support for uploading to Azure, which provides all the basic
+ * functionality of Fine Uploader Basic as well as code to handle uploads directly to Azure.
+ * Some inherited options and API methods have a special meaning in the context of the Azure uploader.
  */
-(function(){
+(function() {
     "use strict";
 
-    qq.s3.FineUploaderBasic = function(o) {
+    qq.azure.FineUploaderBasic = function(o) {
+        if (!qq.supportedFeatures.ajaxUploading) {
+            throw new qq.Error("Uploading directly to Azure is not possible in this browser.");
+        }
+
         var options = {
-            request: {
-                // public key (required for server-side signing, ignored if `credentials` have been provided)
-                accessKey: null
-            },
-
-            objectProperties: {
-                acl: "private",
-
-                // 'uuid', 'filename', or a function which may be promissory
-                key: "uuid",
-
-                reducedRedundancy: false,
-
-                serverSideEncryption: false
-            },
-
-            credentials: {
-                // Public key (required).
-                accessKey: null,
-                // Private key (required).
-                secretKey: null,
-                // Expiration date for the credentials (required).  May be an ISO string or a `Date`.
-                expiration: null,
-                // Temporary credentials session token.
-                // Only required for temporary credentials obtained via AssumeRoleWithWebIdentity.
-                sessionToken: null
-            },
-
-            // optional/ignored if `credentials` is provided
             signature: {
                 endpoint: null,
+
                 customHeaders: {}
+            },
+
+            // 'uuid', 'filename', or a function which may be promissory
+            blobProperties: {
+                name: "uuid"
             },
 
             uploadSuccess: {
@@ -7870,640 +7708,498 @@ qq.s3.util = qq.s3.util || (function() {
                 customHeaders: {}
             },
 
-            // required if non-File-API browsers, such as IE9 and older, are used
-            iframeSupport: {
-                localBlankPagePath: null
-            },
-
             chunking: {
-                // minimum part size is 5 MiB when uploading to S3
-                partSize: 5242880
-            },
-
-            cors: {
-                allowXdr: true
-            },
-
-            callbacks: {
-                onCredentialsExpired: function() {}
+                // If this is increased, Azure may respond with a 413
+                partSize: 4000000,
+                // Don't chunk files less than this size
+                minFileSize: 4000001
             }
         };
 
         // Replace any default options with user defined ones
         qq.extend(options, o, true);
 
-        if (!this.setCredentials(options.credentials, true)) {
-            this._currentCredentials.accessKey = options.request.accessKey;
-        }
-
-        this._aclStore = this._createStore(options.objectProperties.acl);
-
         // Call base module
         qq.FineUploaderBasic.call(this, options);
 
         this._uploadSuccessParamsStore = this._createStore(this._options.uploadSuccess.params);
+        this._uploadSuccessEndpointStore = this._createStore(this._options.uploadSuccess.endpoint);
 
-        // This will hold callbacks for failed uploadSuccess requests that will be invoked on retry.
+         // This will hold callbacks for failed uploadSuccess requests that will be invoked on retry.
         // Indexed by file ID.
         this._failedSuccessRequestCallbacks = {};
 
-        // Holds S3 keys for file representations constructed from a session request.
-        this._cannedKeys = {};
+        // Holds blob names for file representations constructed from a session request.
+        this._cannedBlobNames = {};
     };
 
     // Inherit basic public & private API methods.
-    qq.extend(qq.s3.FineUploaderBasic.prototype, qq.basePublicApi);
-    qq.extend(qq.s3.FineUploaderBasic.prototype, qq.basePrivateApi);
-    qq.extend(qq.s3.FineUploaderBasic.prototype, qq.nonTraditionalBasePublicApi);
-    qq.extend(qq.s3.FineUploaderBasic.prototype, qq.nonTraditionalBasePrivateApi);
+    qq.extend(qq.azure.FineUploaderBasic.prototype, qq.basePublicApi);
+    qq.extend(qq.azure.FineUploaderBasic.prototype, qq.basePrivateApi);
+    qq.extend(qq.azure.FineUploaderBasic.prototype, qq.nonTraditionalBasePublicApi);
+    qq.extend(qq.azure.FineUploaderBasic.prototype, qq.nonTraditionalBasePrivateApi);
 
     // Define public & private API methods for this module.
-    qq.extend(qq.s3.FineUploaderBasic.prototype, {
-        /**
-         * @param id File ID
-         * @returns {*} Key name associated w/ the file, if one exists
-         */
-        getKey: function(id) {
+    qq.extend(qq.azure.FineUploaderBasic.prototype, {
+        getBlobName: function(id) {
             /* jshint eqnull:true */
-            if (this._cannedKeys[id] == null) {
+            if (this._cannedBlobNames[id] == null) {
                 return this._handler.getThirdPartyFileId(id);
             }
-
-            return this._cannedKeys[id];
+            return this._cannedBlobNames[id];
         },
 
-        /**
-         * Override the parent's reset function to cleanup various S3-related items.
-         */
-        reset: function() {
-            qq.FineUploaderBasic.prototype.reset.call(this);
-            this._failedSuccessRequestCallbacks = [];
-        },
-
-        setUploadSuccessParams: function(params, id) {
-            this._uploadSuccessParamsStore.set(params, id);
-        },
-
-        setCredentials: function(credentials, ignoreEmpty) {
-            if (credentials && credentials.secretKey) {
-                if (!credentials.accessKey) {
-                    throw new qq.Error("Invalid credentials: no accessKey");
-                }
-                else if (!credentials.expiration) {
-                    throw new qq.Error("Invalid credentials: no expiration");
-                }
-                else {
-                    this._currentCredentials = qq.extend({}, credentials);
-
-                    // Ensure expiration is a `Date`.  If initially a string, assuming it is in ISO format.
-                    if (qq.isString(credentials.expiration)) {
-                        this._currentCredentials.expiration = new Date(credentials.expiration);
-                    }
-                }
-
-                return true;
-            }
-            else if (!ignoreEmpty) {
-                throw new qq.Error("Invalid credentials parameter!");
-            }
-            else {
-                this._currentCredentials = {};
-            }
-        },
-
-        setAcl: function(acl, id) {
-            this._aclStore.set(acl, id);
-        },
-
-        /**
-         * Ensures the parent's upload handler creator passes any additional S3-specific options to the handler as well
-         * as information required to instantiate the specific handler based on the current browser's capabilities.
-         *
-         * @returns {qq.UploadHandlerController}
-         * @private
-         */
-        _createUploadHandler: function() {
-            var self = this,
-                additionalOptions = {
-                    objectProperties: this._options.objectProperties,
-                    aclStore: this._aclStore,
-                    signature: this._options.signature,
-                    iframeSupport: this._options.iframeSupport,
-                    getKeyName: qq.bind(this._determineKeyName, this),
-                    // pass size limit validation values to include in the request so AWS enforces this server-side
-                    validation: {
-                        minSizeLimit: this._options.validation.minSizeLimit,
-                        maxSizeLimit: this._options.validation.sizeLimit
-                    }
-                };
-
-            // We assume HTTP if it is missing from the start of the endpoint string.
-            qq.override(this._endpointStore, function(super_) {
-                return {
-                    get: function(id) {
-                        var endpoint = super_.get(id);
-
-                        if (endpoint.indexOf("http") < 0) {
-                            return "http://" + endpoint;
-                        }
-
-                        return endpoint;
-                    }
-                };
-            });
-
-            // Param names should be lower case to avoid signature mismatches
-            qq.override(this._paramsStore, function(super_) {
-                return {
-                    get: function(id) {
-                        var oldParams = super_.get(id),
-                            modifiedParams = {};
-
-                        qq.each(oldParams, function(name, val) {
-                            modifiedParams[name.toLowerCase()] = qq.isFunction(val) ? val() : val;
-                        });
-
-                        return modifiedParams;
-                    }
-                };
-            });
-
-            additionalOptions.signature.credentialsProvider = {
-                get: function() {
-                    return self._currentCredentials;
-                },
-
-                onExpired: function() {
-                    var updateCredentials = new qq.Promise(),
-                        callbackRetVal = self._options.callbacks.onCredentialsExpired();
-
-                    if (qq.isGenericPromise(callbackRetVal)) {
-                        callbackRetVal.then(function(credentials) {
-                            try {
-                                self.setCredentials(credentials);
-                                updateCredentials.success();
-                            }
-                            catch (error) {
-                                self.log("Invalid credentials returned from onCredentialsExpired callback! (" + error.message + ")", "error");
-                                updateCredentials.failure("onCredentialsExpired did not return valid credentials.");
-                            }
-                        }, function(errorMsg) {
-                            self.log("onCredentialsExpired callback indicated failure! (" + errorMsg + ")", "error");
-                            updateCredentials.failure("onCredentialsExpired callback failed.");
-                        });
-                    }
-                    else {
-                        self.log("onCredentialsExpired callback did not return a promise!", "error");
-                        updateCredentials.failure("Unexpected return value for onCredentialsExpired.");
-                    }
-
-                    return updateCredentials;
-                }
-            };
-
-            return qq.FineUploaderBasic.prototype._createUploadHandler.call(this, additionalOptions, "s3");
-        },
-
-        /**
-         * Determine the file's key name and passes it to the caller via a promissory callback.  This also may
-         * delegate to an integrator-defined function that determines the file's key name on demand,
-         * which also may be promissory.
-         *
-         * @param id ID of the file
-         * @param filename Name of the file
-         * @returns {qq.Promise} A promise that will be fulfilled when the key name has been determined (and will be passed to the caller via the success callback).
-         * @private
-         */
-        _determineKeyName: function(id, filename) {
-            /*jshint -W015*/
-            var promise = new qq.Promise(),
-                keynameLogic = this._options.objectProperties.key,
-                extension = qq.getExtension(filename),
-                onGetKeynameFailure = promise.failure,
-                onGetKeynameSuccess = function(keyname, extension) {
-                    var keynameToUse = keyname;
-
-                    if (extension !== undefined) {
-                        keynameToUse += "." + extension;
-                    }
-
-                    promise.success(keynameToUse);
-                };
-
-            switch(keynameLogic) {
-                case "uuid":
-                    onGetKeynameSuccess(this.getUuid(id), extension);
-                    break;
-                case "filename":
-                    onGetKeynameSuccess(filename);
-                    break;
-                default:
-                    if (qq.isFunction(keynameLogic)) {
-                        this._handleKeynameFunction(keynameLogic, id, onGetKeynameSuccess, onGetKeynameFailure);
-                    }
-                    else {
-                        this.log(keynameLogic + " is not a valid value for the s3.keyname option!", "error");
-                        onGetKeynameFailure();
-                    }
-            }
-
-            return promise;
-        },
-
-        /**
-         * Called by the internal onUpload handler if the integrator has supplied a function to determine
-         * the file's key name.  The integrator's function may be promissory.  We also need to fulfill
-         * the promise contract associated with the caller as well.
-         *
-         * @param keynameFunc Integrator-supplied function that must be executed to determine the key name.  May be promissory.
-         * @param id ID of the associated file
-         * @param successCallback Invoke this if key name retrieval is successful, passing in the key name.
-         * @param failureCallback Invoke this if key name retrieval was unsuccessful.
-         * @private
-         */
-        _handleKeynameFunction: function(keynameFunc, id, successCallback, failureCallback) {
-            var self = this,
-                onSuccess = function(keyname) {
-                    successCallback(keyname);
-                },
-                onFailure = function(reason) {
-                    self.log(qq.format("Failed to retrieve key name for {}.  Reason: {}", id, reason || "null"), "error");
-                    failureCallback(reason);
-                },
-                keyname = keynameFunc.call(this, id);
-
-
-            if (qq.isGenericPromise(keyname)) {
-                keyname.then(onSuccess, onFailure);
-            }
-            /*jshint -W116*/
-            else if (keyname == null) {
-                onFailure();
-            }
-            else {
-                onSuccess(keyname);
-            }
-        },
-
-        _getEndpointSpecificParams: function(id, response, maybeXhr) {
-            var params = {
-                key: this.getKey(id),
+        _getEndpointSpecificParams: function(id) {
+            return {
+                blob: this.getBlobName(id),
                 uuid: this.getUuid(id),
                 name: this.getName(id),
-                bucket: qq.s3.util.getBucket(this._endpointStore.get(id))
+                container: this._endpointStore.get(id)
             };
-
-            if (maybeXhr && maybeXhr.getResponseHeader("ETag")) {
-                params.etag = maybeXhr.getResponseHeader("ETag");
-            }
-            else if (response.etag) {
-                params.etag = response.etag;
-            }
-
-            return params;
         },
 
-        // Hooks into the base internal `_onSubmitDelete` to add key and bucket params to the delete file request.
-        _onSubmitDelete: function(id, onSuccessCallback) {
-            var additionalMandatedParams = {
-                key: this.getKey(id),
-                bucket: qq.s3.util.getBucket(this._endpointStore.get(id))
-            };
+        _createUploadHandler: function() {
+            return qq.FineUploaderBasic.prototype._createUploadHandler.call(this,
+                {
+                    signature: this._options.signature,
+                    onGetBlobName: qq.bind(this._determineBlobName, this),
+                    deleteBlob: qq.bind(this._deleteBlob, this, true)
+                },
+                "azure");
+        },
 
-            return qq.FineUploaderBasic.prototype._onSubmitDelete.call(this, id, onSuccessCallback, additionalMandatedParams);
+        _determineBlobName: function(id) {
+            var self = this,
+                blobNameOptionValue = this._options.blobProperties.name,
+                uuid = this.getUuid(id),
+                filename = this.getName(id),
+                fileExtension = qq.getExtension(filename);
+
+            if (qq.isString(blobNameOptionValue)) {
+                switch (blobNameOptionValue) {
+                    case "uuid":
+                        return new qq.Promise().success(uuid + "." + fileExtension);
+                    case "filename":
+                        return new qq.Promise().success(filename);
+                    default:
+                        return new qq.Promise.failure("Invalid blobName option value - " + blobNameOptionValue);
+                }
+            }
+            else {
+                return blobNameOptionValue.call(this, id);
+            }
         },
 
         _addCannedFile: function(sessionData) {
             var id;
 
             /* jshint eqnull:true */
-            if (sessionData.s3Key == null) {
-                throw new qq.Error("Did not find s3Key property in server session response.  This is required!");
+            if (sessionData.blobName == null) {
+                throw new qq.Error("Did not find blob name property in server session response.  This is required!");
             }
             else {
                 id = qq.FineUploaderBasic.prototype._addCannedFile.apply(this, arguments);
-                this._cannedKeys[id] = sessionData.s3Key;
+                this._cannedBlobNames[id] = sessionData.blobName;
             }
 
             return id;
-        }
-    });
-}());
-
-/* globals qq, CryptoJS */
-/**
- * Handles signature determination for HTML Form Upload requests and Multipart Uploader requests (via the S3 REST API).
- *
- * If the S3 requests are to be signed server side, this module will send a POST request to the server in an attempt
- * to solicit signatures for various S3-related requests.  This module also parses the response and attempts
- * to determine if the effort was successful.
- *
- * If the S3 requests are to be signed client-side, without the help of a server, this module will utilize CryptoJS to
- * sign the requests directly in the browser and send them off to S3.
- *
- * @param o Options associated with all such requests
- * @returns {{getSignature: Function}} API method used to initiate the signature request.
- * @constructor
- */
-qq.s3.RequestSigner = function(o) {
-    "use strict";
-
-    var requester,
-        thisSignatureRequester = this,
-        pendingSignatures = {},
-        options = {
-            expectingPolicy: false,
-            method: "POST",
-            signatureSpec: {
-                credentialsProvider: {},
-                endpoint: null,
-                customHeaders: {}
-            },
-            maxConnections: 3,
-            paramsStore: {},
-            cors: {
-                expected: false,
-                sendCredentials: false
-            },
-            log: function(str, level) {}
-        },
-        credentialsProvider;
-
-    qq.extend(options, o, true);
-    credentialsProvider = options.signatureSpec.credentialsProvider;
-
-    function handleSignatureReceived(id, xhrOrXdr, isError) {
-        var responseJson = xhrOrXdr.responseText,
-            pendingSignatureData = pendingSignatures[id],
-            promise = pendingSignatureData.promise,
-            errorMessage, response;
-
-        delete pendingSignatures[id];
-
-        // Attempt to parse what we would expect to be a JSON response
-        if (responseJson) {
-            try {
-                response = qq.parseJson(responseJson);
-            }
-            catch (error) {
-                options.log("Error attempting to parse signature response: " + error, "error");
-            }
-        }
-
-        // If we have received a parsable response, and it has an `invalid` property,
-        // the policy document or request headers may have been tampered with client-side.
-        if (response && response.invalid) {
-            isError = true;
-            errorMessage = "Invalid policy document or request headers!";
-        }
-        // Make sure the response contains policy & signature properties
-        else if (response) {
-            if (options.expectingPolicy && !response.policy) {
-                isError = true;
-                errorMessage = "Response does not include the base64 encoded policy!";
-            }
-            else if (!response.signature) {
-                isError = true;
-                errorMessage = "Response does not include the signature!";
-            }
-        }
-        // Something unknown went wrong
-        else {
-            isError = true;
-            errorMessage = "Received an empty or invalid response from the server!";
-        }
-
-        if (isError) {
-            if (errorMessage) {
-                options.log(errorMessage, "error");
-            }
-
-            promise.failure(errorMessage);
-        }
-        else {
-            promise.success(response);
-        }
-    }
-
-    function getToSignAndEndOfUrl(type, bucket, key, contentType, headers, uploadId, partNum) {
-        var method = "POST",
-            headerNames = [],
-            headersAsString = "",
-            endOfUrl;
-
-        /*jshint indent:false */
-        switch(type) {
-            case thisSignatureRequester.REQUEST_TYPE.MULTIPART_ABORT:
-                method = "DELETE";
-                endOfUrl = qq.format("uploadId={}", uploadId);
-                break;
-            case thisSignatureRequester.REQUEST_TYPE.MULTIPART_INITIATE:
-                endOfUrl = "uploads";
-                break;
-            case thisSignatureRequester.REQUEST_TYPE.MULTIPART_COMPLETE:
-                endOfUrl = qq.format("uploadId={}", uploadId);
-                break;
-            case thisSignatureRequester.REQUEST_TYPE.MULTIPART_UPLOAD:
-                method = "PUT";
-                endOfUrl = qq.format("partNumber={}&uploadId={}", partNum, uploadId);
-                break;
-        }
-
-        endOfUrl = key + "?" + endOfUrl;
-
-        qq.each(headers, function(name) {
-            headerNames.push(name);
-        });
-        headerNames.sort();
-
-        qq.each(headerNames, function(idx, name) {
-            headersAsString += name + ":" + headers[name] + "\n";
-        });
-
-        return {
-            toSign: qq.format("{}\n\n{}\n\n{}/{}/{}",
-                        method, contentType || "", headersAsString || "\n", bucket, endOfUrl),
-            endOfUrl: endOfUrl
-        };
-    }
-
-    function determineSignatureClientSide(toBeSigned, signatureEffort, updatedAccessKey, updatedSessionToken) {
-        var updatedHeaders;
-
-        // REST API request
-        if (toBeSigned.signatureConstructor) {
-            if (updatedSessionToken) {
-                updatedHeaders = toBeSigned.signatureConstructor.getHeaders();
-                updatedHeaders[qq.s3.util.SESSION_TOKEN_PARAM_NAME] = updatedSessionToken;
-                toBeSigned.signatureConstructor.withHeaders(updatedHeaders);
-            }
-
-            signApiRequest(toBeSigned.signatureConstructor.getToSign().stringToSign, signatureEffort);
-        }
-        // Form upload (w/ policy document)
-        else {
-            updatedSessionToken && qq.s3.util.refreshPolicyCredentials(toBeSigned, updatedSessionToken);
-            signPolicy(toBeSigned, signatureEffort, updatedAccessKey, updatedSessionToken);
-        }
-    }
-
-    function signPolicy(policy, signatureEffort, updatedAccessKey, updatedSessionToken) {
-        var policyStr = JSON.stringify(policy),
-            policyWordArray = CryptoJS.enc.Utf8.parse(policyStr),
-            base64Policy = CryptoJS.enc.Base64.stringify(policyWordArray),
-            policyHmacSha1 = CryptoJS.HmacSHA1(base64Policy, credentialsProvider.get().secretKey),
-            policyHmacSha1Base64 = CryptoJS.enc.Base64.stringify(policyHmacSha1);
-
-        signatureEffort.success({
-            policy: base64Policy,
-            signature: policyHmacSha1Base64
-        }, updatedAccessKey, updatedSessionToken);
-    }
-
-    function signApiRequest(headersStr, signatureEffort) {
-        var headersWordArray = CryptoJS.enc.Utf8.parse(headersStr),
-            headersHmacSha1 = CryptoJS.HmacSHA1(headersWordArray, credentialsProvider.get().secretKey),
-            headersHmacSha1Base64 = CryptoJS.enc.Base64.stringify(headersHmacSha1);
-
-        signatureEffort.success({signature: headersHmacSha1Base64});
-    }
-
-    requester = qq.extend(this, new qq.AjaxRequester({
-        acceptHeader: "application/json",
-        method: options.method,
-        contentType: "application/json; charset=utf-8",
-        endpointStore: {
-            get: function() {
-                return options.signatureSpec.endpoint;
-            }
-        },
-        paramsStore: options.paramsStore,
-        maxConnections: options.maxConnections,
-        customHeaders: options.signatureSpec.customHeaders,
-        log: options.log,
-        onComplete: handleSignatureReceived,
-        cors: options.cors,
-        successfulResponseCodes: {
-            POST: [200]
-        }
-    }));
-
-
-    qq.extend(this, {
-        /**
-         * On success, an object containing the parsed JSON response will be passed into the success handler if the
-         * request succeeds.  Otherwise an error message will be passed into the failure method.
-         *
-         * @param id File ID.
-         * @param toBeSigned an Object that holds the item(s) to be signed
-         * @returns {qq.Promise} A promise that is fulfilled when the response has been received.
-         */
-        getSignature: function(id, toBeSigned) {
-            var params = toBeSigned,
-                signatureEffort = new qq.Promise();
-
-            if (credentialsProvider.get().secretKey && window.CryptoJS) {
-                if (credentialsProvider.get().expiration.getTime() > Date.now()) {
-                    determineSignatureClientSide(toBeSigned, signatureEffort);
-                }
-                // If credentials are expired, ask for new ones before attempting to sign request
-                else {
-                    credentialsProvider.onExpired().then(function() {
-                        determineSignatureClientSide(toBeSigned,
-                            signatureEffort,
-                            credentialsProvider.get().accessKey,
-                            credentialsProvider.get().sessionToken);
-                    }, function(errorMsg) {
-                        options.log("Attempt to update expired credentials apparently failed! Unable to sign request.  ", "error");
-                        signatureEffort.failure("Unable to sign request - expired credentials.");
-                    });
-                }
-            }
-            else {
-                options.log("Submitting S3 signature request for " + id);
-
-                if (params.signatureConstructor) {
-                    params = {headers: params.signatureConstructor.getToSign().stringToSign};
-                }
-
-                requester.initTransport(id)
-                    .withParams(params)
-                    .send();
-
-                pendingSignatures[id] = {
-                    promise: signatureEffort
-                };
-            }
-
-            return signatureEffort;
         },
 
-        constructStringToSign: function(type, bucket, key) {
-            var headers = {},
-                uploadId, contentType, partNum, toSignAndEndOfUrl;
+        _deleteBlob: function(relatedToCancel, id) {
+            var self = this,
+                deleteBlobSasUri = {},
+                blobUriStore = {
+                    get: function(id) {
+                        return self._endpointStore.get(id) + "/" + self.getBlobName(id);
+                    }
+                },
+                deleteFileEndpointStore = {
+                    get: function(id) {
+                        return deleteBlobSasUri[id];
+                    }
+                },
+                getSasSuccess = function(id, sasUri) {
+                    deleteBlobSasUri[id] = sasUri;
+                    deleteBlob.send(id);
+                },
+                getSasFailure = function(id, reason, xhr) {
+                    if (relatedToCancel) {
+                        self.log("Will cancel upload, but cannot remove uncommitted parts from Azure due to issue retrieving SAS", "error");
+                        qq.FineUploaderBasic.prototype._onCancel.call(self, id, self.getName(id));
+                    }
+                    else {
+                        self._onDeleteComplete(id, xhr, true);
+                        self._options.callbacks.onDeleteComplete(id, xhr, true);
+                    }
+                },
+                deleteBlob = new qq.azure.DeleteBlob({
+                    endpointStore: deleteFileEndpointStore,
+                    log: qq.bind(self.log, self),
+                    onDelete: function(id) {
+                        self._onDelete(id);
+                        self._options.callbacks.onDelete(id);
+                    },
+                    onDeleteComplete: function(id, xhrOrXdr, isError) {
+                        delete deleteBlobSasUri[id];
+
+                        if (isError) {
+                            if (relatedToCancel) {
+                                self.log("Will cancel upload, but failed to remove uncommitted parts from Azure.", "error");
+                            }
+                            else {
+                                qq.azure.util.parseAzureError(xhrOrXdr.responseText, qq.bind(self.log, self));
+                            }
+                        }
+
+                        if (relatedToCancel) {
+                            qq.FineUploaderBasic.prototype._onCancel.call(self, id, self.getName(id));
+                            self.log("Deleted uncommitted blob chunks for " + id);
+                        }
+                        else {
+                            self._onDeleteComplete(id, xhrOrXdr, isError);
+                            self._options.callbacks.onDeleteComplete(id, xhrOrXdr, isError);
+                        }
+                    }
+                }),
+                getSas = new qq.azure.GetSas({
+                    cors: this._options.cors,
+                    endpointStore: {
+                        get: function() {
+                            return self._options.signature.endpoint;
+                        }
+                    },
+                    restRequestVerb: deleteBlob.method,
+                    log: qq.bind(self.log, self)
+                });
+
+            getSas.request(id, blobUriStore.get(id)).then(
+                qq.bind(getSasSuccess, self, id),
+                qq.bind(getSasFailure, self, id));
+        },
+
+        _createDeleteHandler: function() {
+            var self = this;
 
             return {
-                withHeaders: function(theHeaders) {
-                    headers = theHeaders;
-                    return this;
-                },
-
-                withUploadId: function(theUploadId) {
-                    uploadId = theUploadId;
-                    return this;
-                },
-
-                withContentType: function(theContentType) {
-                    contentType = theContentType;
-                    return this;
-                },
-
-                withPartNum: function(thePartNum) {
-                    partNum = thePartNum;
-                    return this;
-                },
-
-                getToSign: function() {
-                    var sessionToken = credentialsProvider.get().sessionToken;
-
-                    headers["x-amz-date"] = new Date().toUTCString();
-
-                    if (sessionToken) {
-                        headers[qq.s3.util.SESSION_TOKEN_PARAM_NAME] = sessionToken;
-                    }
-
-                    toSignAndEndOfUrl = getToSignAndEndOfUrl(type, bucket, key, contentType, headers, uploadId, partNum);
-
-                    return {
-                        headers: (function() {
-                            if (contentType) {
-                                headers["Content-Type"] = contentType;
-                            }
-
-                            return headers;
-                        }()),
-                        endOfUrl: toSignAndEndOfUrl.endOfUrl,
-                        stringToSign: toSignAndEndOfUrl.toSign
-                    };
-                },
-
-                getHeaders: function() {
-                    return qq.extend({}, headers);
-                },
-
-                getEndOfUrl: function() {
-                    return toSignAndEndOfUrl && toSignAndEndOfUrl.endOfUrl;
+                sendDelete: function(id, uuid) {
+                    self._deleteBlob(false, id);
                 }
             };
         }
     });
+}());
+
+/*globals qq */
+/**
+ * Upload handler used by the upload to Azure module that depends on File API support, and, therefore, makes use of
+ * `XMLHttpRequest` level 2 to upload `File`s and `Blob`s directly to Azure Blob Storage containers via the
+ * associated Azure API.
+ *
+ * @param spec Options passed from the base handler
+ * @param proxy Callbacks & methods used to query for or push out data/changes
+ */
+// TODO l18n for error messages returned to UI
+qq.azure.XhrUploadHandler = function(spec, proxy) {
+    "use strict";
+
+    var handler = this,
+        log = proxy.log,
+        cors = spec.cors,
+        endpointStore = spec.endpointStore,
+        paramsStore = spec.paramsStore,
+        signature = spec.signature,
+        filenameParam = spec.filenameParam,
+        minFileSizeForChunking = spec.chunking.minFileSize,
+        deleteBlob = spec.deleteBlob,
+        onGetBlobName = spec.onGetBlobName,
+        getName = proxy.getName,
+        getSize = proxy.getSize,
+
+        getBlobMetadata = function(id) {
+            var params = paramsStore.get(id);
+            params[filenameParam] = getName(id);
+            return params;
+        },
+
+        api = {
+            putBlob: new qq.azure.PutBlob({
+                getBlobMetadata: getBlobMetadata,
+                log: log
+            }),
+
+            putBlock: new qq.azure.PutBlock({
+                log: log
+            }),
+
+            putBlockList: new qq.azure.PutBlockList({
+                getBlobMetadata: getBlobMetadata,
+                log: log
+            }),
+
+            getSasForPutBlobOrBlock: new qq.azure.GetSas({
+                cors: cors,
+                customHeaders: signature.customHeaders,
+                endpointStore: {
+                    get: function() {
+                        return signature.endpoint;
+                    }
+                },
+                log: log,
+                restRequestVerb: "PUT"
+            })
+        };
+
+    function combineChunks(id) {
+        var promise = new qq.Promise();
+
+        getSignedUrl(id).then(function(sasUri) {
+            var mimeType = handler._getMimeType(id),
+                blockIdEntries = handler._getPersistableData(id).blockIdEntries;
+
+            api.putBlockList.send(id, sasUri, blockIdEntries, mimeType, function(xhr) {
+                handler._registerXhr(id, null, xhr, api.putBlockList);
+            })
+                .then(function(xhr) {
+                    log("Success combining chunks for id " + id);
+                    promise.success({}, xhr);
+                }, function(xhr) {
+                    log("Attempt to combine chunks failed for id " + id, "error");
+                    handleFailure(xhr, promise);
+                });
+
+        },
+        promise.failure);
+
+        return promise;
+    }
+
+    function determineBlobUrl(id) {
+        var containerUrl = endpointStore.get(id),
+            promise = new qq.Promise(),
+            getBlobNameSuccess = function(blobName) {
+                handler._setThirdPartyFileId(id, blobName);
+                promise.success(containerUrl + "/" + blobName);
+            },
+            getBlobNameFailure = function(reason) {
+                promise.failure(reason);
+            };
+
+        onGetBlobName(id).then(getBlobNameSuccess, getBlobNameFailure);
+
+        return promise;
+    }
+
+    function getSignedUrl(id, optChunkIdx) {
+        // We may have multiple SAS requests in progress for the same file, so we must include the chunk idx
+        // as part of the ID when communicating with the SAS ajax requester to avoid collisions.
+        var getSasId = optChunkIdx == null ? id : id + "." + optChunkIdx,
+
+            promise = new qq.Promise(),
+            getSasSuccess = function(sasUri) {
+                log("GET SAS request succeeded.");
+                promise.success(sasUri);
+            },
+            getSasFailure = function(reason, getSasXhr) {
+                log("GET SAS request failed: " + reason, "error");
+                promise.failure({error: "Problem communicating with local server"}, getSasXhr);
+            },
+            determineBlobUrlSuccess = function(blobUrl) {
+                api.getSasForPutBlobOrBlock.request(getSasId, blobUrl).then(
+                    getSasSuccess,
+                    getSasFailure
+                );
+            },
+            determineBlobUrlFailure = function(reason) {
+                log(qq.format("Failed to determine blob name for ID {} - {}", id, reason), "error");
+                promise.failure({error: reason});
+            };
+
+        determineBlobUrl(id).then(determineBlobUrlSuccess, determineBlobUrlFailure);
+
+        return promise;
+    }
+
+    function handleFailure(xhr, promise) {
+        var azureError = qq.azure.util.parseAzureError(xhr.responseText, log),
+            errorMsg = "Problem sending file to Azure";
+
+        promise.failure({error: errorMsg,
+            azureError: azureError && azureError.message,
+            reset: xhr.status === 403
+        });
+    }
+
+    qq.extend(this, {
+        uploadChunk: function(id, chunkIdx) {
+            var promise = new qq.Promise();
+
+            getSignedUrl(id, chunkIdx).then(
+                function(sasUri) {
+                    var xhr = handler._createXhr(id, chunkIdx),
+                    chunkData = handler._getChunkData(id, chunkIdx);
+
+                    handler._registerProgressHandler(id, chunkIdx, chunkData.size);
+                    handler._registerXhr(id, chunkIdx, xhr, api.putBlock);
+
+                    // We may have multiple put block requests in progress for the same file, so we must include the chunk idx
+                    // as part of the ID when communicating with the put block ajax requester to avoid collisions.
+                    api.putBlock.upload(id + "." + chunkIdx, xhr, sasUri, chunkIdx, chunkData.blob).then(
+                        function(blockIdEntry) {
+                            if (!handler._getPersistableData(id).blockIdEntries) {
+                                handler._getPersistableData(id).blockIdEntries = [];
+                            }
+
+                            handler._getPersistableData(id).blockIdEntries.push(blockIdEntry);
+                            log("Put Block call succeeded for " + id);
+                            promise.success({}, xhr);
+                        },
+                        function() {
+                            log(qq.format("Put Block call failed for ID {} on part {}", id, chunkIdx), "error");
+                            handleFailure(xhr, promise);
+                        }
+                    );
+                },
+                promise.failure
+            );
+
+            return promise;
+        },
+
+        uploadFile: function(id) {
+            var promise = new qq.Promise(),
+                fileOrBlob = handler.getFile(id);
+
+            getSignedUrl(id).then(function(sasUri) {
+                var xhr = handler._createXhr(id);
+
+                handler._registerProgressHandler(id);
+
+                api.putBlob.upload(id, xhr, sasUri, fileOrBlob).then(
+                    function() {
+                        log("Put Blob call succeeded for " + id);
+                        promise.success({}, xhr);
+                    },
+                    function() {
+                        log("Put Blob call failed for " + id, "error");
+                        handleFailure(xhr, promise);
+                    }
+                );
+            },
+            promise.failure);
+
+            return promise;
+        }
+    });
+
+    qq.extend(this,
+        new qq.XhrUploadHandler({
+            options: qq.extend({namespace: "azure"}, spec),
+            proxy: qq.extend({getEndpoint: spec.endpointStore.get}, proxy)
+        }
+    ));
+
+    qq.override(this, function(super_) {
+        return {
+            expunge: function(id) {
+                var relatedToCancel = handler._wasCanceled(id),
+                    chunkingData = handler._getPersistableData(id),
+                    blockIdEntries = (chunkingData && chunkingData.blockIdEntries) || [];
+
+                if (relatedToCancel && blockIdEntries.length > 0) {
+                    deleteBlob(id);
+                }
+
+                super_.expunge(id);
+            },
+
+            finalizeChunks: function(id) {
+                return combineChunks(id);
+            },
+
+            _shouldChunkThisFile: function(id) {
+                var maybePossible = super_._shouldChunkThisFile(id);
+                return maybePossible && getSize(id) >= minFileSizeForChunking;
+            }
+        };
+    });
 };
 
-qq.s3.RequestSigner.prototype.REQUEST_TYPE = {
-    MULTIPART_INITIATE: "multipart_initiate",
-    MULTIPART_COMPLETE: "multipart_complete",
-    MULTIPART_ABORT: "multipart_abort",
-    MULTIPART_UPLOAD: "multipart_upload"
+/* globals qq */
+/**
+ * Sends a GET request to the integrator's server, which should return a Shared Access Signature URI used to
+ * make a specific request on a Blob via the Azure REST API.
+ */
+qq.azure.GetSas = function(o) {
+    "use strict";
+
+    var requester,
+        options = {
+            cors: {
+                expected: false,
+                sendCredentials: false
+            },
+            customHeaders: {},
+            restRequestVerb: "PUT",
+            endpointStore: null,
+            log: function(str, level) {}
+        },
+        requestPromises = {};
+
+    qq.extend(options, o);
+
+    function sasResponseReceived(id, xhr, isError) {
+        var promise = requestPromises[id];
+
+        if (isError) {
+            promise.failure("Received response code " + xhr.status, xhr);
+        }
+        else {
+            if (xhr.responseText.length) {
+                promise.success(xhr.responseText);
+            }
+            else {
+                promise.failure("Empty response.", xhr);
+            }
+        }
+
+        delete requestPromises[id];
+    }
+
+    requester = qq.extend(this, new qq.AjaxRequester({
+        acceptHeader: "application/json",
+        validMethods: ["GET"],
+        method: "GET",
+        successfulResponseCodes: {
+            GET: [200]
+        },
+        contentType: null,
+        customHeaders: options.customHeaders,
+        endpointStore: options.endpointStore,
+        cors: options.cors,
+        log: options.log,
+        onComplete: sasResponseReceived
+    }));
+
+    qq.extend(this, {
+        request: function(id, blobUri) {
+            var requestPromise = new qq.Promise(),
+                restVerb = options.restRequestVerb;
+
+            options.log(qq.format("Submitting GET SAS request for a {} REST request related to file ID {}.", restVerb, id));
+
+            requestPromises[id] = requestPromise;
+
+            requester.initTransport(id)
+                .withParams({
+                    bloburi: blobUri,
+                    _method: restVerb
+                })
+                .withCacheBuster()
+                .send();
+
+            return requestPromise;
+        }
+    });
 };
 
 /*globals qq, XMLHttpRequest*/
@@ -8594,7 +8290,6 @@ qq.UploadSuccessAjaxRequester = function(o) {
         }
     }));
 
-
     qq.extend(this, {
         /**
          * Sends a request to the server, notifying it that a recently submitted file was successfully sent.
@@ -8621,1256 +8316,319 @@ qq.UploadSuccessAjaxRequester = function(o) {
     });
 };
 
-/*globals qq*/
+/* globals qq */
 /**
- * Ajax requester used to send an ["Initiate Multipart Upload"](http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadInitiate.html)
- * request to S3 via the REST API.
- *
- * @param o Options from the caller - will override the defaults.
- * @constructor
+ * Implements the Delete Blob Azure REST API call.  http://msdn.microsoft.com/en-us/library/windowsazure/dd179413.aspx.
  */
-qq.s3.InitiateMultipartAjaxRequester = function(o) {
+qq.azure.DeleteBlob = function(o) {
     "use strict";
 
     var requester,
-        pendingInitiateRequests = {},
+        method = "DELETE",
         options = {
-            filenameParam: "qqfilename",
-            method: "POST",
-            endpointStore: null,
-            paramsStore: null,
-            signatureSpec: null,
-            aclStore: null,
-            reducedRedundancy: false,
-            serverSideEncryption: false,
-            maxConnections: 3,
-            getContentType: function(id) {},
-            getKey: function(id) {},
-            getName: function(id) {},
+            endpointStore: {},
+            onDelete: function(id) {},
+            onDeleteComplete: function(id, xhr, isError) {},
             log: function(str, level) {}
-        },
-        getSignatureAjaxRequester;
+        };
 
     qq.extend(options, o);
 
-    getSignatureAjaxRequester = new qq.s3.RequestSigner({
-        signatureSpec: options.signatureSpec,
-        cors: options.cors,
-        log: options.log
-    });
-
-
-    /**
-     * Determine all headers for the "Initiate MPU" request, including the "Authorization" header, which must be determined
-     * by the local server.  This is a promissory function.  If the server responds with a signature, the headers
-     * (including the Authorization header) will be passed into the success method of the promise.  Otherwise, the failure
-     * method on the promise will be called.
-     *
-     * @param id Associated file ID
-     * @returns {qq.Promise}
-     */
-    function getHeaders(id) {
-        var bucket = qq.s3.util.getBucket(options.endpointStore.get(id)),
-            headers = {},
-            promise = new qq.Promise(),
-            key = options.getKey(id),
-            signatureConstructor;
-
-        headers["x-amz-acl"] = options.aclStore.get(id);
-
-        if (options.reducedRedundancy) {
-            headers[qq.s3.util.REDUCED_REDUNDANCY_PARAM_NAME] = qq.s3.util.REDUCED_REDUNDANCY_PARAM_VALUE;
-        }
-
-        if (options.serverSideEncryption) {
-            headers[qq.s3.util.SERVER_SIDE_ENCRYPTION_PARAM_NAME] = qq.s3.util.SERVER_SIDE_ENCRYPTION_PARAM_VALUE;
-        }
-
-        headers[qq.s3.util.AWS_PARAM_PREFIX + options.filenameParam] = encodeURIComponent(options.getName(id));
-
-        qq.each(options.paramsStore.get(id), function(name, val) {
-            headers[qq.s3.util.AWS_PARAM_PREFIX + name] = encodeURIComponent(val);
-        });
-
-        signatureConstructor = getSignatureAjaxRequester.constructStringToSign
-            (getSignatureAjaxRequester.REQUEST_TYPE.MULTIPART_INITIATE, bucket, key)
-            .withContentType(options.getContentType(id))
-            .withHeaders(headers);
-
-        // Ask the local server to sign the request.  Use this signature to form the Authorization header.
-        getSignatureAjaxRequester.getSignature(id, {signatureConstructor: signatureConstructor}).then(function(response) {
-            headers = signatureConstructor.getHeaders();
-            headers.Authorization = "AWS " + options.signatureSpec.credentialsProvider.get().accessKey + ":" + response.signature;
-            promise.success(headers, signatureConstructor.getEndOfUrl());
-        }, promise.failure);
-
-        return promise;
-    }
-
-    /**
-     * Called by the base ajax requester when the response has been received.  We definitively determine here if the
-     * "Initiate MPU" request has been a success or not.
-     *
-     * @param id ID associated with the file.
-     * @param xhr `XMLHttpRequest` object containing the response, among other things.
-     * @param isError A boolean indicating success or failure according to the base ajax requester (primarily based on status code).
-     */
-    function handleInitiateRequestComplete(id, xhr, isError) {
-        var promise = pendingInitiateRequests[id],
-            domParser = new DOMParser(),
-            responseDoc = domParser.parseFromString(xhr.responseText, "application/xml"),
-            uploadIdElements, messageElements, uploadId, errorMessage, status;
-
-        delete pendingInitiateRequests[id];
-
-        // The base ajax requester may declare the request to be a failure based on status code.
-        if (isError) {
-            status = xhr.status;
-
-            messageElements = responseDoc.getElementsByTagName("Message");
-            if (messageElements.length > 0) {
-                errorMessage = messageElements[0].textContent;
-            }
-        }
-        // If the base ajax requester has not declared this a failure, make sure we can retrieve the uploadId from the response.
-        else {
-            uploadIdElements = responseDoc.getElementsByTagName("UploadId");
-            if (uploadIdElements.length > 0) {
-                uploadId = uploadIdElements[0].textContent;
-            }
-            else {
-                errorMessage = "Upload ID missing from request";
-            }
-        }
-
-        // Either fail the promise (passing a descriptive error message) or declare it a success (passing the upload ID)
-        if (uploadId === undefined) {
-            if (errorMessage) {
-                options.log(qq.format("Specific problem detected initiating multipart upload request for {}: '{}'.", id, errorMessage), "error");
-            }
-            else {
-                options.log(qq.format("Unexplained error with initiate multipart upload request for {}.  Status code {}.", id, status), "error");
-            }
-
-            promise.failure("Problem initiating upload request with Amazon.", xhr);
-        }
-        else {
-            options.log(qq.format("Initiate multipart upload request successful for {}.  Upload ID is {}", id, uploadId));
-            promise.success(uploadId, xhr);
-        }
-    }
-
     requester = qq.extend(this, new qq.AjaxRequester({
-        method: options.method,
+        validMethods: [method],
+        method: method,
+        successfulResponseCodes: (function() {
+            var codes = {};
+            codes[method] = [202];
+            return codes;
+        }()),
         contentType: null,
         endpointStore: options.endpointStore,
-        maxConnections: options.maxConnections,
-        allowXRequestedWithAndCacheControl: false, //These headers are not necessary & would break some installations if added
+        allowXRequestedWithAndCacheControl: false,
+        cors: {
+            expected: true
+        },
         log: options.log,
-        onComplete: handleInitiateRequestComplete,
-        successfulResponseCodes: {
-            POST: [200]
+        onSend: options.onDelete,
+        onComplete: options.onDeleteComplete
+    }));
+
+    qq.extend(this, {
+        method: method,
+        send: function(id) {
+            options.log("Submitting Delete Blob request for " + id);
+
+            return requester.initTransport(id)
+                .send();
+        }
+    });
+};
+
+/* globals qq */
+/**
+ * Implements the Put Blob Azure REST API call.  http://msdn.microsoft.com/en-us/library/windowsazure/dd179451.aspx.
+ */
+qq.azure.PutBlob = function(o) {
+    "use strict";
+
+    var requester,
+        method = "PUT",
+        options = {
+            getBlobMetadata: function(id) {},
+            log: function(str, level) {}
+        },
+        endpoints = {},
+        promises = {},
+        endpointHandler = {
+            get: function(id) {
+                return endpoints[id];
+            }
+        };
+
+    qq.extend(options, o);
+
+    requester = qq.extend(this, new qq.AjaxRequester({
+        validMethods: [method],
+        method: method,
+        successfulResponseCodes: (function() {
+            var codes = {};
+            codes[method] = [201];
+            return codes;
+        }()),
+        contentType: null,
+        customHeaders: function(id) {
+            var params = options.getBlobMetadata(id),
+                headers = qq.azure.util.getParamsAsHeaders(params);
+
+            headers["x-ms-blob-type"] = "BlockBlob";
+
+            return headers;
+        },
+        endpointStore: endpointHandler,
+        allowXRequestedWithAndCacheControl: false,
+        cors: {
+            expected: true
+        },
+        log: options.log,
+        onComplete: function(id, xhr, isError) {
+            var promise = promises[id];
+
+            delete endpoints[id];
+            delete promises[id];
+
+            if (isError) {
+                promise.failure();
+            }
+            else {
+                promise.success();
+            }
         }
     }));
 
-
     qq.extend(this, {
-        /**
-         * Sends the "Initiate MPU" request to AWS via the REST API.  First, though, we must get a signature from the
-         * local server for the request.  If all is successful, the uploadId from AWS will be passed into the promise's
-         * success handler. Otherwise, an error message will ultimately be passed into the failure method.
-         *
-         * @param id The ID associated with the file
-         * @returns {qq.Promise}
-         */
-        send: function(id) {
+        method: method,
+        upload: function(id, xhr, url, file) {
             var promise = new qq.Promise();
 
-            getHeaders(id).then(function(headers, endOfUrl) {
-                options.log("Submitting S3 initiate multipart upload request for " + id);
+            options.log("Submitting Put Blob request for " + id);
 
-                pendingInitiateRequests[id] = promise;
-                requester.initTransport(id)
-                    .withPath(endOfUrl)
-                    .withHeaders(headers)
-                    .send();
-            }, promise.failure);
+            promises[id] = promise;
+            endpoints[id] = url;
+
+            requester.initTransport(id)
+                .withPayload(file)
+                .withHeaders({"Content-Type": file.type})
+                .send(xhr);
 
             return promise;
         }
     });
 };
 
-/*globals qq*/
+/* globals qq */
 /**
- * Ajax requester used to send an ["Complete Multipart Upload"](http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadComplete.html)
- * request to S3 via the REST API.
- *
- * @param o Options passed by the creator, to overwrite any default option values.
- * @constructor
+ * Implements the Put Block List Azure REST API call.  http://msdn.microsoft.com/en-us/library/windowsazure/dd179467.aspx.
  */
-qq.s3.CompleteMultipartAjaxRequester = function(o) {
+qq.azure.PutBlockList = function(o) {
     "use strict";
 
     var requester,
-        pendingCompleteRequests = {},
+        method = "PUT",
+        promises = {},
         options = {
-            method: "POST",
-            contentType: "text/xml",
-            endpointStore: null,
-            signatureSpec: null,
-            maxConnections: 3,
-            getKey: function(id) {},
+            getBlobMetadata: function(id) {},
             log: function(str, level) {}
         },
-        getSignatureAjaxRequester;
+        endpoints = {},
+        endpointHandler = {
+            get: function(id) {
+                return endpoints[id];
+            }
+        };
 
     qq.extend(options, o);
 
-    // Transport for requesting signatures (for the "Complete" requests) from the local server
-    getSignatureAjaxRequester = new qq.s3.RequestSigner({
-        signatureSpec: options.signatureSpec,
-        cors: options.cors,
-        log: options.log
-    });
+    requester = qq.extend(this, new qq.AjaxRequester({
+        validMethods: [method],
+        method: method,
+        successfulResponseCodes: (function() {
+            var codes = {};
+            codes[method] = [201];
+            return codes;
+        }()),
+        customHeaders: function(id) {
+            var params = options.getBlobMetadata(id);
 
-    /**
-     * Attach all required headers (including Authorization) to the "Complete" request.  This is a promissory function
-     * that will fulfill the associated promise once all headers have been attached or when an error has occurred that
-     * prevents headers from being attached.
-     *
-     * @param id Associated file ID
-     * @param uploadId ID of the associated upload, according to AWS
-     * @returns {qq.Promise}
-     */
-    function getHeaders(id, uploadId) {
-        var headers = {},
-            promise = new qq.Promise(),
-            endpoint = options.endpointStore.get(id),
-            bucket = qq.s3.util.getBucket(endpoint),
-            signatureConstructor = getSignatureAjaxRequester.constructStringToSign
-                (getSignatureAjaxRequester.REQUEST_TYPE.MULTIPART_COMPLETE, bucket, options.getKey(id))
-                .withUploadId(uploadId)
-                .withContentType("application/xml; charset=UTF-8");
+            return qq.azure.util.getParamsAsHeaders(params);
+        },
+        contentType: "text/plain",
+        endpointStore: endpointHandler,
+        allowXRequestedWithAndCacheControl: false,
+        cors: {
+            expected: true
+        },
+        log: options.log,
+        onSend: function() {},
+        onComplete: function(id, xhr, isError) {
+            var promise = promises[id];
 
-        // Ask the local server to sign the request.  Use this signature to form the Authorization header.
-        getSignatureAjaxRequester.getSignature(id, {signatureConstructor: signatureConstructor}).then(function(response) {
-            headers = signatureConstructor.getHeaders();
-            headers.Authorization = "AWS " + options.signatureSpec.credentialsProvider.get().accessKey + ":" + response.signature;
-            promise.success(headers, signatureConstructor.getEndOfUrl());
-        }, promise.failure);
+            delete endpoints[id];
+            delete promises[id];
 
-        return promise;
-    }
-
-    /**
-     * Called by the base ajax requester when the response has been received.  We definitively determine here if the
-     * "Complete MPU" request has been a success or not.
-     *
-     * @param id ID associated with the file.
-     * @param xhr `XMLHttpRequest` object containing the response, among other things.
-     * @param isError A boolean indicating success or failure according to the base ajax requester (primarily based on status code).
-     */
-    function handleCompleteRequestComplete(id, xhr, isError) {
-        var promise = pendingCompleteRequests[id],
-            domParser = new DOMParser(),
-            endpoint = options.endpointStore.get(id),
-            bucket = qq.s3.util.getBucket(endpoint),
-            key = options.getKey(id),
-            responseDoc = domParser.parseFromString(xhr.responseText, "application/xml"),
-            bucketEls = responseDoc.getElementsByTagName("Bucket"),
-            keyEls = responseDoc.getElementsByTagName("Key");
-
-        delete pendingCompleteRequests[id];
-
-        options.log(qq.format("Complete response status {}, body = {}", xhr.status, xhr.responseText));
-
-        // If the base requester has determine this a failure, give up.
-        if (isError) {
-            options.log(qq.format("Complete Multipart Upload request for {} failed with status {}.", id, xhr.status), "error");
-        }
-        else {
-            // Make sure the correct bucket and key has been specified in the XML response from AWS.
-            if (bucketEls.length && keyEls.length) {
-                if (bucketEls[0].textContent !== bucket) {
-                    isError = true;
-                    options.log(qq.format("Wrong bucket in response to Complete Multipart Upload request for {}.", id), "error");
-                }
-
-                // TODO Compare key name from response w/ expected key name if AWS ever fixes the encoding of key names in this response.
+            if (isError) {
+                promise.failure(xhr);
             }
             else {
-                isError = true;
-                options.log(qq.format("Missing bucket and/or key in response to Complete Multipart Upload request for {}.", id), "error");
+                promise.success(xhr);
             }
-        }
 
-        if (isError) {
-            promise.failure("Problem asking Amazon to combine the parts!", xhr);
         }
-        else {
-            promise.success({}, xhr);
-        }
-    }
+    }));
 
-    /**
-     * @param etagEntries Array of objects containing `etag` values and their associated `part` numbers.
-     * @returns {string} XML string containing the body to send with the "Complete" request
-     */
-    function getCompleteRequestBody(etagEntries) {
-        var doc = document.implementation.createDocument(null, "CompleteMultipartUpload", null);
+    function createRequestBody(blockIdEntries) {
+        var doc = document.implementation.createDocument(null, "BlockList", null);
 
-        // The entries MUST be sorted by part number, per the AWS API spec.
-        etagEntries.sort(function(a, b) {
+        // If we don't sort the block ID entries by part number, the file will be combined incorrectly by Azure
+        blockIdEntries.sort(function(a, b) {
             return a.part - b.part;
         });
 
         // Construct an XML document for each pair of etag/part values that correspond to part uploads.
-        qq.each(etagEntries, function(idx, etagEntry) {
-            var part = etagEntry.part,
-                etag = etagEntry.etag,
-                partEl = doc.createElement("Part"),
-                partNumEl = doc.createElement("PartNumber"),
-                partNumTextEl = doc.createTextNode(part),
-                etagTextEl = doc.createTextNode(etag),
-                etagEl = doc.createElement("ETag");
+        qq.each(blockIdEntries, function(idx, blockIdEntry) {
+            var latestEl = doc.createElement("Latest"),
+                latestTextEl = doc.createTextNode(blockIdEntry.id);
 
-            etagEl.appendChild(etagTextEl);
-            partNumEl.appendChild(partNumTextEl);
-            partEl.appendChild(partNumEl);
-            partEl.appendChild(etagEl);
-            qq(doc).children()[0].appendChild(partEl);
+            latestEl.appendChild(latestTextEl);
+            qq(doc).children()[0].appendChild(latestEl);
         });
 
         // Turn the resulting XML document into a string fit for transport.
         return new XMLSerializer().serializeToString(doc);
     }
 
-    requester = qq.extend(this, new qq.AjaxRequester({
-        method: options.method,
-        contentType: "application/xml; charset=UTF-8",
-        endpointStore: options.endpointStore,
-        maxConnections: options.maxConnections,
-        allowXRequestedWithAndCacheControl: false, //These headers are not necessary & would break some installations if added
-        log: options.log,
-        onComplete: handleCompleteRequestComplete,
-        successfulResponseCodes: {
-            POST: [200]
-        }
-    }));
-
-
     qq.extend(this, {
-        /**
-         * Sends the "Complete" request and fulfills the returned promise when the success of this request is known.
-         *
-         * @param id ID associated with the file.
-         * @param uploadId AWS uploadId for this file
-         * @param etagEntries Array of objects containing `etag` values and their associated `part` numbers.
-         * @returns {qq.Promise}
-         */
-        send: function(id, uploadId, etagEntries) {
-            var promise = new qq.Promise();
+        method: method,
+        send: function(id, sasUri, blockIdEntries, fileMimeType, registerXhrCallback) {
+            var promise = new qq.Promise(),
+                blockIdsXml = createRequestBody(blockIdEntries),
+                xhr;
 
-            getHeaders(id, uploadId).then(function(headers, endOfUrl) {
-                var body = getCompleteRequestBody(etagEntries);
+            promises[id] = promise;
 
-                options.log("Submitting S3 complete multipart upload request for " + id);
+            options.log(qq.format("Submitting Put Block List request for {}", id));
 
-                pendingCompleteRequests[id] = promise;
-                delete headers["Content-Type"];
+            endpoints[id] = qq.format("{}&comp=blocklist", sasUri);
 
-                requester.initTransport(id)
-                    .withPath(endOfUrl)
-                    .withHeaders(headers)
-                    .withPayload(body)
-                    .send();
-            }, promise.failure);
+            xhr = requester.initTransport(id)
+                .withPayload(blockIdsXml)
+                .withHeaders({"x-ms-blob-content-type": fileMimeType})
+                .send();
+            registerXhrCallback(xhr);
 
             return promise;
         }
     });
 };
 
-/*globals qq */
+/* globals qq */
 /**
- * Ajax requester used to send an ["Abort Multipart Upload"](http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadAbort.html)
- * request to S3 via the REST API.
-
- * @param o
- * @constructor
+ * Implements the Put Block Azure REST API call.  http://msdn.microsoft.com/en-us/library/windowsazure/dd135726.aspx.
  */
-qq.s3.AbortMultipartAjaxRequester = function(o) {
+qq.azure.PutBlock = function(o) {
     "use strict";
 
     var requester,
+        method = "PUT",
+        blockIdEntries = {},
+        promises = {},
         options = {
-            method: "DELETE",
-            endpointStore: null,
-            signatureSpec: null,
-            maxConnections: 3,
-            getKey: function(id) {},
             log: function(str, level) {}
         },
-        getSignatureAjaxRequester;
+        endpoints = {},
+        endpointHandler = {
+            get: function(id) {
+                return endpoints[id];
+            }
+        };
 
     qq.extend(options, o);
 
-    // Transport for requesting signatures (for the "Complete" requests) from the local server
-    getSignatureAjaxRequester = new qq.s3.RequestSigner({
-        signatureSpec: options.signatureSpec,
-        cors: options.cors,
-        log: options.log
-    });
+    requester = qq.extend(this, new qq.AjaxRequester({
+        validMethods: [method],
+        method: method,
+        successfulResponseCodes: (function() {
+            var codes = {};
+            codes[method] = [201];
+            return codes;
+        }()),
+        contentType: null,
+        endpointStore: endpointHandler,
+        allowXRequestedWithAndCacheControl: false,
+        cors: {
+            expected: true
+        },
+        log: options.log,
+        onComplete: function(id, xhr, isError) {
+            var promise = promises[id],
+                blockIdEntry = blockIdEntries[id];
 
-    /**
-     * Attach all required headers (including Authorization) to the "Abort" request.  This is a promissory function
-     * that will fulfill the associated promise once all headers have been attached or when an error has occurred that
-     * prevents headers from being attached.
-     *
-     * @param id Associated file ID
-     * @param uploadId ID of the associated upload, according to AWS
-     * @returns {qq.Promise}
-     */
-    function getHeaders(id, uploadId) {
-        var headers = {},
-            promise = new qq.Promise(),
-            endpoint = options.endpointStore.get(id),
-            bucket = qq.s3.util.getBucket(endpoint),
-            signatureConstructor = getSignatureAjaxRequester.constructStringToSign
-                (getSignatureAjaxRequester.REQUEST_TYPE.MULTIPART_ABORT, bucket, options.getKey(id))
-                .withUploadId(uploadId);
+            delete endpoints[id];
+            delete promises[id];
+            delete blockIdEntries[id];
 
-        // Ask the local server to sign the request.  Use this signature to form the Authorization header.
-        getSignatureAjaxRequester.getSignature(id, {signatureConstructor: signatureConstructor}).then(function(response) {
-            headers = signatureConstructor.getHeaders();
-            headers.Authorization = "AWS " + options.signatureSpec.credentialsProvider.get().accessKey + ":" + response.signature;
-            promise.success(headers, signatureConstructor.getEndOfUrl());
-        }, promise.failure);
-
-        return promise;
-    }
-
-    /**
-     * Called by the base ajax requester when the response has been received.  We definitively determine here if the
-     * "Abort MPU" request has been a success or not.
-     *
-     * @param id ID associated with the file.
-     * @param xhr `XMLHttpRequest` object containing the response, among other things.
-     * @param isError A boolean indicating success or failure according to the base ajax requester (primarily based on status code).
-     */
-    function handleAbortRequestComplete(id, xhr, isError) {
-        var domParser = new DOMParser(),
-            responseDoc = domParser.parseFromString(xhr.responseText, "application/xml"),
-            errorEls = responseDoc.getElementsByTagName("Error"),
-            awsErrorMsg;
-
-
-        options.log(qq.format("Abort response status {}, body = {}", xhr.status, xhr.responseText));
-
-        // If the base requester has determine this a failure, give up.
-        if (isError) {
-            options.log(qq.format("Abort Multipart Upload request for {} failed with status {}.", id, xhr.status), "error");
-        }
-        else {
-            // Make sure the correct bucket and key has been specified in the XML response from AWS.
-            if (errorEls.length) {
-                isError = true;
-                awsErrorMsg = responseDoc.getElementsByTagName("Message")[0].textContent;
-                options.log(qq.format("Failed to Abort Multipart Upload request for {}.  Error: {}", id, awsErrorMsg), "error");
+            if (isError) {
+                promise.failure();
             }
             else {
-                options.log(qq.format("Abort MPU request succeeded for file ID {}.", id));
+                promise.success(blockIdEntry);
             }
-        }
-    }
-
-
-    requester = qq.extend(this, new qq.AjaxRequester({
-        validMethods: ["DELETE"],
-        method: options.method,
-        contentType: null,
-        endpointStore: options.endpointStore,
-        maxConnections: options.maxConnections,
-        allowXRequestedWithAndCacheControl: false, //These headers are not necessary & would break some installations if added
-        log: options.log,
-        onComplete: handleAbortRequestComplete,
-        successfulResponseCodes: {
-            DELETE: [204]
         }
     }));
 
+    function createBlockId(partNum) {
+        var digits = 5,
+            zeros = new Array(digits + 1).join("0"),
+            paddedPartNum = (zeros + partNum).slice(-digits);
+
+        return btoa(paddedPartNum);
+    }
 
     qq.extend(this, {
-        /**
-         * Sends the "Abort" request.
-         *
-         * @param id ID associated with the file.
-         * @param uploadId AWS uploadId for this file
-         */
-        send: function(id, uploadId) {
-            getHeaders(id, uploadId).then(function(headers, endOfUrl) {
-                options.log("Submitting S3 Abort multipart upload request for " + id);
-                requester.initTransport(id)
-                    .withPath(endOfUrl)
-                    .withHeaders(headers)
-                    .send();
-            });
-        }
-    });
-};
+        method: method,
+        upload: function(id, xhr, sasUri, partNum, blob) {
+            var promise = new qq.Promise(),
+                blockId = createBlockId(partNum);
 
-/*globals qq */
-/**
- * Upload handler used by the upload to S3 module that depends on File API support, and, therefore, makes use of
- * `XMLHttpRequest` level 2 to upload `File`s and `Blob`s directly to S3 buckets via the associated AWS API.
- *
- * If chunking is supported and enabled, the S3 Multipart Upload REST API is utilized.
- *
- * @param spec Options passed from the base handler
- * @param proxy Callbacks & methods used to query for or push out data/changes
- */
-qq.s3.XhrUploadHandler = function(spec, proxy) {
-    "use strict";
+            promises[id] = promise;
 
-    var getName = proxy.getName,
-        log = proxy.log,
-        expectedStatus = 200,
-        onGetKeyName = spec.getKeyName,
-        filenameParam = spec.filenameParam,
-        paramsStore = spec.paramsStore,
-        endpointStore = spec.endpointStore,
-        aclStore = spec.aclStore,
-        reducedRedundancy = spec.objectProperties.reducedRedundancy,
-        serverSideEncryption = spec.objectProperties.serverSideEncryption,
-        validation = spec.validation,
-        signature = spec.signature,
-        handler = this,
-        credentialsProvider = spec.signature.credentialsProvider,
+            options.log(qq.format("Submitting Put Block request for {} = part {}", id, partNum));
 
-        chunked = {
-            // Sends a "Complete Multipart Upload" request and then signals completion of the upload
-            // when the response to this request has been parsed.
-            combine: function(id) {
-                var uploadId = handler._getPersistableData(id).uploadId,
-                    etagMap = handler._getPersistableData(id).etags,
-                    result = new qq.Promise();
+            endpoints[id] = qq.format("{}&comp=block&blockid={}", sasUri, encodeURIComponent(blockId));
+            blockIdEntries[id] = {part: partNum, id: blockId};
 
-                requesters.completeMultipart.send(id, uploadId, etagMap).then(
-                    result.success,
-
-                    function failure(reason, xhr) {
-                        result.failure(upload.done(id, xhr).response, xhr);
-                    }
-                );
-
-                return result;
-            },
-
-            // The last step in handling a chunked upload.  This is called after each chunk has been sent.
-            // The request may be successful, or not.  If it was successful, we must extract the "ETag" element
-            // in the XML response and store that along with the associated part number.
-            // We need these items to "Complete" the multipart upload after all chunks have been successfully sent.
-            done: function(id, xhr, chunkIdx) {
-                var response = upload.response.parse(id, xhr),
-                    etag;
-
-                if (response.success) {
-                    etag = xhr.getResponseHeader("ETag");
-
-                    if (!handler._getPersistableData(id).etags) {
-                        handler._getPersistableData(id).etags = [];
-                    }
-                    handler._getPersistableData(id).etags.push({part: chunkIdx+1, etag: etag});
-                }
-            },
-
-            /**
-             * Determines headers that must be attached to the chunked (Multipart Upload) request.  One of these headers is an
-             * Authorization value, which must be determined by asking the local server to sign the request first.  So, this
-             * function returns a promise.  Once all headers are determined, the `success` method of the promise is called with
-             * the headers object.  If there was some problem determining the headers, we delegate to the caller's `failure`
-             * callback.
-             *
-             * @param id File ID
-             * @param chunkIdx Index of the chunk to PUT
-             * @returns {qq.Promise}
-             */
-            initHeaders: function(id, chunkIdx) {
-                var headers = {},
-                    endpoint = spec.endpointStore.get(id),
-                    bucket = qq.s3.util.getBucket(endpoint),
-                    key = upload.key.urlSafe(id),
-                    promise = new qq.Promise(),
-                    signatureConstructor = requesters.restSignature.constructStringToSign
-                        (requesters.restSignature.REQUEST_TYPE.MULTIPART_UPLOAD, bucket, key)
-                        .withPartNum(chunkIdx + 1)
-                        .withUploadId(handler._getPersistableData(id).uploadId);
-
-                // Ask the local server to sign the request.  Use this signature to form the Authorization header.
-                requesters.restSignature.getSignature(id + "." + chunkIdx, {signatureConstructor: signatureConstructor}).then(function(response) {
-                    headers = signatureConstructor.getHeaders();
-                    headers.Authorization = "AWS " + credentialsProvider.get().accessKey + ":" + response.signature;
-                    promise.success(headers, signatureConstructor.getEndOfUrl());
-                }, promise.failure);
-
-                return promise;
-            },
-
-            put: function(id, chunkIdx) {
-                var xhr = handler._createXhr(id, chunkIdx),
-                    chunkData = handler._getChunkData(id, chunkIdx),
-                    domain = spec.endpointStore.get(id),
-                    promise = new qq.Promise();
-
-                // Add appropriate headers to the multipart upload request.
-                // Once these have been determined (asynchronously) attach the headers and send the chunk.
-                chunked.initHeaders(id, chunkIdx).then(function(headers, endOfUrl) {
-                    var url = domain + "/" + endOfUrl;
-                    handler._registerProgressHandler(id, chunkIdx, chunkData.size);
-                    upload.track(id, xhr, chunkIdx).then(promise.success, promise.failure);
-                    xhr.open("PUT", url, true);
-
-                    qq.each(headers, function(name, val) {
-                        xhr.setRequestHeader(name, val);
-                    });
-
-                    xhr.send(chunkData.blob);
-                }, function() {
-                    promise.failure({error: "Problem signing the chunk!"}, xhr);
-                });
-
-                return promise;
-            },
-
-            send: function(id, chunkIdx) {
-                var promise = new qq.Promise();
-
-                chunked.setup(id).then(
-                    // The "Initiate" request succeeded.  We are ready to send the first chunk.
-                    function() {
-                        chunked.put(id, chunkIdx).then(promise.success, promise.failure);
-                    },
-
-                    // We were unable to initiate the chunked upload process.
-                    function(errorMessage, xhr) {
-                        promise.failure({error: errorMessage}, xhr);
-                    }
-                );
-
-                return promise;
-            },
-
-            /**
-             * Sends an "Initiate Multipart Upload" request to S3 via the REST API, but only if the MPU has not already been
-             * initiated.
-             *
-             * @param id Associated file ID
-             * @returns {qq.Promise} A promise that is fulfilled when the initiate request has been sent and the response has been parsed.
-             */
-            setup: function(id) {
-                var promise = new qq.Promise(),
-                    uploadId = handler._getPersistableData(id).uploadId,
-                    uploadIdPromise = new qq.Promise();
-
-                if (!uploadId) {
-                    handler._getPersistableData(id).uploadId = uploadIdPromise;
-                    requesters.initiateMultipart.send(id).then(
-                        function(uploadId) {
-                            handler._getPersistableData(id).uploadId = uploadId;
-                            uploadIdPromise.success(uploadId);
-                            promise.success(uploadId);
-                        },
-                        function(errorMsg) {
-                            handler._getPersistableData(id).uploadId = null;
-                            promise.failure(errorMsg);
-                            uploadIdPromise.failure(errorMsg);
-                        }
-                    );
-                }
-                else if (uploadId instanceof qq.Promise) {
-                    uploadId.then(function(uploadId) {
-                        promise.success(uploadId);
-                    });
-                }
-                else {
-                    promise.success(uploadId);
-                }
-
-                return promise;
-            }
-        },
-
-        requesters = {
-            abortMultipart: new qq.s3.AbortMultipartAjaxRequester({
-                endpointStore: endpointStore,
-                signatureSpec: signature,
-                cors: spec.cors,
-                log: log,
-                getKey: function(id) {
-                    return upload.key.urlSafe(id);
-                }
-            }),
-
-            completeMultipart: new qq.s3.CompleteMultipartAjaxRequester({
-                endpointStore: endpointStore,
-                signatureSpec: signature,
-                cors: spec.cors,
-                log: log,
-                getKey: function(id) {
-                    return upload.key.urlSafe(id);
-                }
-            }),
-
-            initiateMultipart: new qq.s3.InitiateMultipartAjaxRequester({
-                filenameParam: filenameParam,
-                endpointStore: endpointStore,
-                paramsStore: paramsStore,
-                signatureSpec: signature,
-                aclStore: aclStore,
-                reducedRedundancy: reducedRedundancy,
-                serverSideEncryption: serverSideEncryption,
-                cors: spec.cors,
-                log: log,
-                getContentType: function(id) {
-                    return handler._getMimeType(id);
-                },
-                getKey: function(id) {
-                    return upload.key.urlSafe(id);
-                },
-                getName: function(id) {
-                    return getName(id);
-                }
-            }),
-
-            policySignature: new qq.s3.RequestSigner({
-                expectingPolicy: true,
-                signatureSpec: signature,
-                cors: spec.cors,
-                log: log
-            }),
-
-            restSignature: new qq.s3.RequestSigner({
-                signatureSpec: signature,
-                cors: spec.cors,
-                log: log
-            })
-        },
-
-        simple = {
-            /**
-             * Used for simple (non-chunked) uploads to determine the parameters to send along with the request.  Part of this
-             * process involves asking the local server to sign the request, so this function returns a promise.  The promise
-             * is fulfilled when all parameters are determined, or when we determine that all parameters cannnot be calculated
-             * due to some error.
-             *
-             * @param id File ID
-             * @returns {qq.Promise}
-             */
-            initParams: function(id) {
-                /*jshint -W040 */
-                var customParams = paramsStore.get(id);
-                customParams[filenameParam] = getName(id);
-
-                return qq.s3.util.generateAwsParams({
-                        endpoint: endpointStore.get(id),
-                        params: customParams,
-                        type: handler._getMimeType(id),
-                        key: handler.getThirdPartyFileId(id),
-                        accessKey: credentialsProvider.get().accessKey,
-                        sessionToken: credentialsProvider.get().sessionToken,
-                        acl: aclStore.get(id),
-                        expectedStatus: expectedStatus,
-                        minFileSize: validation.minSizeLimit,
-                        maxFileSize: validation.maxSizeLimit,
-                        reducedRedundancy: reducedRedundancy,
-                        serverSideEncryption: serverSideEncryption,
-                        log: log
-                    },
-                    qq.bind(requesters.policySignature.getSignature, this, id));
-            },
-
-            send: function(id) {
-                var promise = new qq.Promise(),
-                    xhr = handler._createXhr(id),
-                    fileOrBlob = handler.getFile(id);
-
-                handler._registerProgressHandler(id);
-                upload.track(id, xhr).then(promise.success, promise.failure);
-
-                // Delegate to a function the sets up the XHR request and notifies us when it is ready to be sent, along w/ the payload.
-                simple.setup(id, xhr, fileOrBlob).then(function(toSend) {
-                    log("Sending upload request for " + id);
-                    xhr.send(toSend);
-                }, promise.failure);
-
-                return promise;
-            },
-
-            /**
-             * Starts the upload process by delegating to an async function that determine parameters to be attached to the
-             * request.  If all params can be determined, we are called back with the params and the caller of this function is
-             * informed by invoking the `success` method on the promise returned by this function, passing the payload of the
-             * request.  If some error occurs here, we delegate to a function that signals a failure for this upload attempt.
-             *
-             * Note that this is only used by the simple (non-chunked) upload process.
-             *
-             * @param id File ID
-             * @param xhr XMLHttpRequest to use for the upload
-             * @param fileOrBlob `File` or `Blob` to send
-             * @returns {qq.Promise}
-             */
-            setup: function(id, xhr, fileOrBlob) {
-                var formData = new FormData(),
-                    endpoint = endpointStore.get(id),
-                    url = endpoint,
-                    promise = new qq.Promise();
-
-                simple.initParams(id).then(
-                    // Success - all params determined
-                    function(awsParams) {
-                        xhr.open("POST", url, true);
-
-                        qq.obj2FormData(awsParams, formData);
-
-                        // AWS requires the file field be named "file".
-                        formData.append("file", fileOrBlob);
-
-                        promise.success(formData);
-                    },
-
-                    // Failure - we couldn't determine some params (likely the signature)
-                    function(errorMessage) {
-                        promise.failure({error: errorMessage});
-                    }
-                );
-
-                return promise;
-            }
-        },
-
-        upload = {
-            /**
-             * Note that this is called when an upload has reached a termination point,
-             * regardless of success/failure.  For example, it is called when we have
-             * encountered an error during the upload or when the file may have uploaded successfully.
-             *
-             * @param id file ID
-             */
-            done: function(id, xhr) {
-                var response = upload.response.parse(id, xhr),
-                    isError = response.success !== true;
-
-                if (isError && upload.response.shouldReset(response.code)) {
-                    log("This is an unrecoverable error, we must restart the upload entirely on the next retry attempt.", "error");
-                    response.reset = true;
-                }
-
-                return {
-                    success: !isError,
-                    response: response
-                };
-            },
-
-            key: {
-                promise: function(id) {
-                    var promise = new qq.Promise(),
-                        key = handler.getThirdPartyFileId(id);
-
-                    /* jshint eqnull:true */
-                    if (key == null) {
-                        key = new qq.Promise();
-                        handler._setThirdPartyFileId(id, key);
-                        onGetKeyName(id, getName(id)).then(
-                            function(key) {
-                                handler._setThirdPartyFileId(id, key);
-                                promise.success(key);
-                            },
-                            function(errorReason) {
-                                handler._setThirdPartyFileId(id, null);
-                                promise.failure(errorReason);
-                            }
-                        );
-                    }
-                    else if (qq.isGenericPromise(key)) {
-                        promise.then(key.success, key.failure);
-                    }
-                    else {
-                        promise.success(key);
-                    }
-
-                    return promise;
-                },
-
-                urlSafe: function(id) {
-                    return encodeURIComponent(handler.getThirdPartyFileId(id));
-                }
-            },
-
-            response: {
-                parse: function(id, xhr) {
-                    var response = {},
-                        parsedErrorProps;
-
-                    try {
-                        log(qq.format("Received response status {} with body: {}", xhr.status, xhr.responseText));
-
-                        if (xhr.status === expectedStatus) {
-                            response.success = true;
-                        }
-                        else {
-                            parsedErrorProps = upload.response.parseError(xhr.responseText);
-
-                            if (parsedErrorProps) {
-                                response.error = parsedErrorProps.message;
-                                response.code = parsedErrorProps.code;
-                            }
-                        }
-                    }
-                    catch(error) {
-                        log("Error when attempting to parse xhr response text (" + error.message + ")", "error");
-                    }
-
-                    return response;
-                },
-
-                /**
-                 * This parses an XML response by extracting the "Message" and "Code" elements that accompany AWS error responses.
-                 *
-                 * @param awsResponseXml XML response from AWS
-                 * @returns {object} Object w/ `code` and `message` properties, or undefined if we couldn't find error info in the XML document.
-                 */
-                parseError: function(awsResponseXml) {
-                    var parser = new DOMParser(),
-                        parsedDoc = parser.parseFromString(awsResponseXml, "application/xml"),
-                        errorEls = parsedDoc.getElementsByTagName("Error"),
-                        errorDetails = {},
-                        codeEls, messageEls;
-
-                    if (errorEls.length) {
-                        codeEls = parsedDoc.getElementsByTagName("Code");
-                        messageEls = parsedDoc.getElementsByTagName("Message");
-
-                        if (messageEls.length) {
-                            errorDetails.message = messageEls[0].textContent;
-                        }
-
-                        if (codeEls.length) {
-                            errorDetails.code = codeEls[0].textContent;
-                        }
-
-                        return errorDetails;
-                    }
-                },
-
-                // Determine if the upload should be restarted on the next retry attempt
-                // based on the error code returned in the response from AWS.
-                shouldReset: function(errorCode) {
-                    /*jshint -W014 */
-                    return errorCode === "EntityTooSmall"
-                        || errorCode === "InvalidPart"
-                        || errorCode === "InvalidPartOrder"
-                        || errorCode === "NoSuchUpload";
-                }
-            },
-
-            start: function(id, opt_chunkIdx) {
-                var promise = new qq.Promise();
-
-                upload.key.promise(id).then(function() {
-                    /* jshint eqnull:true */
-                    if (opt_chunkIdx == null) {
-                        simple.send(id).then(promise.success, promise.failure);
-                    }
-                    else {
-                        chunked.send(id, opt_chunkIdx).then(promise.success, promise.failure);
-                    }
-                },
-                function(errorReason) {
-                    promise.failure({error: errorReason});
-                });
-
-                return promise;
-            },
-
-            track: function(id, xhr, opt_chunkIdx) {
-                var promise = new qq.Promise();
-
-                xhr.onreadystatechange = function() {
-                    if (xhr.readyState === 4) {
-                        var result;
-
-                        /* jshint eqnull:true */
-                        if (opt_chunkIdx == null) {
-                            result = upload.done(id, xhr);
-                            promise[result.success ? "success" : "failure"](result.response, xhr);
-                        }
-                        else {
-                            chunked.done(id, xhr, opt_chunkIdx);
-                            result = upload.done(id, xhr);
-                            promise[result.success ? "success" : "failure"](result.response, xhr);
-                        }
-                    }
-                };
-
-                return promise;
-            }
-        };
-
-
-    qq.extend(this, {
-        uploadChunk: upload.start,
-        uploadFile: upload.start
-    });
-
-    qq.extend(this, new qq.XhrUploadHandler({
-            options: qq.extend({namespace: "s3"}, spec),
-            proxy: qq.extend({getEndpoint: spec.endpointStore.get}, proxy)
-        }
-    ));
-
-    qq.override(this, function(super_) {
-        return {
-            expunge: function(id) {
-                var uploadId = handler._getPersistableData(id) && handler._getPersistableData(id).uploadId,
-                    existedInLocalStorage = handler._maybeDeletePersistedChunkData(id);
-
-                if (uploadId !== undefined && existedInLocalStorage) {
-                    requesters.abortMultipart.send(id, uploadId);
-                }
-
-                super_.expunge(id);
-            },
-
-            finalizeChunks: function(id) {
-                return chunked.combine(id);
-            },
-
-            _getLocalStorageId: function(id) {
-                var baseStorageId = super_._getLocalStorageId(id),
-                    endpoint = endpointStore.get(id),
-                    bucketName = qq.s3.util.getBucket(endpoint);
-
-                return baseStorageId + "-" + bucketName;
-            }
-        };
-    });
-};
-
-/*globals qq */
-/**
- * Upload handler used by the upload to S3 module that assumes the current user agent does not have any support for the
- * File API, and, therefore, makes use of iframes and forms to submit the files directly to S3 buckets via the associated
- * AWS API.
- *
- * @param options Options passed from the base handler
- * @param proxy Callbacks & methods used to query for or push out data/changes
- */
-qq.s3.FormUploadHandler = function(options, proxy) {
-    "use strict";
-
-    var handler = this,
-        onUuidChanged = proxy.onUuidChanged,
-        getName = proxy.getName,
-        getUuid = proxy.getUuid,
-        log = proxy.log,
-        onGetKeyName = options.getKeyName,
-        filenameParam = options.filenameParam,
-        paramsStore = options.paramsStore,
-        endpointStore = options.endpointStore,
-        aclStore = options.aclStore,
-        reducedRedundancy = options.objectProperties.reducedRedundancy,
-        serverSideEncryption = options.objectProperties.serverSideEncryption,
-        validation = options.validation,
-        signature = options.signature,
-        successRedirectUrl = options.iframeSupport.localBlankPagePath,
-        credentialsProvider = options.signature.credentialsProvider,
-        getSignatureAjaxRequester = new qq.s3.RequestSigner({
-            signatureSpec: signature,
-            cors: options.cors,
-            log: log
-        });
-
-
-    if (successRedirectUrl === undefined) {
-        throw new Error("successRedirectEndpoint MUST be defined if you intend to use browsers that do not support the File API!");
-    }
-
-    /**
-     * Attempt to parse the contents of an iframe after receiving a response from the server.  If the contents cannot be
-     * read (perhaps due to a security error) it is safe to assume that the upload was not successful since Amazon should
-     * have redirected to a known endpoint that should provide a parseable response.
-     *
-     * @param id ID of the associated file
-     * @param iframe target of the form submit
-     * @returns {boolean} true if the contents can be read, false otherwise
-     */
-    function isValidResponse(id, iframe) {
-        var response,
-            endpoint = options.endpointStore.get(id),
-            bucket = qq.s3.util.getBucket(endpoint);
-
-
-        //IE may throw an "access is denied" error when attempting to access contentDocument on the iframe in some cases
-        try {
-            // iframe.contentWindow.document - for IE<7
-            var doc = iframe.contentDocument || iframe.contentWindow.document,
-                innerHtml = doc.body.innerHTML;
-
-            var responseData = qq.s3.util.parseIframeResponse(iframe);
-            if (responseData.bucket === bucket &&
-                responseData.key === qq.s3.util.encodeQueryStringParam(handler.getThirdPartyFileId(id))) {
-
-                return true;
-            }
-
-            log("Response from AWS included an unexpected bucket or key name.", "error");
-
-        }
-        catch(error) {
-            log("Error when attempting to parse form upload response (" + error.message + ")", "error");
-        }
-
-        return false;
-    }
-
-    function generateAwsParams(id) {
-        /*jshint -W040 */
-        var customParams = paramsStore.get(id);
-
-        customParams[filenameParam] = getName(id);
-
-        return qq.s3.util.generateAwsParams({
-                endpoint: endpointStore.get(id),
-                params: customParams,
-                key: handler.getThirdPartyFileId(id),
-                accessKey: credentialsProvider.get().accessKey,
-                sessionToken: credentialsProvider.get().sessionToken,
-                acl: aclStore.get(id),
-                minFileSize: validation.minSizeLimit,
-                maxFileSize: validation.maxSizeLimit,
-                successRedirectUrl: successRedirectUrl,
-                reducedRedundancy: reducedRedundancy,
-                serverSideEncryption: serverSideEncryption,
-                log: log
-            },
-            qq.bind(getSignatureAjaxRequester.getSignature, this, id));
-    }
-
-    /**
-     * Creates form, that will be submitted to iframe
-     */
-    function createForm(id, iframe) {
-        var promise = new qq.Promise(),
-            method = options.demoMode ? "GET" : "POST",
-            endpoint = options.endpointStore.get(id),
-            fileName = getName(id);
-
-        generateAwsParams(id).then(function(params) {
-            var form = handler._initFormForUpload({
-                method: method,
-                endpoint: endpoint,
-                params: params,
-                paramsInBody: true,
-                targetName: iframe.name
-            });
-
-            promise.success(form);
-        }, function(errorMessage) {
-            promise.failure(errorMessage);
-            handleFinishedUpload(id, iframe, fileName, {error: errorMessage});
-        });
-
-        return promise;
-    }
-
-    function handleUpload(id) {
-        var iframe = handler._createIframe(id),
-            input = handler.getInput(id),
-            promise = new qq.Promise();
-
-        createForm(id, iframe).then(function(form) {
-            form.appendChild(input);
-
-            // Register a callback when the response comes in from S3
-            handler._attachLoadEvent(iframe, function(response) {
-                log("iframe loaded");
-
-                // If the common response handler has determined success or failure immediately
-                if (response) {
-                    // If there is something fundamentally wrong with the response (such as iframe content is not accessible)
-                    if (response.success === false) {
-                        log("Amazon likely rejected the upload request", "error");
-                        promise.failure(response);
-                    }
-                }
-                // The generic response (iframe onload) handler was not able to make a determination regarding the success of the request
-                else {
-                    response = {};
-                    response.success = isValidResponse(id, iframe);
-
-                    // If the more specific response handle detected a problem with the response from S3
-                    if (response.success === false) {
-                        log("A success response was received by Amazon, but it was invalid in some way.", "error");
-                        promise.failure(response);
-                    }
-                    else {
-                        qq.extend(response, qq.s3.util.parseIframeResponse(iframe));
-                        promise.success(response);
-                    }
-                }
-
-                handleFinishedUpload(id, iframe);
-            });
-
-            log("Sending upload request for " + id);
-            form.submit();
-            qq(form).remove();
-        }, promise.failure);
-
-        return promise;
-    }
-
-    function handleFinishedUpload(id, iframe) {
-        handler._detachLoadEvent(id);
-        iframe && qq(iframe).remove();
-    }
-
-    qq.extend(this, new qq.FormUploadHandler({
-            options: {
-                isCors: false,
-                inputName: "file"
-            },
-
-            proxy: {
-                onCancel: options.onCancel,
-                onUuidChanged: onUuidChanged,
-                getName: getName,
-                getUuid: getUuid,
-                log: log
-            }
-        }
-    ));
-
-    qq.extend(this, {
-        uploadFile: function(id) {
-            var name = getName(id),
-                promise = new qq.Promise();
-
-            if (handler.getThirdPartyFileId(id)) {
-                handleUpload(id).then(promise.success, promise.failure);
-            }
-            else {
-                // The S3 uploader module will either calculate the key or ask the server for it
-                // and will call us back once it is known.
-                onGetKeyName(id, name).then(function(key) {
-                    handler._setThirdPartyFileId(id, key);
-                    handleUpload(id).then(promise.success, promise.failure);
-
-                }, function(errorReason) {
-                    promise.failure({error: errorReason});
-                });
-            }
+            requester.initTransport(id)
+                .withPayload(blob)
+                .send(xhr);
 
             return promise;
         }
@@ -9879,16 +8637,16 @@ qq.s3.FormUploadHandler = function(options, proxy) {
 
 /*globals qq */
 /**
- * This defines FineUploader mode w/ support for uploading to S3, which provides all the basic
- * functionality of Fine Uploader as well as code to handle uploads directly to S3.
- * This module inherits all logic from FineUploader mode and FineUploaderBasicS3 mode and adds some UI-related logic
- * specific to the upload-to-S3 workflow.  Some inherited options and API methods have a special meaning
- * in the context of the S3 uploader.
+ * This defines FineUploader mode w/ support for uploading to Azure, which provides all the basic
+ * functionality of Fine Uploader as well as code to handle uploads directly to Azure.
+ * This module inherits all logic from UI & core mode and adds some UI-related logic
+ * specific to the upload-to-Azure workflow.  Some inherited options and API methods have a special meaning
+ * in the context of the Azure uploader.
  */
-(function(){
+(function() {
     "use strict";
 
-    qq.s3.FineUploader = function(o) {
+    qq.azure.FineUploader = function(o) {
         var options = {
             failedUploadTextDisplay: {
                 mode: "custom"
@@ -9898,21 +8656,20 @@ qq.s3.FormUploadHandler = function(options, proxy) {
         // Replace any default options with user defined ones
         qq.extend(options, o, true);
 
-        // Inherit instance data from FineUploader, which should in turn inherit from s3.FineUploaderBasic.
-        qq.FineUploader.call(this, options, "s3");
-
-        if (!qq.supportedFeatures.ajaxUploading && options.iframeSupport.localBlankPagePath === undefined) {
-            this._options.element.innerHTML = "<div>You MUST set the <code>localBlankPagePath</code> property " +
-                "of the <code>iframeSupport</code> option since this browser does not support the File API!</div>";
-        }
+        // Inherit instance data from FineUploader, which should in turn inherit from azure.FineUploaderBasic.
+        qq.FineUploader.call(this, options, "azure");
     };
 
     // Inherit the API methods from FineUploaderBasicS3
-    qq.extend(qq.s3.FineUploader.prototype, qq.s3.FineUploaderBasic.prototype);
+    qq.extend(qq.azure.FineUploader.prototype, qq.azure.FineUploaderBasic.prototype);
 
     // Inherit public and private API methods related to UI
-    qq.extend(qq.s3.FineUploader.prototype, qq.uiPublicApi);
-    qq.extend(qq.s3.FineUploader.prototype, qq.uiPrivateApi);
+    qq.extend(qq.azure.FineUploader.prototype, qq.uiPublicApi);
+    qq.extend(qq.azure.FineUploader.prototype, qq.uiPrivateApi);
+
+    // Define public & private API methods for this module.
+    qq.extend(qq.azure.FineUploader.prototype, {
+    });
 }());
 
 /*globals qq*/
@@ -10029,7 +8786,7 @@ qq.DragAndDrop = function(o) {
 
                     qq.each(entries, function(idx, entry) {
                         traverseFileTree(entry).done(function() {
-                            entriesLeft-=1;
+                            entriesLeft -= 1;
 
                             if (entriesLeft === 0) {
                                 parseEntryPromise.success();
@@ -10130,14 +8887,14 @@ qq.DragAndDrop = function(o) {
         var dropZone = new qq.UploadDropZone({
             HIDE_ZONES_EVENT_NAME: HIDE_ZONES_EVENT_NAME,
             element: dropArea,
-            onEnter: function(e){
+            onEnter: function(e) {
                 qq(dropArea).addClass(options.classes.dropActive);
                 e.stopPropagation();
             },
-            onLeaveNotDescendants: function(e){
+            onLeaveNotDescendants: function(e) {
                 qq(dropArea).removeClass(options.classes.dropActive);
             },
-            onDrop: function(e){
+            onDrop: function(e) {
                 handleDataTransfer(e.dataTransfer, dropZone).then(
                     function() {
                         uploadDroppedFiles(droppedFiles, dropZone);
@@ -10213,8 +8970,11 @@ qq.DragAndDrop = function(o) {
                 disposeSupport.attach(document, "dragenter", function(e) {
                     if (!uploadDropZone.dropDisabled() && isFileDrag(e)) {
                         qq.each(dropZones, function(idx, dropZone) {
-                            // We can't apply styles to non-HTMLElements, since they lack the `style` property
-                            if (dropZone instanceof HTMLElement) {
+                            // We can't apply styles to non-HTMLElements, since they lack the `style` property.
+                            // Also, if the drop zone isn't initially hidden, let's not mess with `style.display`.
+                            if (dropZone instanceof HTMLElement &&
+                                qq(dropZone).hasAttribute(HIDE_BEFORE_ENTER_ATTR)) {
+
                                 qq(dropZone).css({display: "block"});
                             }
                         });
@@ -10236,7 +8996,7 @@ qq.DragAndDrop = function(o) {
             maybeHideDropZones();
         });
 
-        disposeSupport.attach(document, "drop", function(e){
+        disposeSupport.attach(document, "drop", function(e) {
             e.preventDefault();
             maybeHideDropZones();
         });
@@ -10256,7 +9016,7 @@ qq.DragAndDrop = function(o) {
             var i,
                 dzs = options.dropZoneElements;
 
-            for(i in dzs) {
+            for (i in dzs) {
                 if (dzs[i] === element) {
                     return dzs.splice(i, 1);
                 }
@@ -10287,7 +9047,7 @@ qq.DragAndDrop.callbacks = function() {
     };
 };
 
-qq.UploadDropZone = function(o){
+qq.UploadDropZone = function(o) {
     "use strict";
 
     var disposeSupport = new qq.DisposeSupport(),
@@ -10295,32 +9055,32 @@ qq.UploadDropZone = function(o){
 
     options = {
         element: null,
-        onEnter: function(e){},
-        onLeave: function(e){},
+        onEnter: function(e) {},
+        onLeave: function(e) {},
         // is not fired when leaving element by hovering descendants
-        onLeaveNotDescendants: function(e){},
-        onDrop: function(e){}
+        onLeaveNotDescendants: function(e) {},
+        onDrop: function(e) {}
     };
 
     qq.extend(options, o);
     element = options.element;
 
-    function dragover_should_be_canceled(){
+    function dragoverShouldBeCanceled() {
         return qq.safari() || (qq.firefox() && qq.windows());
     }
 
-    function disableDropOutside(e){
+    function disableDropOutside(e) {
         // run only once for all instances
-        if (!dropOutsideDisabled ){
+        if (!dropOutsideDisabled) {
 
             // for these cases we need to catch onDrop to reset dropArea
-            if (dragover_should_be_canceled){
-                disposeSupport.attach(document, "dragover", function(e){
+            if (dragoverShouldBeCanceled) {
+                disposeSupport.attach(document, "dragover", function(e) {
                     e.preventDefault();
                 });
             } else {
-                disposeSupport.attach(document, "dragover", function(e){
-                    if (e.dataTransfer){
+                disposeSupport.attach(document, "dragover", function(e) {
+                    if (e.dataTransfer) {
                         e.dataTransfer.dropEffect = "none";
                         e.preventDefault();
                     }
@@ -10331,7 +9091,7 @@ qq.UploadDropZone = function(o){
         }
     }
 
-    function isValidFileDrag(e){
+    function isValidFileDrag(e) {
         // e.dataTransfer currently causing IE errors
         // IE9 does NOT support file API, so drag-and-drop is not possible
         if (!qq.supportedFeatures.fileDrop) {
@@ -10381,8 +9141,8 @@ qq.UploadDropZone = function(o){
         document.dispatchEvent(hideZonesEvent);
     }
 
-    function attachEvents(){
-        disposeSupport.attach(element, "dragover", function(e){
+    function attachEvents() {
+        disposeSupport.attach(element, "dragover", function(e) {
             if (!isValidFileDrag(e)) {
                 return;
             }
@@ -10390,7 +9150,7 @@ qq.UploadDropZone = function(o){
             // dt.effectAllowed crashes IE 11 & 10 when files have been dragged from
             // the filesystem
             var effect = qq.ie() && qq.supportedFeatures.fileDrop ? null : e.dataTransfer.effectAllowed;
-            if (effect === "move" || effect === "linkMove"){
+            if (effect === "move" || effect === "linkMove") {
                 e.dataTransfer.dropEffect = "move"; // for FF (only move allowed)
             } else {
                 e.dataTransfer.dropEffect = "copy"; // for Chrome
@@ -10400,7 +9160,7 @@ qq.UploadDropZone = function(o){
             e.preventDefault();
         });
 
-        disposeSupport.attach(element, "dragenter", function(e){
+        disposeSupport.attach(element, "dragenter", function(e) {
             if (!isOrSetDropDisabled()) {
                 if (!isValidFileDrag(e)) {
                     return;
@@ -10409,7 +9169,7 @@ qq.UploadDropZone = function(o){
             }
         });
 
-        disposeSupport.attach(element, "dragleave", function(e){
+        disposeSupport.attach(element, "dragleave", function(e) {
             if (!isValidFileDrag(e)) {
                 return;
             }
@@ -10485,7 +9245,7 @@ qq.DeleteFileAjaxRequester = function(o) {
     function getMandatedParams() {
         if (options.method.toUpperCase() === "POST") {
             return {
-                "_method": "DELETE"
+                _method: "DELETE"
             };
         }
 
@@ -10509,7 +9269,6 @@ qq.DeleteFileAjaxRequester = function(o) {
         onComplete: options.onDeleteComplete,
         cors: options.cors
     }));
-
 
     qq.extend(this, {
         sendDelete: function(id, uuid, additionalMandatedParams) {
@@ -10545,7 +9304,7 @@ qq.DeleteFileAjaxRequester = function(o) {
  * Copyright (c) 2012 Shinichi Tomita <shinichi.tomita@gmail.com>
  * Released under the MIT license
  *
- * Modified by Widen for Fine Uploader
+ * Heavily modified by Widen for Fine Uploader
  */
 (function() {
 
@@ -10554,11 +9313,14 @@ qq.DeleteFileAjaxRequester = function(o) {
      * In iOS, larger images than 2M pixels may be subsampled in rendering.
      */
     function detectSubsampling(img) {
-        var iw = img.naturalWidth, ih = img.naturalHeight;
+        var iw = img.naturalWidth,
+            ih = img.naturalHeight,
+            canvas = document.createElement("canvas"),
+            ctx;
+
         if (iw * ih > 1024 * 1024) { // subsampling may happen over megapixel image
-            var canvas = document.createElement("canvas");
             canvas.width = canvas.height = 1;
-            var ctx = canvas.getContext("2d");
+            ctx = canvas.getContext("2d");
             ctx.drawImage(img, -iw + 1, 0);
             // subsampled image becomes half smaller in rendering size.
             // check alpha channel value to confirm image is covering edge pixel or not.
@@ -10574,18 +9336,21 @@ qq.DeleteFileAjaxRequester = function(o) {
      * Fixes a bug which squash image vertically while drawing into canvas for some images.
      */
     function detectVerticalSquash(img, iw, ih) {
-        var canvas = document.createElement("canvas");
+        var canvas = document.createElement("canvas"),
+            sy = 0,
+            ey = ih,
+            py = ih,
+            ctx, data, alpha, ratio;
+
         canvas.width = 1;
         canvas.height = ih;
-        var ctx = canvas.getContext("2d");
+        ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0);
-        var data = ctx.getImageData(0, 0, 1, ih).data;
+        data = ctx.getImageData(0, 0, 1, ih).data;
+
         // search image edge pixel position in case it is squashed vertically.
-        var sy = 0;
-        var ey = ih;
-        var py = ih;
         while (py > sy) {
-            var alpha = data[(py - 1) * 4 + 3];
+            alpha = data[(py - 1) * 4 + 3];
             if (alpha === 0) {
                 ey = py;
             } else {
@@ -10593,8 +9358,9 @@ qq.DeleteFileAjaxRequester = function(o) {
             }
             py = (ey + sy) >> 1;
         }
-        var ratio = (py / ih);
-        return (ratio===0)?1:ratio;
+
+        ratio = (py / ih);
+        return (ratio === 0) ? 1 : ratio;
     }
 
     /**
@@ -10627,13 +9393,17 @@ qq.DeleteFileAjaxRequester = function(o) {
      * Rendering image element (with resizing) into the canvas element
      */
     function renderImageToCanvas(img, canvas, options, doSquash) {
-        var iw = img.naturalWidth, ih = img.naturalHeight;
-        var width = options.width, height = options.height;
-        var ctx = canvas.getContext("2d");
+        var iw = img.naturalWidth,
+            ih = img.naturalHeight,
+            width = options.width,
+            height = options.height,
+            ctx = canvas.getContext("2d"),
+            modifiedDimensions;
+
         ctx.save();
 
         if (!qq.supportedFeatures.unlimitedScaledImageSize) {
-            var modifiedDimensions = maybeCalculateDownsampledDimensions({
+            modifiedDimensions = maybeCalculateDownsampledDimensions({
                 origWidth: width,
                 origHeight: height
             });
@@ -10653,35 +9423,40 @@ qq.DeleteFileAjaxRequester = function(o) {
         // Fine Uploader specific: Save some CPU cycles if not using iOS
         // Assumption: This logic is only needed to overcome iOS image sampling issues
         if (qq.ios()) {
-            var subsampled = detectSubsampling(img);
-            if (subsampled) {
-                iw /= 2;
-                ih /= 2;
-            }
-            var d = 1024; // size of tiling canvas
-            var tmpCanvas = document.createElement("canvas");
-            tmpCanvas.width = tmpCanvas.height = d;
-            var tmpCtx = tmpCanvas.getContext("2d");
-            var vertSquashRatio = doSquash ? detectVerticalSquash(img, iw, ih) : 1;
-            var dw = Math.ceil(d * width / iw);
-            var dh = Math.ceil(d * height / ih / vertSquashRatio);
-            var sy = 0;
-            var dy = 0;
-            while (sy < ih) {
-                var sx = 0;
-                var dx = 0;
-                while (sx < iw) {
-                    tmpCtx.clearRect(0, 0, d, d);
-                    tmpCtx.drawImage(img, -sx, -sy);
-                    ctx.drawImage(tmpCanvas, 0, 0, d, d, dx, dy, dw, dh);
-                    sx += d;
-                    dx += dw;
+            (function() {
+                if (detectSubsampling(img)) {
+                    iw /= 2;
+                    ih /= 2;
                 }
-                sy += d;
-                dy += dh;
-            }
-            ctx.restore();
-            tmpCanvas = tmpCtx = null;
+
+                var d = 1024, // size of tiling canvas
+                    tmpCanvas = document.createElement("canvas"),
+                    vertSquashRatio = doSquash ? detectVerticalSquash(img, iw, ih) : 1,
+                    dw = Math.ceil(d * width / iw),
+                    dh = Math.ceil(d * height / ih / vertSquashRatio),
+                    sy = 0,
+                    dy = 0,
+                    tmpCtx, sx, dx;
+
+                tmpCanvas.width = tmpCanvas.height = d;
+                tmpCtx = tmpCanvas.getContext("2d");
+
+                while (sy < ih) {
+                    sx = 0,
+                    dx = 0;
+                    while (sx < iw) {
+                        tmpCtx.clearRect(0, 0, d, d);
+                        tmpCtx.drawImage(img, -sx, -sy);
+                        ctx.drawImage(tmpCanvas, 0, 0, d, d, dx, dy, dw, dh);
+                        sx += d;
+                        dx += dw;
+                    }
+                    sy += d;
+                    dy += dh;
+                }
+                ctx.restore();
+                tmpCanvas = tmpCtx = null;
+            }())
         }
         else {
             ctx.drawImage(img, 0, 0, width, height);
@@ -10750,31 +9525,32 @@ qq.DeleteFileAjaxRequester = function(o) {
         }
     }
 
-
     /**
      * MegaPixImage class
      */
     function MegaPixImage(srcImage, errorCallback) {
+        var self = this;
+
         if (window.Blob && srcImage instanceof Blob) {
-            var img = new Image();
-            var URL = window.URL && window.URL.createObjectURL ? window.URL :
-                    window.webkitURL && window.webkitURL.createObjectURL ? window.webkitURL :
-                null;
-            if (!URL) { throw Error("No createObjectURL function found to create blob url"); }
-            img.src = URL.createObjectURL(srcImage);
-            this.blob = srcImage;
-            srcImage = img;
+            (function() {
+                var img = new Image(),
+                    URL = window.URL && window.URL.createObjectURL ? window.URL :
+                        window.webkitURL && window.webkitURL.createObjectURL ? window.webkitURL : null;
+                if (!URL) { throw Error("No createObjectURL function found to create blob url"); }
+                img.src = URL.createObjectURL(srcImage);
+                self.blob = srcImage;
+                srcImage = img;
+            }());
         }
         if (!srcImage.naturalWidth && !srcImage.naturalHeight) {
-            var _this = this;
             srcImage.onload = function() {
-                var listeners = _this.imageLoadListeners;
+                var listeners = self.imageLoadListeners;
                 if (listeners) {
-                    _this.imageLoadListeners = null;
+                    self.imageLoadListeners = null;
                     // IE11 doesn't reliably report actual image dimensions immediately after onload for small files,
                     // so let's push this to the end of the UI thread queue.
                     setTimeout(function() {
-                        for (var i=0, len=listeners.length; i<len; i++) {
+                        for (var i = 0, len = listeners.length; i < len; i++) {
                             listeners[i]();
                         }
                     }, 0);
@@ -10790,16 +9566,24 @@ qq.DeleteFileAjaxRequester = function(o) {
      * Rendering megapix image into specified target element
      */
     MegaPixImage.prototype.render = function(target, options) {
+        options = options || {};
+
+        var self = this,
+            imgWidth = this.srcImage.naturalWidth,
+            imgHeight = this.srcImage.naturalHeight,
+            width = options.width,
+            height = options.height,
+            maxWidth = options.maxWidth,
+            maxHeight = options.maxHeight,
+            doSquash = !this.blob || this.blob.type === "image/jpeg",
+            tagName = target.tagName.toLowerCase(),
+            opt;
+
         if (this.imageLoadListeners) {
-            var _this = this;
-            this.imageLoadListeners.push(function() { _this.render(target, options) });
+            this.imageLoadListeners.push(function() { self.render(target, options) });
             return;
         }
-        options = options || {};
-        var imgWidth = this.srcImage.naturalWidth, imgHeight = this.srcImage.naturalHeight,
-            width = options.width, height = options.height,
-            maxWidth = options.maxWidth, maxHeight = options.maxHeight,
-            doSquash = !this.blob || this.blob.type === "image/jpeg";
+
         if (width && !height) {
             height = (imgHeight * width / imgWidth) << 0;
         } else if (height && !width) {
@@ -10816,12 +9600,18 @@ qq.DeleteFileAjaxRequester = function(o) {
             height = maxHeight;
             width = (imgWidth * height / imgHeight) << 0;
         }
-        var opt = { width : width, height : height };
-        for (var k in options) opt[k] = options[k];
 
-        var tagName = target.tagName.toLowerCase();
+        opt = { width: width, height: height },
+        qq.each(options, function(optionsKey, optionsValue) {
+            opt[optionsKey] = optionsValue;
+        });
+
         if (tagName === "img") {
-            target.src = renderImageToDataURL(this.srcImage, opt, doSquash);
+            (function() {
+                var oldTargetSrc = target.src;
+                target.src = renderImageToDataURL(self.srcImage, opt, doSquash);
+                oldTargetSrc === target.src && target.onload();
+            }())
         } else if (tagName === "canvas") {
             renderImageToCanvas(this.srcImage, target, opt, doSquash);
         }
@@ -10871,7 +9661,7 @@ qq.ImageGenerator = function(log) {
 
         extension = extension && extension.toLowerCase();
 
-        switch(extension) {
+        switch (extension) {
             case "jpeg":
             case "jpg":
                 return "image/jpeg";
@@ -11040,20 +9830,28 @@ qq.ImageGenerator = function(log) {
 
         tempImg.src = url;
 
-        tempImgRender.then(function() {
-            registerThumbnailRenderedListener(canvasOrImg, draw);
+        tempImgRender.then(
+            function rendered() {
+                registerThumbnailRenderedListener(canvasOrImg, draw);
 
-            var mpImg = new qq.MegaPixImage(tempImg);
-            mpImg.render(canvasOrImg, {
-                maxWidth: maxSize,
-                maxHeight: maxSize,
-                mime: determineMimeOfFileName(url)
-            });
-        });
+                var mpImg = new qq.MegaPixImage(tempImg);
+                mpImg.render(canvasOrImg, {
+                    maxWidth: maxSize,
+                    maxHeight: maxSize,
+                    mime: determineMimeOfFileName(url)
+                });
+            },
+
+            draw.failure
+        );
     }
 
     function drawOnImgFromUrlWithCssScaling(url, img, draw, maxSize) {
         registerThumbnailRenderedListener(img, draw);
+        // NOTE: The fact that maxWidth/height is set on the thumbnail for scaled images
+        // that must drop back to CSS is known and exploited by the templating module.
+        // In this module, we pre-render "waiting" thumbs for all files immediately after they
+        // are submitted, and we must be sure to pass any style associated with the "waiting" preview.
         qq(img).css({
             maxWidth: maxSize + "px",
             maxHeight: maxSize + "px"
@@ -11106,7 +9904,6 @@ qq.ImageGenerator = function(log) {
         return draw;
     }
 
-
     qq.extend(this, {
         /**
          * Generate a thumbnail.  Depending on the arguments, this may either result in
@@ -11130,13 +9927,6 @@ qq.ImageGenerator = function(log) {
         }
     });
 
-    /*<testing>*/
-    this._testing = {};
-    this._testing.isImg = isImg;
-    this._testing.isCanvas = isCanvas;
-    this._testing.isCrossOrigin = isCrossOrigin;
-    this._testing.determineMimeOfFileName = determineMimeOfFileName;
-    /*</testing>*/
 };
 
 /*globals qq */
@@ -11184,10 +9974,12 @@ qq.Exif = function(fileOrBlob, log) {
         }
 
         qq.readBlobToHex(fileOrBlob, theOffset, 4).then(function(hex) {
-            var match = /^ffe([0-9])/.exec(hex);
+            var match = /^ffe([0-9])/.exec(hex),
+                segmentLength;
+
             if (match) {
                 if (match[1] !== "1") {
-                    var segmentLength = parseInt(hex.slice(4, 8), 16);
+                    segmentLength = parseInt(hex.slice(4, 8), 16);
                     seekToApp1(theOffset + segmentLength + 2, thePromise);
                 }
                 else {
@@ -11263,7 +10055,7 @@ qq.Exif = function(fileOrBlob, log) {
         var entries = [],
             offset = 0;
 
-        while (offset+24 <= ifdHex.length) {
+        while (offset + 24 <= ifdHex.length) {
             entries.push(ifdHex.slice(offset, offset + 24));
             offset += 24;
         }
@@ -11286,7 +10078,7 @@ qq.Exif = function(fileOrBlob, log) {
             if (tagsToFindIdx >= 0) {
                 tagName = TAG_INFO[id].name;
                 tagValLength = TAG_INFO[id].bytes;
-                tagValHex = entry.slice(TAG_VAL_OFFSET, TAG_VAL_OFFSET + (tagValLength*2));
+                tagValHex = entry.slice(TAG_VAL_OFFSET, TAG_VAL_OFFSET + (tagValLength * 2));
                 vals[tagName] = littleEndian ? parseLittleEndian(tagValHex) : parseInt(tagValHex, 16);
 
                 tagsToFind.splice(tagsToFindIdx, 1);
@@ -11341,10 +10133,6 @@ qq.Exif = function(fileOrBlob, log) {
         }
     });
 
-    /*<testing>*/
-    this._testing = {};
-    this._testing.parseLittleEndian = parseLittleEndian;
-    /*</testing>*/
 };
 
 /*globals qq */
@@ -11540,7 +10328,7 @@ qq.ImageValidation = function(blob, log) {
                     actualValue = dimensions[dimensionPropName];
 
                 /*jshint -W015*/
-                switch(limitMatcher[1]) {
+                switch (limitMatcher[1]) {
                     case "min":
                         if (actualValue < limitValue) {
                             failingLimit = limitName;
@@ -11613,7 +10401,6 @@ qq.Session = function(spec) {
 
     qq.extend(options, spec, true);
 
-
     function isJsonResponseValid(response) {
         if (qq.isArray(response)) {
             return true;
@@ -11643,7 +10430,7 @@ qq.Session = function(spec) {
                         options.addFileRecord(fileItem);
                         return true;
                     }
-                    catch(err) {
+                    catch (err) {
                         someItemsIgnored = true;
                         options.log(err.message, "error");
                     }
@@ -11709,7 +10496,7 @@ qq.SessionAjaxRequester = function(spec) {
             try {
                 response = qq.parseJson(xhrOrXdr.responseText);
             }
-            catch(err) {
+            catch (err) {
                 options.log("Problem parsing session response: " + err.message, "error");
                 isError = true;
             }
@@ -11732,7 +10519,6 @@ qq.SessionAjaxRequester = function(spec) {
         onComplete: onComplete,
         cors: options.cors
     }));
-
 
     qq.extend(this, {
         queryServer: function() {
@@ -11966,17 +10752,16 @@ qq.Scaler = function(spec, log) {
                             refType: originalBlob.type
                         }),
                         blob: new qq.BlobProxy(originalBlob,
-                            qq.bind(self._generateScaledImage, self, {
-                                maxSize: sizeRecord.maxSize,
-                                orient: orient,
-                                type: outputType,
-                                quality: defaultQuality,
-                                failedText: failedToScaleText,
-                                includeExif: includeExif,
-                                log: log
-                            }))
-                        }
-                    );
+                        qq.bind(self._generateScaledImage, self, {
+                            maxSize: sizeRecord.maxSize,
+                            orient: orient,
+                            type: outputType,
+                            quality: defaultQuality,
+                            failedText: failedToScaleText,
+                            includeExif: includeExif,
+                            log: log
+                        }))
+                    });
                 });
 
                 includeReference && records.push({
@@ -12221,7 +11006,7 @@ qq.extend(qq.Scaler.prototype, {
             var scaledImageDataUri = canvas.toDataURL(type, quality),
                 signalSuccess = function() {
                     log("Success generating scaled version for " + sourceFile.name);
-                    var blob = self._dataUriToBlob(scaledImageDataUri);
+                    var blob = qq.dataUriToBlob(scaledImageDataUri);
                     scalingEffort.success(blob);
                 };
 
@@ -12268,7 +11053,6 @@ qq.extend(qq.Scaler.prototype, {
 
         return insertionEffort;
     },
-
 
     _dataUriToBlob: function(dataUri) {
         "use strict";
@@ -12641,7 +11425,6 @@ qq.UiEventHandler = function(s, protectedApi) {
             onHandled: function(target, event) {}
         };
 
-
     // This makes up the "public" API methods that will be accessible
     // to instances constructing a base or child handler
     qq.extend(this, {
@@ -12676,7 +11459,6 @@ qq.UiEventHandler = function(s, protectedApi) {
             return disposer;
         }
     });
-
 
     qq.extend(spec, s);
 
@@ -12839,7 +11621,6 @@ qq.FilenameEditHandler = function(s, inheritedInternalApi) {
             onEditingStatusChange: function(fileId, isEditing) {}
         };
 
-
     function getFilenameSansExtension(fileId) {
         var filenameSansExt = spec.onGetName(fileId),
             extIdx = filenameSansExt.lastIndexOf(".");
@@ -12917,1096 +11698,405 @@ qq.FilenameEditHandler = function(s, inheritedInternalApi) {
     });
 };
 
-/*
-CryptoJS v3.1.2
-code.google.com/p/crypto-js
-(c) 2009-2013 by Jeff Mott. All rights reserved.
-code.google.com/p/crypto-js/wiki/License
-*/
-/**
- * CryptoJS core components.
- */
-var CryptoJS = CryptoJS || (function (Math, undefined) {
-    /**
-     * CryptoJS namespace.
-     */
-    var C = {};
+/*globals jQuery, qq*/
+(function($) {
+    "use strict";
+    var $el,
+        pluginOptions = ["uploaderType", "endpointType"];
 
-    /**
-     * Library namespace.
-     */
-    var C_lib = C.lib = {};
+    function init(options) {
+        var xformedOpts = transformVariables(options || {}),
+            newUploaderInstance = getNewUploaderInstance(xformedOpts);
 
-    /**
-     * Base object for prototypal inheritance.
-     */
-    var Base = C_lib.Base = (function () {
-        function F() {}
+        uploader(newUploaderInstance);
+        addCallbacks(xformedOpts, newUploaderInstance);
 
-        return {
-            /**
-             * Creates a new object that inherits from this object.
-             *
-             * @param {Object} overrides Properties to copy into the new object.
-             *
-             * @return {Object} The new object.
-             *
-             * @static
-             *
-             * @example
-             *
-             *     var MyType = CryptoJS.lib.Base.extend({
-             *         field: 'value',
-             *
-             *         method: function () {
-             *         }
-             *     });
-             */
-            extend: function (overrides) {
-                // Spawn
-                F.prototype = this;
-                var subtype = new F();
+        return $el;
+    }
 
-                // Augment
-                if (overrides) {
-                    subtype.mixIn(overrides);
+    function getNewUploaderInstance(params) {
+        var uploaderType = pluginOption("uploaderType"),
+            namespace = pluginOption("endpointType");
+
+        // If the integrator has defined a specific type of uploader to load, use that, otherwise assume `qq.FineUploader`
+        if (uploaderType) {
+            // We can determine the correct constructor function to invoke by combining "FineUploader"
+            // with the upper camel cased `uploaderType` value.
+            uploaderType = uploaderType.charAt(0).toUpperCase() + uploaderType.slice(1).toLowerCase();
+
+            if (namespace) {
+                return new qq[namespace]["FineUploader" + uploaderType](params);
+            }
+
+            return new qq["FineUploader" + uploaderType](params);
+        }
+        else {
+            if (namespace) {
+                return new qq[namespace].FineUploader(params);
+            }
+
+            return new qq.FineUploader(params);
+        }
+    }
+
+    function dataStore(key, val) {
+        var data = $el.data("fineuploader");
+
+        if (val) {
+            if (data === undefined) {
+                data = {};
+            }
+            data[key] = val;
+            $el.data("fineuploader", data);
+        }
+        else {
+            if (data === undefined) {
+                return null;
+            }
+            return data[key];
+        }
+    }
+
+    //the underlying Fine Uploader instance is stored in jQuery's data stored, associated with the element
+    // tied to this instance of the plug-in
+    function uploader(instanceToStore) {
+        return dataStore("uploader", instanceToStore);
+    }
+
+    function pluginOption(option, optionVal) {
+        return dataStore(option, optionVal);
+    }
+
+    // Implement all callbacks defined in Fine Uploader as functions that trigger appropriately names events and
+    // return the result of executing the bound handler back to Fine Uploader
+    function addCallbacks(transformedOpts, newUploaderInstance) {
+        var callbacks = transformedOpts.callbacks = {};
+
+        $.each(newUploaderInstance._options.callbacks, function(prop, nonJqueryCallback) {
+            var name, callbackEventTarget;
+
+            name = /^on(\w+)/.exec(prop)[1];
+            name = name.substring(0, 1).toLowerCase() + name.substring(1);
+            callbackEventTarget = $el;
+
+            callbacks[prop] = function() {
+                var originalArgs = Array.prototype.slice.call(arguments),
+                    transformedArgs = [],
+                    nonJqueryCallbackRetVal, jqueryEventCallbackRetVal;
+
+                $.each(originalArgs, function(idx, arg) {
+                    transformedArgs.push(maybeWrapInJquery(arg));
+                });
+
+                nonJqueryCallbackRetVal = nonJqueryCallback.apply(this, originalArgs);
+
+                try {
+                    jqueryEventCallbackRetVal = callbackEventTarget.triggerHandler(name, transformedArgs);
+                }
+                catch (error) {
+                    qq.log("Caught error in Fine Uploader jQuery event handler: " + error.message, "error");
                 }
 
-                // Create default initializer
-                if (!subtype.hasOwnProperty('init')) {
-                    subtype.init = function () {
-                        subtype.$super.init.apply(this, arguments);
-                    };
+                /*jshint -W116*/
+                if (nonJqueryCallbackRetVal != null) {
+                    return nonJqueryCallbackRetVal;
                 }
+                return jqueryEventCallbackRetVal;
+            };
+        });
 
-                // Initializer's prototype is the subtype object
-                subtype.init.prototype = subtype;
+        newUploaderInstance._options.callbacks = callbacks;
+    }
 
-                // Reference supertype
-                subtype.$super = this;
+    //transform jQuery objects into HTMLElements, and pass along all other option properties
+    function transformVariables(source, dest) {
+        var xformed, arrayVals;
 
-                return subtype;
-            },
+        if (dest === undefined) {
+            if (source.uploaderType !== "basic") {
+                xformed = { element: $el[0] };
+            }
+            else {
+                xformed = {};
+            }
+        }
+        else {
+            xformed = dest;
+        }
 
-            /**
-             * Extends this object and runs the init method.
-             * Arguments to create() will be passed to init().
-             *
-             * @return {Object} The new object.
-             *
-             * @static
-             *
-             * @example
-             *
-             *     var instance = MyType.create();
-             */
-            create: function () {
-                var instance = this.extend();
-                instance.init.apply(instance, arguments);
+        $.each(source, function(prop, val) {
+            if ($.inArray(prop, pluginOptions) >= 0) {
+                pluginOption(prop, val);
+            }
+            else if (val instanceof $) {
+                xformed[prop] = val[0];
+            }
+            else if ($.isPlainObject(val)) {
+                xformed[prop] = {};
+                transformVariables(val, xformed[prop]);
+            }
+            else if ($.isArray(val)) {
+                arrayVals = [];
+                $.each(val, function(idx, arrayVal) {
+                    var arrayObjDest = {};
 
-                return instance;
-            },
-
-            /**
-             * Initializes a newly created object.
-             * Override this method to add some logic when your objects are created.
-             *
-             * @example
-             *
-             *     var MyType = CryptoJS.lib.Base.extend({
-             *         init: function () {
-             *             // ...
-             *         }
-             *     });
-             */
-            init: function () {
-            },
-
-            /**
-             * Copies properties into this object.
-             *
-             * @param {Object} properties The properties to mix in.
-             *
-             * @example
-             *
-             *     MyType.mixIn({
-             *         field: 'value'
-             *     });
-             */
-            mixIn: function (properties) {
-                for (var propertyName in properties) {
-                    if (properties.hasOwnProperty(propertyName)) {
-                        this[propertyName] = properties[propertyName];
+                    if (arrayVal instanceof $) {
+                        $.merge(arrayVals, arrayVal);
                     }
-                }
-
-                // IE won't copy toString using the loop above
-                if (properties.hasOwnProperty('toString')) {
-                    this.toString = properties.toString;
-                }
-            },
-
-            /**
-             * Creates a copy of this object.
-             *
-             * @return {Object} The clone.
-             *
-             * @example
-             *
-             *     var clone = instance.clone();
-             */
-            clone: function () {
-                return this.init.prototype.extend(this);
+                    else if ($.isPlainObject(arrayVal)) {
+                        transformVariables(arrayVal, arrayObjDest);
+                        arrayVals.push(arrayObjDest);
+                    }
+                    else {
+                        arrayVals.push(arrayVal);
+                    }
+                });
+                xformed[prop] = arrayVals;
             }
-        };
-    }());
-
-    /**
-     * An array of 32-bit words.
-     *
-     * @property {Array} words The array of 32-bit words.
-     * @property {number} sigBytes The number of significant bytes in this word array.
-     */
-    var WordArray = C_lib.WordArray = Base.extend({
-        /**
-         * Initializes a newly created word array.
-         *
-         * @param {Array} words (Optional) An array of 32-bit words.
-         * @param {number} sigBytes (Optional) The number of significant bytes in the words.
-         *
-         * @example
-         *
-         *     var wordArray = CryptoJS.lib.WordArray.create();
-         *     var wordArray = CryptoJS.lib.WordArray.create([0x00010203, 0x04050607]);
-         *     var wordArray = CryptoJS.lib.WordArray.create([0x00010203, 0x04050607], 6);
-         */
-        init: function (words, sigBytes) {
-            words = this.words = words || [];
-
-            if (sigBytes != undefined) {
-                this.sigBytes = sigBytes;
-            } else {
-                this.sigBytes = words.length * 4;
+            else {
+                xformed[prop] = val;
             }
-        },
+        });
 
-        /**
-         * Converts this word array to a string.
-         *
-         * @param {Encoder} encoder (Optional) The encoding strategy to use. Default: CryptoJS.enc.Hex
-         *
-         * @return {string} The stringified word array.
-         *
-         * @example
-         *
-         *     var string = wordArray + '';
-         *     var string = wordArray.toString();
-         *     var string = wordArray.toString(CryptoJS.enc.Utf8);
-         */
-        toString: function (encoder) {
-            return (encoder || Hex).stringify(this);
-        },
-
-        /**
-         * Concatenates a word array to this word array.
-         *
-         * @param {WordArray} wordArray The word array to append.
-         *
-         * @return {WordArray} This word array.
-         *
-         * @example
-         *
-         *     wordArray1.concat(wordArray2);
-         */
-        concat: function (wordArray) {
-            // Shortcuts
-            var thisWords = this.words;
-            var thatWords = wordArray.words;
-            var thisSigBytes = this.sigBytes;
-            var thatSigBytes = wordArray.sigBytes;
-
-            // Clamp excess bits
-            this.clamp();
-
-            // Concat
-            if (thisSigBytes % 4) {
-                // Copy one byte at a time
-                for (var i = 0; i < thatSigBytes; i++) {
-                    var thatByte = (thatWords[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
-                    thisWords[(thisSigBytes + i) >>> 2] |= thatByte << (24 - ((thisSigBytes + i) % 4) * 8);
-                }
-            } else if (thatWords.length > 0xffff) {
-                // Copy one word at a time
-                for (var i = 0; i < thatSigBytes; i += 4) {
-                    thisWords[(thisSigBytes + i) >>> 2] = thatWords[i >>> 2];
-                }
-            } else {
-                // Copy all words at once
-                thisWords.push.apply(thisWords, thatWords);
-            }
-            this.sigBytes += thatSigBytes;
-
-            // Chainable
-            return this;
-        },
-
-        /**
-         * Removes insignificant bits.
-         *
-         * @example
-         *
-         *     wordArray.clamp();
-         */
-        clamp: function () {
-            // Shortcuts
-            var words = this.words;
-            var sigBytes = this.sigBytes;
-
-            // Clamp
-            words[sigBytes >>> 2] &= 0xffffffff << (32 - (sigBytes % 4) * 8);
-            words.length = Math.ceil(sigBytes / 4);
-        },
-
-        /**
-         * Creates a copy of this word array.
-         *
-         * @return {WordArray} The clone.
-         *
-         * @example
-         *
-         *     var clone = wordArray.clone();
-         */
-        clone: function () {
-            var clone = Base.clone.call(this);
-            clone.words = this.words.slice(0);
-
-            return clone;
-        },
-
-        /**
-         * Creates a word array filled with random bytes.
-         *
-         * @param {number} nBytes The number of random bytes to generate.
-         *
-         * @return {WordArray} The random word array.
-         *
-         * @static
-         *
-         * @example
-         *
-         *     var wordArray = CryptoJS.lib.WordArray.random(16);
-         */
-        random: function (nBytes) {
-            var words = [];
-            for (var i = 0; i < nBytes; i += 4) {
-                words.push((Math.random() * 0x100000000) | 0);
-            }
-
-            return new WordArray.init(words, nBytes);
+        if (dest === undefined) {
+            return xformed;
         }
-    });
+    }
 
-    /**
-     * Encoder namespace.
-     */
-    var C_enc = C.enc = {};
+    function isValidCommand(command) {
+        return $.type(command) === "string" &&
+            !command.match(/^_/) && //enforce private methods convention
+            uploader()[command] !== undefined;
+    }
 
-    /**
-     * Hex encoding strategy.
-     */
-    var Hex = C_enc.Hex = {
-        /**
-         * Converts a word array to a hex string.
-         *
-         * @param {WordArray} wordArray The word array.
-         *
-         * @return {string} The hex string.
-         *
-         * @static
-         *
-         * @example
-         *
-         *     var hexString = CryptoJS.enc.Hex.stringify(wordArray);
-         */
-        stringify: function (wordArray) {
-            // Shortcuts
-            var words = wordArray.words;
-            var sigBytes = wordArray.sigBytes;
+    // Assuming we have already verified that this is a valid command, call the associated function in the underlying
+    // Fine Uploader instance (passing along the arguments from the caller) and return the result of the call back to the caller
+    function delegateCommand(command) {
+        var xformedArgs = [],
+            origArgs = Array.prototype.slice.call(arguments, 1),
+            retVal;
 
-            // Convert
-            var hexChars = [];
-            for (var i = 0; i < sigBytes; i++) {
-                var bite = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
-                hexChars.push((bite >>> 4).toString(16));
-                hexChars.push((bite & 0x0f).toString(16));
-            }
+        transformVariables(origArgs, xformedArgs);
 
-            return hexChars.join('');
-        },
+        retVal = uploader()[command].apply(uploader(), xformedArgs);
 
-        /**
-         * Converts a hex string to a word array.
-         *
-         * @param {string} hexStr The hex string.
-         *
-         * @return {WordArray} The word array.
-         *
-         * @static
-         *
-         * @example
-         *
-         *     var wordArray = CryptoJS.enc.Hex.parse(hexString);
-         */
-        parse: function (hexStr) {
-            // Shortcut
-            var hexStrLength = hexStr.length;
+        return maybeWrapInJquery(retVal);
+    }
 
-            // Convert
-            var words = [];
-            for (var i = 0; i < hexStrLength; i += 2) {
-                words[i >>> 3] |= parseInt(hexStr.substr(i, 2), 16) << (24 - (i % 8) * 4);
-            }
+    // If the value is an `HTMLElement` or `HTMLDocument`, wrap it in a `jQuery` object
+    function maybeWrapInJquery(val) {
+        var transformedVal = val;
 
-            return new WordArray.init(words, hexStrLength / 2);
+        // If the command is returning an `HTMLElement` or `HTMLDocument`, wrap it in a `jQuery` object
+        /*jshint -W116*/
+        if (val != null && typeof val === "object" &&
+           (val.nodeType === 1 || val.nodeType === 9) && val.cloneNode) {
+
+            transformedVal = $(val);
         }
+
+        return transformedVal;
+    }
+
+    $.fn.fineUploader = function(optionsOrCommand) {
+        var self = this, selfArgs = arguments, retVals = [];
+
+        this.each(function(index, el) {
+            $el = $(el);
+
+            if (uploader() && isValidCommand(optionsOrCommand)) {
+                retVals.push(delegateCommand.apply(self, selfArgs));
+
+                if (self.length === 1) {
+                    return false;
+                }
+            }
+            else if (typeof optionsOrCommand === "object" || !optionsOrCommand) {
+                init.apply(self, selfArgs);
+            }
+            else {
+                $.error("Method " +  optionsOrCommand + " does not exist on jQuery.fineUploader");
+            }
+        });
+
+        if (retVals.length === 1) {
+            return retVals[0];
+        }
+        else if (retVals.length > 1) {
+            return retVals;
+        }
+
+        return this;
     };
 
-    /**
-     * Latin1 encoding strategy.
-     */
-    var Latin1 = C_enc.Latin1 = {
-        /**
-         * Converts a word array to a Latin1 string.
-         *
-         * @param {WordArray} wordArray The word array.
-         *
-         * @return {string} The Latin1 string.
-         *
-         * @static
-         *
-         * @example
-         *
-         *     var latin1String = CryptoJS.enc.Latin1.stringify(wordArray);
-         */
-        stringify: function (wordArray) {
-            // Shortcuts
-            var words = wordArray.words;
-            var sigBytes = wordArray.sigBytes;
+}(jQuery));
 
-            // Convert
-            var latin1Chars = [];
-            for (var i = 0; i < sigBytes; i++) {
-                var bite = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
-                latin1Chars.push(String.fromCharCode(bite));
-            }
+/*globals jQuery*/
+/**
+ * Simply an alias for the `fineUploader` plug-in wrapper, but hides the required `endpointType` option from the
+ * integrator.  I thought it may be confusing to convey to the integrator that, when using Fine Uploader in Azure mode,
+ * you need to specify an `endpointType` with a value of "azure", and perhaps an `uploaderType` with a value of "basic" if
+ * you want to use basic mode when uploading directly to Azure as well.  So, you can use this plug-in alias and not worry
+ * about the `endpointType` option at all.
+ */
+(function($) {
+    "use strict";
 
-            return latin1Chars.join('');
-        },
+    $.fn.fineUploaderAzure = function(optionsOrCommand) {
+        if (typeof optionsOrCommand === "object") {
 
-        /**
-         * Converts a Latin1 string to a word array.
-         *
-         * @param {string} latin1Str The Latin1 string.
-         *
-         * @return {WordArray} The word array.
-         *
-         * @static
-         *
-         * @example
-         *
-         *     var wordArray = CryptoJS.enc.Latin1.parse(latin1String);
-         */
-        parse: function (latin1Str) {
-            // Shortcut
-            var latin1StrLength = latin1Str.length;
-
-            // Convert
-            var words = [];
-            for (var i = 0; i < latin1StrLength; i++) {
-                words[i >>> 2] |= (latin1Str.charCodeAt(i) & 0xff) << (24 - (i % 4) * 8);
-            }
-
-            return new WordArray.init(words, latin1StrLength);
+            // This option is used to tell the plug-in wrapper to instantiate the appropriate Azure-namespace modules.
+            optionsOrCommand.endpointType = "azure";
         }
+
+        return $.fn.fineUploader.apply(this, arguments);
     };
 
-    /**
-     * UTF-8 encoding strategy.
-     */
-    var Utf8 = C_enc.Utf8 = {
-        /**
-         * Converts a word array to a UTF-8 string.
-         *
-         * @param {WordArray} wordArray The word array.
-         *
-         * @return {string} The UTF-8 string.
-         *
-         * @static
-         *
-         * @example
-         *
-         *     var utf8String = CryptoJS.enc.Utf8.stringify(wordArray);
-         */
-        stringify: function (wordArray) {
-            try {
-                return decodeURIComponent(escape(Latin1.stringify(wordArray)));
-            } catch (e) {
-                throw new Error('Malformed UTF-8 data');
-            }
-        },
+}(jQuery));
 
-        /**
-         * Converts a UTF-8 string to a word array.
-         *
-         * @param {string} utf8Str The UTF-8 string.
-         *
-         * @return {WordArray} The word array.
-         *
-         * @static
-         *
-         * @example
-         *
-         *     var wordArray = CryptoJS.enc.Utf8.parse(utf8String);
-         */
-        parse: function (utf8Str) {
-            return Latin1.parse(unescape(encodeURIComponent(utf8Str)));
+/*globals jQuery, qq*/
+(function($) {
+    "use strict";
+    var rootDataKey = "fineUploaderDnd",
+        $el;
+
+    function init(options) {
+        if (!options) {
+            options = {};
         }
-    };
 
-    /**
-     * Abstract buffered block algorithm template.
-     *
-     * The property blockSize must be implemented in a concrete subtype.
-     *
-     * @property {number} _minBufferSize The number of blocks that should be kept unprocessed in the buffer. Default: 0
-     */
-    var BufferedBlockAlgorithm = C_lib.BufferedBlockAlgorithm = Base.extend({
-        /**
-         * Resets this block algorithm's data buffer to its initial state.
-         *
-         * @example
-         *
-         *     bufferedBlockAlgorithm.reset();
-         */
-        reset: function () {
-            // Initial values
-            this._data = new WordArray.init();
-            this._nDataBytes = 0;
-        },
+        options.dropZoneElements = [$el];
+        var xformedOpts = transformVariables(options);
+        addCallbacks(xformedOpts);
+        dnd(new qq.DragAndDrop(xformedOpts));
 
-        /**
-         * Adds new data to this block algorithm's buffer.
-         *
-         * @param {WordArray|string} data The data to append. Strings are converted to a WordArray using UTF-8.
-         *
-         * @example
-         *
-         *     bufferedBlockAlgorithm._append('data');
-         *     bufferedBlockAlgorithm._append(wordArray);
-         */
-        _append: function (data) {
-            // Convert string to WordArray, else assume WordArray already
-            if (typeof data == 'string') {
-                data = Utf8.parse(data);
+        return $el;
+    }
+
+    function dataStore(key, val) {
+        var data = $el.data(rootDataKey);
+
+        if (val) {
+            if (data === undefined) {
+                data = {};
             }
-
-            // Append
-            this._data.concat(data);
-            this._nDataBytes += data.sigBytes;
-        },
-
-        /**
-         * Processes available data blocks.
-         *
-         * This method invokes _doProcessBlock(offset), which must be implemented by a concrete subtype.
-         *
-         * @param {boolean} doFlush Whether all blocks and partial blocks should be processed.
-         *
-         * @return {WordArray} The processed data.
-         *
-         * @example
-         *
-         *     var processedData = bufferedBlockAlgorithm._process();
-         *     var processedData = bufferedBlockAlgorithm._process(!!'flush');
-         */
-        _process: function (doFlush) {
-            // Shortcuts
-            var data = this._data;
-            var dataWords = data.words;
-            var dataSigBytes = data.sigBytes;
-            var blockSize = this.blockSize;
-            var blockSizeBytes = blockSize * 4;
-
-            // Count blocks ready
-            var nBlocksReady = dataSigBytes / blockSizeBytes;
-            if (doFlush) {
-                // Round up to include partial blocks
-                nBlocksReady = Math.ceil(nBlocksReady);
-            } else {
-                // Round down to include only full blocks,
-                // less the number of blocks that must remain in the buffer
-                nBlocksReady = Math.max((nBlocksReady | 0) - this._minBufferSize, 0);
+            data[key] = val;
+            $el.data(rootDataKey, data);
+        }
+        else {
+            if (data === undefined) {
+                return null;
             }
+            return data[key];
+        }
+    }
 
-            // Count words ready
-            var nWordsReady = nBlocksReady * blockSize;
+    function dnd(instanceToStore) {
+        return dataStore("dndInstance", instanceToStore);
+    }
 
-            // Count bytes ready
-            var nBytesReady = Math.min(nWordsReady * 4, dataSigBytes);
+    function addCallbacks(transformedOpts) {
+        var callbacks = transformedOpts.callbacks = {};
 
-            // Process blocks
-            if (nWordsReady) {
-                for (var offset = 0; offset < nWordsReady; offset += blockSize) {
-                    // Perform concrete-algorithm logic
-                    this._doProcessBlock(dataWords, offset);
-                }
+        $.each(new qq.DragAndDrop.callbacks(), function(prop, func) {
+            var name = prop,
+                $callbackEl;
 
-                // Remove processed words
-                var processedWords = dataWords.splice(0, nWordsReady);
-                data.sigBytes -= nBytesReady;
-            }
+            $callbackEl = $el;
 
-            // Return processed words
-            return new WordArray.init(processedWords, nBytesReady);
-        },
+            callbacks[prop] = function() {
+                var args = Array.prototype.slice.call(arguments),
+                    jqueryHandlerResult = $callbackEl.triggerHandler(name, args);
 
-        /**
-         * Creates a copy of this object.
-         *
-         * @return {Object} The clone.
-         *
-         * @example
-         *
-         *     var clone = bufferedBlockAlgorithm.clone();
-         */
-        clone: function () {
-            var clone = Base.clone.call(this);
-            clone._data = this._data.clone();
-
-            return clone;
-        },
-
-        _minBufferSize: 0
-    });
-
-    /**
-     * Abstract hasher template.
-     *
-     * @property {number} blockSize The number of 32-bit words this hasher operates on. Default: 16 (512 bits)
-     */
-    var Hasher = C_lib.Hasher = BufferedBlockAlgorithm.extend({
-        /**
-         * Configuration options.
-         */
-        cfg: Base.extend(),
-
-        /**
-         * Initializes a newly created hasher.
-         *
-         * @param {Object} cfg (Optional) The configuration options to use for this hash computation.
-         *
-         * @example
-         *
-         *     var hasher = CryptoJS.algo.SHA256.create();
-         */
-        init: function (cfg) {
-            // Apply config defaults
-            this.cfg = this.cfg.extend(cfg);
-
-            // Set initial values
-            this.reset();
-        },
-
-        /**
-         * Resets this hasher to its initial state.
-         *
-         * @example
-         *
-         *     hasher.reset();
-         */
-        reset: function () {
-            // Reset data buffer
-            BufferedBlockAlgorithm.reset.call(this);
-
-            // Perform concrete-hasher logic
-            this._doReset();
-        },
-
-        /**
-         * Updates this hasher with a message.
-         *
-         * @param {WordArray|string} messageUpdate The message to append.
-         *
-         * @return {Hasher} This hasher.
-         *
-         * @example
-         *
-         *     hasher.update('message');
-         *     hasher.update(wordArray);
-         */
-        update: function (messageUpdate) {
-            // Append
-            this._append(messageUpdate);
-
-            // Update the hash
-            this._process();
-
-            // Chainable
-            return this;
-        },
-
-        /**
-         * Finalizes the hash computation.
-         * Note that the finalize operation is effectively a destructive, read-once operation.
-         *
-         * @param {WordArray|string} messageUpdate (Optional) A final message update.
-         *
-         * @return {WordArray} The hash.
-         *
-         * @example
-         *
-         *     var hash = hasher.finalize();
-         *     var hash = hasher.finalize('message');
-         *     var hash = hasher.finalize(wordArray);
-         */
-        finalize: function (messageUpdate) {
-            // Final message update
-            if (messageUpdate) {
-                this._append(messageUpdate);
-            }
-
-            // Perform concrete-hasher logic
-            var hash = this._doFinalize();
-
-            return hash;
-        },
-
-        blockSize: 512/32,
-
-        /**
-         * Creates a shortcut function to a hasher's object interface.
-         *
-         * @param {Hasher} hasher The hasher to create a helper for.
-         *
-         * @return {Function} The shortcut function.
-         *
-         * @static
-         *
-         * @example
-         *
-         *     var SHA256 = CryptoJS.lib.Hasher._createHelper(CryptoJS.algo.SHA256);
-         */
-        _createHelper: function (hasher) {
-            return function (message, cfg) {
-                return new hasher.init(cfg).finalize(message);
+                return jqueryHandlerResult;
             };
-        },
+        });
+    }
 
-        /**
-         * Creates a shortcut function to the HMAC's object interface.
-         *
-         * @param {Hasher} hasher The hasher to use in this HMAC helper.
-         *
-         * @return {Function} The shortcut function.
-         *
-         * @static
-         *
-         * @example
-         *
-         *     var HmacSHA256 = CryptoJS.lib.Hasher._createHmacHelper(CryptoJS.algo.SHA256);
-         */
-        _createHmacHelper: function (hasher) {
-            return function (message, key) {
-                return new C_algo.HMAC.init(hasher, key).finalize(message);
-            };
+    //transform jQuery objects into HTMLElements, and pass along all other option properties
+    function transformVariables(source, dest) {
+        var xformed, arrayVals;
+
+        if (dest === undefined) {
+            xformed = {};
         }
-    });
+        else {
+            xformed = dest;
+        }
 
-    /**
-     * Algorithm namespace.
-     */
-    var C_algo = C.algo = {};
+        $.each(source, function(prop, val) {
+            if (val instanceof $) {
+                xformed[prop] = val[0];
+            }
+            else if ($.isPlainObject(val)) {
+                xformed[prop] = {};
+                transformVariables(val, xformed[prop]);
+            }
+            else if ($.isArray(val)) {
+                arrayVals = [];
+                $.each(val, function(idx, arrayVal) {
+                    if (arrayVal instanceof $) {
+                        $.merge(arrayVals, arrayVal);
+                    }
+                    else {
+                        arrayVals.push(arrayVal);
+                    }
+                });
+                xformed[prop] = arrayVals;
+            }
+            else {
+                xformed[prop] = val;
+            }
+        });
 
-    return C;
-}(Math));
+        if (dest === undefined) {
+            return xformed;
+        }
+    }
 
-/*
-CryptoJS v3.1.2
-code.google.com/p/crypto-js
-(c) 2009-2013 by Jeff Mott. All rights reserved.
-code.google.com/p/crypto-js/wiki/License
-*/
-(function () {
-    // Shortcuts
-    var C = CryptoJS;
-    var C_lib = C.lib;
-    var WordArray = C_lib.WordArray;
-    var C_enc = C.enc;
+    function isValidCommand(command) {
+        return $.type(command) === "string" &&
+            command === "dispose" &&
+            dnd()[command] !== undefined;
+    }
 
-    /**
-     * Base64 encoding strategy.
-     */
-    var Base64 = C_enc.Base64 = {
-        /**
-         * Converts a word array to a Base64 string.
-         *
-         * @param {WordArray} wordArray The word array.
-         *
-         * @return {string} The Base64 string.
-         *
-         * @static
-         *
-         * @example
-         *
-         *     var base64String = CryptoJS.enc.Base64.stringify(wordArray);
-         */
-        stringify: function (wordArray) {
-            // Shortcuts
-            var words = wordArray.words;
-            var sigBytes = wordArray.sigBytes;
-            var map = this._map;
+    function delegateCommand(command) {
+        var xformedArgs = [], origArgs = Array.prototype.slice.call(arguments, 1);
+        transformVariables(origArgs, xformedArgs);
+        return dnd()[command].apply(dnd(), xformedArgs);
+    }
 
-            // Clamp excess bits
-            wordArray.clamp();
+    $.fn.fineUploaderDnd = function(optionsOrCommand) {
+        var self = this, selfArgs = arguments, retVals = [];
 
-            // Convert
-            var base64Chars = [];
-            for (var i = 0; i < sigBytes; i += 3) {
-                var byte1 = (words[i >>> 2]       >>> (24 - (i % 4) * 8))       & 0xff;
-                var byte2 = (words[(i + 1) >>> 2] >>> (24 - ((i + 1) % 4) * 8)) & 0xff;
-                var byte3 = (words[(i + 2) >>> 2] >>> (24 - ((i + 2) % 4) * 8)) & 0xff;
+        this.each(function(index, el) {
+            $el = $(el);
 
-                var triplet = (byte1 << 16) | (byte2 << 8) | byte3;
+            if (dnd() && isValidCommand(optionsOrCommand)) {
+                retVals.push(delegateCommand.apply(self, selfArgs));
 
-                for (var j = 0; (j < 4) && (i + j * 0.75 < sigBytes); j++) {
-                    base64Chars.push(map.charAt((triplet >>> (6 * (3 - j))) & 0x3f));
+                if (self.length === 1) {
+                    return false;
                 }
             }
-
-            // Add padding
-            var paddingChar = map.charAt(64);
-            if (paddingChar) {
-                while (base64Chars.length % 4) {
-                    base64Chars.push(paddingChar);
-                }
+            else if (typeof optionsOrCommand === "object" || !optionsOrCommand) {
+                init.apply(self, selfArgs);
             }
-
-            return base64Chars.join('');
-        },
-
-        /**
-         * Converts a Base64 string to a word array.
-         *
-         * @param {string} base64Str The Base64 string.
-         *
-         * @return {WordArray} The word array.
-         *
-         * @static
-         *
-         * @example
-         *
-         *     var wordArray = CryptoJS.enc.Base64.parse(base64String);
-         */
-        parse: function (base64Str) {
-            // Shortcuts
-            var base64StrLength = base64Str.length;
-            var map = this._map;
-
-            // Ignore padding
-            var paddingChar = map.charAt(64);
-            if (paddingChar) {
-                var paddingIndex = base64Str.indexOf(paddingChar);
-                if (paddingIndex != -1) {
-                    base64StrLength = paddingIndex;
-                }
+            else {
+                $.error("Method " +  optionsOrCommand + " does not exist in Fine Uploader's DnD module.");
             }
+        });
 
-            // Convert
-            var words = [];
-            var nBytes = 0;
-            for (var i = 0; i < base64StrLength; i++) {
-                if (i % 4) {
-                    var bits1 = map.indexOf(base64Str.charAt(i - 1)) << ((i % 4) * 2);
-                    var bits2 = map.indexOf(base64Str.charAt(i)) >>> (6 - (i % 4) * 2);
-                    words[nBytes >>> 2] |= (bits1 | bits2) << (24 - (nBytes % 4) * 8);
-                    nBytes++;
-                }
-            }
+        if (retVals.length === 1) {
+            return retVals[0];
+        }
+        else if (retVals.length > 1) {
+            return retVals;
+        }
 
-            return WordArray.create(words, nBytes);
-        },
-
-        _map: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/='
+        return this;
     };
-}());
 
-/*
-CryptoJS v3.1.2
-code.google.com/p/crypto-js
-(c) 2009-2013 by Jeff Mott. All rights reserved.
-code.google.com/p/crypto-js/wiki/License
-*/
-(function () {
-    // Shortcuts
-    var C = CryptoJS;
-    var C_lib = C.lib;
-    var Base = C_lib.Base;
-    var C_enc = C.enc;
-    var Utf8 = C_enc.Utf8;
-    var C_algo = C.algo;
+}(jQuery));
 
-    /**
-     * HMAC algorithm.
-     */
-    var HMAC = C_algo.HMAC = Base.extend({
-        /**
-         * Initializes a newly created HMAC.
-         *
-         * @param {Hasher} hasher The hash algorithm to use.
-         * @param {WordArray|string} key The secret key.
-         *
-         * @example
-         *
-         *     var hmacHasher = CryptoJS.algo.HMAC.create(CryptoJS.algo.SHA256, key);
-         */
-        init: function (hasher, key) {
-            // Init hasher
-            hasher = this._hasher = new hasher.init();
-
-            // Convert string to WordArray, else assume WordArray already
-            if (typeof key == 'string') {
-                key = Utf8.parse(key);
-            }
-
-            // Shortcuts
-            var hasherBlockSize = hasher.blockSize;
-            var hasherBlockSizeBytes = hasherBlockSize * 4;
-
-            // Allow arbitrary length keys
-            if (key.sigBytes > hasherBlockSizeBytes) {
-                key = hasher.finalize(key);
-            }
-
-            // Clamp excess bits
-            key.clamp();
-
-            // Clone key for inner and outer pads
-            var oKey = this._oKey = key.clone();
-            var iKey = this._iKey = key.clone();
-
-            // Shortcuts
-            var oKeyWords = oKey.words;
-            var iKeyWords = iKey.words;
-
-            // XOR keys with pad constants
-            for (var i = 0; i < hasherBlockSize; i++) {
-                oKeyWords[i] ^= 0x5c5c5c5c;
-                iKeyWords[i] ^= 0x36363636;
-            }
-            oKey.sigBytes = iKey.sigBytes = hasherBlockSizeBytes;
-
-            // Set initial values
-            this.reset();
-        },
-
-        /**
-         * Resets this HMAC to its initial state.
-         *
-         * @example
-         *
-         *     hmacHasher.reset();
-         */
-        reset: function () {
-            // Shortcut
-            var hasher = this._hasher;
-
-            // Reset
-            hasher.reset();
-            hasher.update(this._iKey);
-        },
-
-        /**
-         * Updates this HMAC with a message.
-         *
-         * @param {WordArray|string} messageUpdate The message to append.
-         *
-         * @return {HMAC} This HMAC instance.
-         *
-         * @example
-         *
-         *     hmacHasher.update('message');
-         *     hmacHasher.update(wordArray);
-         */
-        update: function (messageUpdate) {
-            this._hasher.update(messageUpdate);
-
-            // Chainable
-            return this;
-        },
-
-        /**
-         * Finalizes the HMAC computation.
-         * Note that the finalize operation is effectively a destructive, read-once operation.
-         *
-         * @param {WordArray|string} messageUpdate (Optional) A final message update.
-         *
-         * @return {WordArray} The HMAC.
-         *
-         * @example
-         *
-         *     var hmac = hmacHasher.finalize();
-         *     var hmac = hmacHasher.finalize('message');
-         *     var hmac = hmacHasher.finalize(wordArray);
-         */
-        finalize: function (messageUpdate) {
-            // Shortcut
-            var hasher = this._hasher;
-
-            // Compute HMAC
-            var innerHash = hasher.finalize(messageUpdate);
-            hasher.reset();
-            var hmac = hasher.finalize(this._oKey.clone().concat(innerHash));
-
-            return hmac;
-        }
-    });
-}());
-
-/*
-CryptoJS v3.1.2
-code.google.com/p/crypto-js
-(c) 2009-2013 by Jeff Mott. All rights reserved.
-code.google.com/p/crypto-js/wiki/License
-*/
-(function () {
-    // Shortcuts
-    var C = CryptoJS;
-    var C_lib = C.lib;
-    var WordArray = C_lib.WordArray;
-    var Hasher = C_lib.Hasher;
-    var C_algo = C.algo;
-
-    // Reusable object
-    var W = [];
-
-    /**
-     * SHA-1 hash algorithm.
-     */
-    var SHA1 = C_algo.SHA1 = Hasher.extend({
-        _doReset: function () {
-            this._hash = new WordArray.init([
-                0x67452301, 0xefcdab89,
-                0x98badcfe, 0x10325476,
-                0xc3d2e1f0
-            ]);
-        },
-
-        _doProcessBlock: function (M, offset) {
-            // Shortcut
-            var H = this._hash.words;
-
-            // Working variables
-            var a = H[0];
-            var b = H[1];
-            var c = H[2];
-            var d = H[3];
-            var e = H[4];
-
-            // Computation
-            for (var i = 0; i < 80; i++) {
-                if (i < 16) {
-                    W[i] = M[offset + i] | 0;
-                } else {
-                    var n = W[i - 3] ^ W[i - 8] ^ W[i - 14] ^ W[i - 16];
-                    W[i] = (n << 1) | (n >>> 31);
-                }
-
-                var t = ((a << 5) | (a >>> 27)) + e + W[i];
-                if (i < 20) {
-                    t += ((b & c) | (~b & d)) + 0x5a827999;
-                } else if (i < 40) {
-                    t += (b ^ c ^ d) + 0x6ed9eba1;
-                } else if (i < 60) {
-                    t += ((b & c) | (b & d) | (c & d)) - 0x70e44324;
-                } else /* if (i < 80) */ {
-                    t += (b ^ c ^ d) - 0x359d3e2a;
-                }
-
-                e = d;
-                d = c;
-                c = (b << 30) | (b >>> 2);
-                b = a;
-                a = t;
-            }
-
-            // Intermediate hash value
-            H[0] = (H[0] + a) | 0;
-            H[1] = (H[1] + b) | 0;
-            H[2] = (H[2] + c) | 0;
-            H[3] = (H[3] + d) | 0;
-            H[4] = (H[4] + e) | 0;
-        },
-
-        _doFinalize: function () {
-            // Shortcuts
-            var data = this._data;
-            var dataWords = data.words;
-
-            var nBitsTotal = this._nDataBytes * 8;
-            var nBitsLeft = data.sigBytes * 8;
-
-            // Add padding
-            dataWords[nBitsLeft >>> 5] |= 0x80 << (24 - nBitsLeft % 32);
-            dataWords[(((nBitsLeft + 64) >>> 9) << 4) + 14] = Math.floor(nBitsTotal / 0x100000000);
-            dataWords[(((nBitsLeft + 64) >>> 9) << 4) + 15] = nBitsTotal;
-            data.sigBytes = dataWords.length * 4;
-
-            // Hash final blocks
-            this._process();
-
-            // Return final computed hash
-            return this._hash;
-        },
-
-        clone: function () {
-            var clone = Hasher.clone.call(this);
-            clone._hash = this._hash.clone();
-
-            return clone;
-        }
-    });
-
-    /**
-     * Shortcut function to the hasher's object interface.
-     *
-     * @param {WordArray|string} message The message to hash.
-     *
-     * @return {WordArray} The hash.
-     *
-     * @static
-     *
-     * @example
-     *
-     *     var hash = CryptoJS.SHA1('message');
-     *     var hash = CryptoJS.SHA1(wordArray);
-     */
-    C.SHA1 = Hasher._createHelper(SHA1);
-
-    /**
-     * Shortcut function to the HMAC's object interface.
-     *
-     * @param {WordArray|string} message The message to hash.
-     * @param {WordArray|string} key The secret key.
-     *
-     * @return {WordArray} The HMAC.
-     *
-     * @static
-     *
-     * @example
-     *
-     *     var hmac = CryptoJS.HmacSHA1(message, key);
-     */
-    C.HmacSHA1 = Hasher._createHmacHelper(SHA1);
-}());
-
-/*! 2014-12-22 */
+/*! 2015-04-02 */
