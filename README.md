@@ -50,26 +50,30 @@ $ ./build.sh <version> # e.g: ./build.sh 5.1.3
 
 ```
 dist
-├─ placeholders
-│   ├─ not_available-generic.png
-│   └─ waiting-generic.png
-├─ all.fineuploader.js
-├─ all.fineuploader.min.js
-├─ azure.fineuploader.js
-├─ azure.fineuploader.min.js
-├─ azure.jquery.fineuploader.js
-├─ azure.jquery.fineuploader.min.js
-├─ edit.gif
-├─ fineuploader.css
-├─ fineuploader.js
-├─ fineuploader.min.css
-├─ fineuploader.min.js
-├─ jquery.fineuploader.js
-├─ jquery.fineuploader.min.js
-├─ loading.gif
-├─ processing.gif
-├─ s3.fineuploader.js
-├─ s3.fineuploader.min.js
-├─ s3.jquery.fineuploader.js
-└─ s3.jquery.fineuploader.min.js
+├── placeholders
+│   ├── not_available-generic.png
+│   └── waiting-generic.png
+├── templates
+│   ├── default.html
+│   └── simple-thumbnails.html
+├── all.fine-uploader.js
+├── all.fine-uploader.min.js
+├── azure.fine-uploader.js
+├── azure.fine-uploader.min.js
+├── azure.jquery.fine-uploader.js
+├── azure.jquery.fine-uploader.min.js
+├── edit.gif
+├── fine-uploader.css
+├── fine-uploader.js
+├── fine-uploader.min.css
+├── fine-uploader.min.js
+├── jquery.fine-uploader.js
+├── jquery.fine-uploader.min.js
+├── LICENSE
+├── loading.gif
+├── processing.gif
+├── s3.fine-uploader.js
+├── s3.fine-uploader.min.js
+├── s3.jquery.fine-uploader.js
+├── s3.jquery.fine-uploader.min.js
 ```
