@@ -27,6 +27,8 @@ grunt build_stripped
 
 echo 'Copying build files'
 cp -rf _build/* ../dist/
+cp -rf client/html/templates/ ../dist/templates
+cp  LICENSE ../dist/
 git checkout master && git branch -D "v${version}"
 
 echo 'Update version number'
