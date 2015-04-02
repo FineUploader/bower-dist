@@ -19,16 +19,13 @@ __Enjoy__
 
 ### Updating or building manually
 
-Currently the build is for fine-uploader `v5.0.9`.
+Currently the build is for fine-uploader `v5.1.3`.
 You can build yourself by doing the following
 
 ##### Prepping (getting fine-uploader)
 
 ```bash
-$ git clone https://github.com/feryardiant/fineuploader-dist.git
-& cd fineuploader-dist
-$ git submodule init
-$ git submodule update
+$ git clone --recursive https://github.com/feryardiant/fineuploader-dist.git
 ```
 
 OR, if you already cloned this repo;
@@ -43,12 +40,10 @@ $ git submodule foreach git pull origin
 > In your terminal please navigate to where the project is cloned
 
 ```bash
-$ cd fineuploader-dist
-$ npm install
-$ cd src
+$ cd fineuploader-dist/src
 $ npm install    # I don't thinks it's a best idea but, you need to do this in order to install all of fine-uploader dependencies (let me know if you have better one)
 $ cd ..          # when all done, get back to the root directory
-$ grunt
+$ ./build.sh <version> # e.g: ./build.sh 5.1.3
 ```
 
 > You should now see these files within the `dist` directory

@@ -31,4 +31,5 @@ git checkout master && git branch -D "v${version}"
 
 echo 'Update version number'
 cd ..
-sed -i -e "s/[0-9].[0-9].[0-9]/${version}/" *.json
+sed -i -e "s/[0-9].[0-9].[0-9]/${version}/" bower.json
+sed -i -e "s/[0-9].[0-9].[0-9]/${version}/" README.md
