@@ -3,11 +3,11 @@
 *
 * Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.1.3
+* Version: 5.2.0
 *
 * Homepage: http://fineuploader.com
 *
-* Repository: git://github.com/Widen/fine-uploader.git
+* Repository: git://github.com/FineUploader/fine-uploader.git
 *
 * Licensed only under the Widen Commercial License (http://fineuploader.com/licensing).
 */ 
@@ -101,9 +101,9 @@ var qq = function(element) {
             return this;
         },
 
-        hasClass: function(name) {
+        hasClass: function(name, considerParent) {
             var re = new RegExp("(^| )" + name + "( |$)");
-            return re.test(element.className);
+            return re.test(element.className) || !!(considerParent && re.test(element.parentNode.className));
         },
 
         addClass: function(name) {
@@ -492,8 +492,7 @@ var qq = function(element) {
     };
 
     /**
-     * Searches for a given element in the array, returns -1 if it is not present.
-     * @param {Number} [from] The index at which to begin the search
+     * Searches for a given element (elt) in the array, returns -1 if it is not present.
      */
     qq.indexOf = function(arr, elt, from) {
         if (arr.indexOf) {
@@ -895,7 +894,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version = "5.1.3";
+qq.version = "5.2.0";
 
 /* globals qq */
 qq.supportedFeatures = (function() {
@@ -903,6 +902,7 @@ qq.supportedFeatures = (function() {
 
     var supportsUploading,
         supportsUploadingBlobs,
+        supportsFileDrop,
         supportsAjaxFileUploading,
         supportsFolderDrop,
         supportsChunking,
@@ -990,13 +990,22 @@ qq.supportedFeatures = (function() {
         }
     }
 
+    function isDragAndDropSupported() {
+        var span = document.createElement("span");
+
+        return ("draggable" in span || ("ondragstart" in span && "ondrop" in span)) &&
+            !qq.android() && !qq.ios();
+    }
+
     supportsUploading = testSupportsFileInputElement();
 
     supportsAjaxFileUploading = supportsUploading && qq.isXhrUploadSupported();
 
     supportsUploadingBlobs = supportsAjaxFileUploading && !qq.androidStock();
 
-    supportsFolderDrop = supportsAjaxFileUploading && isChrome21OrHigher();
+    supportsFileDrop = supportsAjaxFileUploading && isDragAndDropSupported();
+
+    supportsFolderDrop = supportsFileDrop && isChrome21OrHigher();
 
     supportsChunking = supportsAjaxFileUploading && qq.isFileChunkingSupported();
 
@@ -1031,7 +1040,8 @@ qq.supportedFeatures = (function() {
         deleteFileCors: supportsDeleteFileCors,
         deleteFileCorsXdr: supportsDeleteFileXdr, //NOTE: will also return true in IE10, where XDR is also supported
         deleteFileCorsXhr: supportsDeleteFileCorsXhr,
-        fileDrop: supportsAjaxFileUploading, //NOTE: will also return true for touch-only devices.  It's not currently possible to accurately test for touch-only devices
+        dialogElement: !!window.HTMLDialogElement,
+        fileDrop: supportsFileDrop,
         folderDrop: supportsFolderDrop,
         folderSelection: supportsFolderSelection,
         imagePreviews: supportsImagePreviews,
@@ -1199,7 +1209,7 @@ qq.UploadButton = function(o) {
             // Called when the browser invokes the onchange handler on the `<input type="file">`
             onChange: function(input) {},
 
-            ios8BrowserCrashWorkaround: true,
+            ios8BrowserCrashWorkaround: false,
 
             // **This option will be removed** in the future as the :hover CSS pseudo-class is available on all supported browsers
             hoverClass: "qq-upload-button-hover",
@@ -1218,6 +1228,7 @@ qq.UploadButton = function(o) {
         var input = document.createElement("input");
 
         input.setAttribute(qq.UploadButton.BUTTON_ID_ATTR_NAME, buttonId);
+        input.setAttribute("title", "file input");
 
         self.setMultiple(options.multiple, input);
 
@@ -1280,13 +1291,6 @@ qq.UploadButton = function(o) {
         disposeSupport.attach(input, "blur", function() {
             qq(options.element).removeClass(options.focusClass);
         });
-
-        // IE and Opera, unfortunately have 2 tab stops on file input
-        // which is unacceptable in our case, disable keyboard access
-        if (window.attachEvent) {
-            // it is IE or Opera
-            input.setAttribute("tabIndex", "-1");
-        }
 
         return input;
     }
@@ -1427,7 +1431,7 @@ qq.UploadData = function(uploaderProxy) {
                     name: spec.name,
                     originalName: spec.name,
                     uuid: spec.uuid,
-                    size: spec.size || -1,
+                    size: spec.size == null ? -1 : spec.size,
                     status: status
                 }) - 1;
 
@@ -2000,7 +2004,6 @@ qq.status = {
                 customHeaders: this._deleteFileCustomHeadersStore,
                 paramsStore: this._deleteFileParamsStore,
                 endpointStore: this._deleteFileEndpointStore,
-                demoMode: this._options.demoMode,
                 cors: this._options.cors,
                 log: qq.bind(self.log, self),
                 onDelete: function(id) {
@@ -2200,7 +2203,6 @@ qq.status = {
                     debug: this._options.debug,
                     maxConnections: this._options.maxConnections,
                     cors: this._options.cors,
-                    demoMode: this._options.demoMode,
                     paramsStore: this._paramsStore,
                     endpointStore: this._endpointStore,
                     chunking: this._options.chunking,
@@ -3374,15 +3376,16 @@ qq.status = {
             autoUpload: true,
 
             request: {
-                endpoint: "/server/upload",
-                params: {},
-                paramsInBody: true,
                 customHeaders: {},
+                endpoint: "/server/upload",
+                filenameParam: "qqfilename",
                 forceMultipart: true,
                 inputName: "qqfile",
-                uuidName: "qquuid",
+                method: "POST",
+                params: {},
+                paramsInBody: true,
                 totalFileSizeName: "qqtotalfilesize",
-                filenameParam: "qqfilename"
+                uuidName: "qquuid"
             },
 
             validation: {
@@ -3482,9 +3485,6 @@ qq.status = {
             },
 
             formatFileName: function(fileOrBlobName) {
-                if (fileOrBlobName !== undefined && fileOrBlobName.length > 33) {
-                    fileOrBlobName = fileOrBlobName.slice(0, 19) + "..." + fileOrBlobName.slice(-14);
-                }
                 return fileOrBlobName;
             },
 
@@ -3577,7 +3577,7 @@ qq.status = {
             workarounds: {
                 iosEmptyVideos: true,
                 ios8SafariUploads: true,
-                ios8BrowserCrash: true
+                ios8BrowserCrash: false
             }
         };
 
@@ -3674,7 +3674,7 @@ qq.AjaxRequester = function(o) {
         requestData = {},
         options = {
             acceptHeader: null,
-            validMethods: ["POST"],
+            validMethods: ["PATCH", "POST", "PUT"],
             method: "POST",
             contentType: "application/x-www-form-urlencoded",
             maxConnections: 3,
@@ -3685,7 +3685,9 @@ qq.AjaxRequester = function(o) {
             allowXRequestedWithAndCacheControl: true,
             successfulResponseCodes: {
                 DELETE: [200, 202, 204],
-                POST: [200, 204],
+                PATCH: [200, 201, 202, 203, 204],
+                POST: [200, 201, 202, 203, 204],
+                PUT: [200, 201, 202, 203, 204],
                 GET: [200]
             },
             cors: {
@@ -5553,7 +5555,12 @@ qq.XhrUploadHandler = function(spec) {
                     lastUpdated: Date.now()
                 };
 
-                localStorage.setItem(localStorageId, JSON.stringify(persistedData));
+                try {
+                    localStorage.setItem(localStorageId, JSON.stringify(persistedData));
+                }
+                catch (error) {
+                    log(qq.format("Unable to save resume data for '{}' due to error: '{}'.", id, error.toString()), "warn");
+                }
             }
         },
 
@@ -5945,6 +5952,14 @@ qq.WindowReceiveMessage = function(o) {
                     this._templating.hideEditIcon(id);
                 }
             }
+
+            if (newStatus === qq.status.UPLOAD_RETRYING) {
+                this._templating.setStatusText(id);
+                qq(this._templating.getFileContainer(id)).removeClass(this._classes.retrying);
+            }
+            else if (newStatus === qq.status.UPLOAD_FAILED) {
+                this._templating.hidePause(id);
+            }
         },
 
         _bindFilenameInputFocusInEvent: function() {
@@ -6046,7 +6061,7 @@ qq.WindowReceiveMessage = function(o) {
                 qq(fileContainer).removeClass(self._classes.retrying);
                 templating.hideProgress(id);
 
-                if (!self._options.disableCancelForFormUploads || qq.supportedFeatures.ajaxUploading) {
+                if (self.getUploads({id: id}).status !== qq.status.UPLOAD_FAILED) {
                     templating.hideCancel(id);
                 }
                 templating.hideSpinner(id);
@@ -6056,6 +6071,7 @@ qq.WindowReceiveMessage = function(o) {
                 }
                 else {
                     qq(fileContainer).addClass(self._classes.fail);
+                    templating.showCancel(id);
 
                     if (templating.isRetryPossible() && !self._preventRetries[id]) {
                         qq(fileContainer).addClass(self._classes.retryable);
@@ -6304,24 +6320,18 @@ qq.WindowReceiveMessage = function(o) {
         },
 
         _controlFailureTextDisplay: function(id, response) {
-            var mode, maxChars, responseProperty, failureReason, shortFailureReason;
+            var mode, responseProperty, failureReason;
 
             mode = this._options.failedUploadTextDisplay.mode;
-            maxChars = this._options.failedUploadTextDisplay.maxChars;
             responseProperty = this._options.failedUploadTextDisplay.responseProperty;
 
             if (mode === "custom") {
                 failureReason = response[responseProperty];
-                if (failureReason) {
-                    if (failureReason.length > maxChars) {
-                        shortFailureReason = failureReason.substring(0, maxChars) + "...";
-                    }
-                }
-                else {
+                if (!failureReason) {
                     failureReason = this._options.text.failUpload;
                 }
 
-                this._templating.setStatusText(id, shortFailureReason || failureReason);
+                this._templating.setStatusText(id, failureReason);
 
                 if (this._options.failedUploadTextDisplay.enableTooltip) {
                     this._showTooltip(id, failureReason);
@@ -6409,6 +6419,8 @@ qq.WindowReceiveMessage = function(o) {
 qq.FineUploader = function(o, namespace) {
     "use strict";
 
+    var self = this;
+
     // By default this should inherit instance data from FineUploaderBasic, but this can be overridden
     // if the (internal) caller defines a different parent.  The parent is also used by
     // the private and public API functions that need to delegate to a parent function.
@@ -6449,7 +6461,6 @@ qq.FineUploader = function(o, namespace) {
 
         failedUploadTextDisplay: {
             mode: "default", //default, custom, or none
-            maxChars: 50,
             responseProperty: "error",
             enableTooltip: true
         },
@@ -6497,17 +6508,32 @@ qq.FineUploader = function(o, namespace) {
         },
 
         showMessage: function(message) {
-            setTimeout(function() {
-                window.alert(message);
-            }, 0);
+            if (self._templating.hasDialog("alert")) {
+                return self._templating.showDialog("alert", message);
+            }
+            else {
+                setTimeout(function() {
+                    window.alert(message);
+                }, 0);
+            }
         },
 
         showConfirm: function(message) {
-            return window.confirm(message);
+            if (self._templating.hasDialog("confirm")) {
+                return self._templating.showDialog("confirm", message);
+            }
+            else {
+                return window.confirm(message);
+            }
         },
 
         showPrompt: function(message, defaultValue) {
-            return window.prompt(message, defaultValue);
+            if (self._templating.hasDialog("prompt")) {
+                return self._templating.showDialog("prompt", message, defaultValue);
+            }
+            else {
+                return window.prompt(message, defaultValue);
+            }
         }
     }, true);
 
@@ -6601,6 +6627,8 @@ qq.Templating = function(spec) {
         THUMBNAIL_SERVER_SCALE_ATTR = "qq-server-scale",
         // This variable is duplicated in the DnD module since it can function as a standalone as well
         HIDE_DROPZONE_ATTR = "qq-hide-dropzone",
+        DROPZPONE_TEXT_ATTR = "qq-drop-area-text",
+        IN_PROGRESS_CLASS = "qq-in-progress",
         isCancelDisabled = false,
         generatedThumbnails = 0,
         thumbnailQueueMonitorRunning = false,
@@ -6632,6 +6660,13 @@ qq.Templating = function(spec) {
         },
         selectorClasses = {
             button: "qq-upload-button-selector",
+            alertDialog: "qq-alert-dialog-selector",
+            dialogCancelButton: "qq-cancel-button-selector",
+            confirmDialog: "qq-confirm-dialog-selector",
+            dialogMessage: "qq-dialog-message-selector",
+            dialogOkButton: "qq-ok-button-selector",
+            promptDialog: "qq-prompt-dialog-selector",
+            uploader: "qq-uploader-selector",
             drop: "qq-upload-drop-area-selector",
             list: "qq-upload-list-selector",
             progressBarContainer: "qq-progress-bar-container-selector",
@@ -6649,6 +6684,7 @@ qq.Templating = function(spec) {
             statusText: "qq-upload-status-text-selector",
             editFilenameInput: "qq-edit-filename-selector",
             editNameIcon: "qq-edit-filename-icon-selector",
+            dropText: "qq-upload-drop-area-text-selector",
             dropProcessing: "qq-drop-processing-selector",
             dropProcessingSpinner: "qq-drop-processing-spinner-selector",
             thumbnail: "qq-thumbnail-selector"
@@ -6788,6 +6824,10 @@ qq.Templating = function(spec) {
             return getTemplateEl(getFile(id), selectorClasses.continueButton);
         },
 
+        getDialog = function(type) {
+            return getTemplateEl(container, selectorClasses[type + "Dialog"]);
+        },
+
         getDelete = function(id) {
             return getTemplateEl(getFile(id), selectorClasses.deleteButton);
         },
@@ -6910,7 +6950,9 @@ qq.Templating = function(spec) {
                 defaultButton,
                 dropArea,
                 thumbnail,
-                dropProcessing;
+                dropProcessing,
+                dropTextEl,
+                uploaderEl;
 
             log("Parsing template");
 
@@ -6941,6 +6983,7 @@ qq.Templating = function(spec) {
             scriptHtml = qq.trimStr(scriptHtml);
             tempTemplateEl = document.createElement("div");
             tempTemplateEl.appendChild(qq.toElement(scriptHtml));
+            uploaderEl = qq(tempTemplateEl).getByClass(selectorClasses.uploader)[0];
 
             // Don't include the default template button in the DOM
             // if an alternate button container has been specified.
@@ -6961,7 +7004,6 @@ qq.Templating = function(spec) {
                 if (dropProcessing) {
                     qq(dropProcessing).remove();
                 }
-
             }
 
             dropArea = qq(tempTemplateEl).getByClass(selectorClasses.drop)[0];
@@ -6973,15 +7015,22 @@ qq.Templating = function(spec) {
                 qq(dropArea).remove();
             }
 
-            // If there is a drop area defined in the template, and the current UA doesn't support DnD,
-            // and the drop area is marked as "hide before enter", ensure it is hidden as the DnD module
-            // will not do this (since we will not be loading the DnD module)
-            if (dropArea && !qq.supportedFeatures.fileDrop &&
-                qq(dropArea).hasAttribute(HIDE_DROPZONE_ATTR)) {
+            if (!qq.supportedFeatures.fileDrop) {
+                // don't display any "drop files to upload" background text
+                uploaderEl.removeAttribute(DROPZPONE_TEXT_ATTR);
 
-                qq(dropArea).css({
-                    display: "none"
-                });
+                if (dropArea && qq(dropArea).hasAttribute(HIDE_DROPZONE_ATTR)) {
+                    // If there is a drop area defined in the template, and the current UA doesn't support DnD,
+                    // and the drop area is marked as "hide before enter", ensure it is hidden as the DnD module
+                    // will not do this (since we will not be loading the DnD module)
+                    qq(dropArea).css({
+                        display: "none"
+                    });
+                }
+            }
+            else if (qq(uploaderEl).hasAttribute(DROPZPONE_TEXT_ATTR) && dropArea) {
+                dropTextEl = qq(dropArea).getByClass(selectorClasses.dropText)[0];
+                dropTextEl && qq(dropTextEl).remove();
             }
 
             // Ensure the `showThumbnails` flag is only set if the thumbnail element
@@ -7010,6 +7059,11 @@ qq.Templating = function(spec) {
 
             fileListHtml = fileListNode.innerHTML;
             fileListNode.innerHTML = "";
+
+            // We must call `createElement` in IE8 in order to target and hide any <dialog> via CSS
+            if (tempTemplateEl.getElementsByTagName("DIALOG").length) {
+                document.createElement("dialog");
+            }
 
             log("Template parsing complete");
 
@@ -7126,7 +7180,10 @@ qq.Templating = function(spec) {
                 bar = qq(bar).getByClass(progressBarSelector)[0];
             }
 
-            bar && qq(bar).css({width: percent + "%"});
+            if (bar) {
+                qq(bar).css({width: percent + "%"});
+                bar.setAttribute("aria-valuenow", percent);
+            }
         },
 
         show = function(el) {
@@ -7206,10 +7263,17 @@ qq.Templating = function(spec) {
         addFile: function(id, name, prependInfo) {
             var fileEl = qq.toElement(templateHtml.fileTemplate),
                 fileNameEl = getTemplateEl(fileEl, selectorClasses.file),
+                uploaderEl = getTemplateEl(container, selectorClasses.uploader),
                 thumb;
 
             qq(fileEl).addClass(FILE_CLASS_PREFIX + id);
-            fileNameEl && qq(fileNameEl).setText(name);
+            uploaderEl.removeAttribute(DROPZPONE_TEXT_ATTR);
+
+            if (fileNameEl) {
+                qq(fileNameEl).setText(name);
+                fileNameEl.setAttribute("title", name);
+            }
+
             fileEl.setAttribute(FILE_ID_ATTR, id);
 
             if (prependInfo) {
@@ -7274,9 +7338,12 @@ qq.Templating = function(spec) {
         },
 
         updateFilename: function(id, name) {
-            var filename = getFilename(id);
+            var filenameEl = getFilename(id);
 
-            filename && qq(filename).setText(name);
+            if (filenameEl) {
+                qq(filenameEl).setText(name);
+                filenameEl.setAttribute("title", name);
+            }
         },
 
         hideFilename: function(id) {
@@ -7340,7 +7407,7 @@ qq.Templating = function(spec) {
         },
 
         isEditIcon: function(el) {
-            return qq(el).hasClass(selectorClasses.editNameIcon);
+            return qq(el).hasClass(selectorClasses.editNameIcon, true);
         },
 
         getEditInput: function(id) {
@@ -7348,7 +7415,7 @@ qq.Templating = function(spec) {
         },
 
         isEditInput: function(el) {
-            return qq(el).hasClass(selectorClasses.editFilenameInput);
+            return qq(el).hasClass(selectorClasses.editFilenameInput, true);
         },
 
         updateProgress: function(id, loaded, total) {
@@ -7405,7 +7472,7 @@ qq.Templating = function(spec) {
         },
 
         isCancel: function(el)  {
-            return qq(el).hasClass(selectorClasses.cancel);
+            return qq(el).hasClass(selectorClasses.cancel, true);
         },
 
         allowPause: function(id) {
@@ -7424,11 +7491,11 @@ qq.Templating = function(spec) {
         },
 
         isPause: function(el) {
-            return qq(el).hasClass(selectorClasses.pause);
+            return qq(el).hasClass(selectorClasses.pause, true);
         },
 
         isContinueButton: function(el) {
-            return qq(el).hasClass(selectorClasses.continueButton);
+            return qq(el).hasClass(selectorClasses.continueButton, true);
         },
 
         allowContinueButton: function(id) {
@@ -7451,11 +7518,11 @@ qq.Templating = function(spec) {
         },
 
         isDeleteButton: function(el) {
-            return qq(el).hasClass(selectorClasses.deleteButton);
+            return qq(el).hasClass(selectorClasses.deleteButton, true);
         },
 
         isRetry: function(el) {
-            return qq(el).hasClass(selectorClasses.retry);
+            return qq(el).hasClass(selectorClasses.retry, true);
         },
 
         updateSize: function(id, text) {
@@ -7482,10 +7549,12 @@ qq.Templating = function(spec) {
         },
 
         hideSpinner: function(id) {
+            qq(getFile(id)).removeClass(IN_PROGRESS_CLASS);
             hide(getSpinner(id));
         },
 
         showSpinner: function(id) {
+            qq(getFile(id)).addClass(IN_PROGRESS_CLASS);
             show(getSpinner(id));
         },
 
@@ -7497,6 +7566,51 @@ qq.Templating = function(spec) {
         updateThumbnail: function(id, thumbnailUrl, showWaitingImg) {
             thumbGenerationQueue.push({update: true, id: id, thumbnailUrl: thumbnailUrl, showWaitingImg: showWaitingImg});
             !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
+        },
+
+        hasDialog: function(type) {
+            return qq.supportedFeatures.dialogElement && !!getDialog(type);
+        },
+
+        showDialog: function(type, message, defaultValue) {
+            var dialog = getDialog(type),
+                messageEl = getTemplateEl(dialog, selectorClasses.dialogMessage),
+                inputEl = dialog.getElementsByTagName("INPUT")[0],
+                cancelBtn = getTemplateEl(dialog, selectorClasses.dialogCancelButton),
+                okBtn = getTemplateEl(dialog, selectorClasses.dialogOkButton),
+                promise = new qq.Promise(),
+
+                closeHandler = function() {
+                    cancelBtn.removeEventListener("click", cancelClickHandler);
+                    okBtn && okBtn.removeEventListener("click", okClickHandler);
+                    promise.failure();
+                },
+
+                cancelClickHandler = function() {
+                    cancelBtn.removeEventListener("click", cancelClickHandler);
+                    dialog.close();
+                },
+
+                okClickHandler = function() {
+                    dialog.removeEventListener("close", closeHandler);
+                    okBtn.removeEventListener("click", okClickHandler);
+                    dialog.close();
+
+                    promise.success(inputEl && inputEl.value);
+                };
+
+            dialog.addEventListener("close", closeHandler);
+            cancelBtn.addEventListener("click", cancelClickHandler);
+            okBtn && okBtn.addEventListener("click", okClickHandler);
+
+            if (inputEl) {
+                inputEl.value = defaultValue;
+            }
+            messageEl.textContent = message;
+
+            dialog.showModal();
+
+            return promise;
         }
     });
 };
@@ -7900,6 +8014,7 @@ qq.s3.util = qq.s3.util || (function() {
                 onCompleteArgs = arguments,
                 successEndpoint = this._uploadSuccessEndpointStore.get(id),
                 successCustomHeaders = this._options.uploadSuccess.customHeaders,
+                successMethod = this._options.uploadSuccess.method,
                 cors = this._options.cors,
                 promise = new qq.Promise(),
                 uploadSuccessParams = this._uploadSuccessParamsStore.get(id),
@@ -7946,6 +8061,7 @@ qq.s3.util = qq.s3.util || (function() {
             if (success && successEndpoint) {
                 successAjaxRequester = new qq.UploadSuccessAjaxRequester({
                     endpoint: successEndpoint,
+                    method: successMethod,
                     customHeaders: successCustomHeaders,
                     cors: cors,
                     log: qq.bind(this.log, this)
@@ -8032,6 +8148,8 @@ qq.s3.util = qq.s3.util || (function() {
 
             uploadSuccess: {
                 endpoint: null,
+
+                method: "POST",
 
                 // In addition to the default params sent by Fine Uploader
                 params: {},
@@ -8592,10 +8710,7 @@ qq.s3.RequestSigner = function(o) {
         customHeaders: options.signatureSpec.customHeaders,
         log: options.log,
         onComplete: handleSignatureReceived,
-        cors: options.cors,
-        successfulResponseCodes: {
-            POST: [200]
-        }
+        cors: options.cors
     }));
 
     qq.extend(this, {
@@ -8797,10 +8912,7 @@ qq.UploadSuccessAjaxRequester = function(o) {
         customHeaders: options.customHeaders,
         log: options.log,
         onComplete: handleSuccessResponse,
-        cors: options.cors,
-        successfulResponseCodes: {
-            POST: [200]
-        }
+        cors: options.cors
     }));
 
     qq.extend(this, {
@@ -9716,12 +9828,11 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
 
                     /* jshint eqnull:true */
                     if (key == null) {
-                        key = new qq.Promise();
-                        handler._setThirdPartyFileId(id, key);
+                        handler._setThirdPartyFileId(id, promise);
                         onGetKeyName(id, getName(id)).then(
-                            function(key) {
-                                handler._setThirdPartyFileId(id, key);
-                                promise.success(key);
+                            function(keyName) {
+                                handler._setThirdPartyFileId(id, keyName);
+                                promise.success(keyName);
                             },
                             function(errorReason) {
                                 handler._setThirdPartyFileId(id, null);
@@ -9730,7 +9841,7 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
                         );
                     }
                     else if (qq.isGenericPromise(key)) {
-                        promise.then(key.success, key.failure);
+                        key.then(promise.success, promise.failure);
                     }
                     else {
                         promise.success(key);
@@ -10001,7 +10112,7 @@ qq.s3.FormUploadHandler = function(options, proxy) {
      */
     function createForm(id, iframe) {
         var promise = new qq.Promise(),
-            method = options.demoMode ? "GET" : "POST",
+            method = "POST",
             endpoint = options.endpointStore.get(id),
             fileName = getName(id);
 
@@ -10723,7 +10834,6 @@ qq.DeleteFileAjaxRequester = function(o) {
             maxConnections: 3,
             customHeaders: function(id) {return {};},
             paramsStore: {},
-            demoMode: false,
             cors: {
                 expected: false,
                 sendCredentials: false
@@ -10756,7 +10866,6 @@ qq.DeleteFileAjaxRequester = function(o) {
         customHeaders: function(id) {
             return options.customHeaders.get(id);
         },
-        demoMode: options.demoMode,
         log: options.log,
         onSend: options.onDelete,
         onComplete: options.onDeleteComplete,
@@ -14684,4 +14793,4 @@ code.google.com/p/crypto-js/wiki/License
 
 }(jQuery));
 
-/*! 2015-04-02 */
+/*! 2015-09-11 */

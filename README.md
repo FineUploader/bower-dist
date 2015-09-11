@@ -1,4 +1,4 @@
-## A bower distribution build for [Widen/fine-uploader](https://github.com/Widen/fine-uploader)
+## A bower distribution build for [FineUploader/fine-uploader](https://github.com/FineUploader/fine-uploader)
 
 ### Usage
 
@@ -19,7 +19,7 @@ __Enjoy__
 
 ### Updating or building manually
 
-Currently the build is for fine-uploader `v5.1.3`.
+Currently the build is for fine-uploader `v5.2.0`.
 You can build yourself by doing the following
 
 ##### Prepping (getting fine-uploader)
@@ -43,7 +43,7 @@ $ git submodule foreach git pull origin
 $ cd fineuploader-dist/src
 $ npm install    # I don't thinks it's a best idea but, you need to do this in order to install all of fine-uploader dependencies (let me know if you have better one)
 $ cd ..          # when all done, get back to the root directory
-$ ./build.sh <version> # e.g: ./build.sh 5.1.3
+$ ./build.sh <version> # e.g: ./build.sh 5.2.0
 ```
 
 > You should now see these files within the `dist` directory

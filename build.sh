@@ -1,37 +1,62 @@
 #!/bin/bash
 
+set -e
+
+# usage color "31;5" "string"
+# 0 default
+# 5 blink, 1 strong, 4 underlined
+# fg: 31 red,  32 green, 33 yellow, 34 blue, 35 purple, 36 cyan, 37 white
+# bg: 40 black, 41 red, 44 blue, 45 purple
+e() {
+    printf '\033[%sm%s\033[m\n' "$@"
+}
+
 if [ -z $1 ]; then
-	echo 'Please specify Fine-uploader version'
-	echo 'Example: ./build.sh 5.1.3'
+	e '32;5' 'Please specify Fine-uploader version'
+	e '32;5' 'Example: ./build.sh 5.1.3'
 	exit;
 fi
 
 version=$1
 
-echo 'Clean up dist folder'
+e '32;5' 'Clean up dist folder'
 rm -rf dist/*
 
-echo 'Entering src directory'
+e '32;5' 'Entering FineUploader/fine-uploader src directory'
 cd src
 
-echo 'Check out Widen/Fine-uploader version'
+e '32;5' "Check out version $version"
+git pull origin && \
 git checkout -b "v${version}" $version
 
-if [ ! -d 'node_modules' ]; then
-	echo 'Installing Widen/Fine-uploader dependencies'
-	npm install;
+if [ -d 'node_modules' ]; then
+	rm -rf node_modules;
 fi
 
-echo 'Build Widen/Fine-uploader'
+e '32;5' 'Installing dependencies'
+npm install;
+
+e '32;5' 'Build FineUploader/fine-uploader'
 grunt build_stripped
 
-echo 'Copying build files'
+e '32;5' 'Copying build files'
 cp -rf _build/* ../dist/
 cp -rf client/html/templates/ ../dist/templates
 cp  LICENSE ../dist/
-git checkout master && git branch -D "v${version}"
 
-echo 'Update version number'
+e '32;5' 'Back to master branch'
+git checkout master && \
+git branch -D "v${version}"
+
+e '32;5' 'Update version number'
 cd ..
 sed -i -e "s/[0-9].[0-9].[0-9]/${version}/" bower.json
 sed -i -e "s/[0-9].[0-9].[0-9]/${version}/" README.md
+
+msg="Bump v${version}"
+e '32;5' "${msg}"
+git add -A && \
+git commit -am "${msg}" && \
+git tag -s $version -m "${msg}"
+
+e '32;5' 'Done!'
