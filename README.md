@@ -1,7 +1,6 @@
-## [UNOFFICIAL] [Bower](http://bower.io) distribution build of [FineUploader](http://fineuploader.com)
+[![Fine Uploader](http://fineuploader.com/img/FineUploader_logo.png)](http://fineuploader.com) v5.3.1
 
-[![Fine Uploader](http://fineuploader.com/img/FineUploader_logo.png)](http://fineuploader.com)
-varsion: v5.3.1
+## [UNOFFICIAL] [Bower](http://bower.io) distribution build of [FineUploader](http://fineuploader.com)
 
 ### DISCLAIMER
 
