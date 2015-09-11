@@ -3,7 +3,7 @@
 *
 * Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.2.2
+* Version: 5.3.0
 *
 * Homepage: http://fineuploader.com
 *
@@ -894,7 +894,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version = "5.2.2";
+qq.version = "5.3.0";
 
 /* globals qq */
 qq.supportedFeatures = (function() {
@@ -1928,6 +1928,10 @@ qq.status = {
             this._endpointStore.set(endpoint, id);
         },
 
+        setForm: function(elementOrId) {
+            this._updateFormSupportAndParams(elementOrId);
+        },
+
         setItemLimit: function(newItemLimit) {
             this._currentItemLimit = newItemLimit;
         },
@@ -1945,16 +1949,11 @@ qq.status = {
         },
 
         uploadStoredFiles: function() {
-            var idToUpload;
-
             if (this._storedIds.length === 0) {
                 this._itemError("noFilesError");
             }
             else {
-                while (this._storedIds.length) {
-                    idToUpload = this._storedIds.shift();
-                    this._uploadFile(idToUpload);
-                }
+                this._uploadStoredFiles();
             }
         }
     };
@@ -2038,10 +2037,11 @@ qq.status = {
             });
         },
 
-        _createStore: function(initialValue, readOnlyValues) {
+        _createStore: function(initialValue, _readOnlyValues_) {
             var store = {},
                 catchall = initialValue,
                 perIdReadOnlyValues = {},
+                readOnlyValues = _readOnlyValues_,
                 copy = function(orig) {
                     if (qq.isObject(orig)) {
                         return qq.extend({}, orig);
@@ -2095,8 +2095,20 @@ qq.status = {
                 addReadOnly: function(id, values) {
                     // Only applicable to Object stores
                     if (qq.isObject(store)) {
-                        perIdReadOnlyValues[id] = perIdReadOnlyValues[id] || {};
-                        qq.extend(perIdReadOnlyValues[id], values);
+                        // If null ID, apply readonly values to all files
+                        if (id === null) {
+                            if (qq.isFunction(values)) {
+                                readOnlyValues = values;
+                            }
+                            else {
+                                readOnlyValues = readOnlyValues || {};
+                                qq.extend(readOnlyValues, values);
+                            }
+                        }
+                        else {
+                            perIdReadOnlyValues[id] = perIdReadOnlyValues[id] || {};
+                            qq.extend(perIdReadOnlyValues[id], values);
+                        }
                     }
                 },
 
@@ -3005,13 +3017,14 @@ qq.status = {
             this._onSubmit.apply(this, arguments);
             this._uploadData.setStatus(id, qq.status.SUBMITTED);
             this._onSubmitted.apply(this, arguments);
-            this._options.callbacks.onSubmitted.apply(this, arguments);
 
             if (this._options.autoUpload) {
+                this._options.callbacks.onSubmitted.apply(this, arguments);
                 this._uploadFile(id);
             }
             else {
                 this._storeForLater(id);
+                this._options.callbacks.onSubmitted.apply(this, arguments);
             }
         },
 
@@ -3238,6 +3251,23 @@ qq.status = {
             }
         },
 
+        _updateFormSupportAndParams: function(formElementOrId) {
+            this._options.form.element = formElementOrId;
+
+            this._formSupport = qq.FormSupport && new qq.FormSupport(
+                    this._options.form, qq.bind(this.uploadStoredFiles, this), qq.bind(this.log, this)
+                );
+
+            if (this._formSupport && this._formSupport.attachedToForm) {
+                this._paramsStore.addReadOnly(null, this._formSupport.getFormInputsAsObject);
+
+                this._options.autoUpload = this._formSupport.newAutoUpload;
+                if (this._formSupport.newEndpoint) {
+                    this.setEndpoint(this._formSupport.newEndpoint);
+                }
+            }
+        },
+
         _upload: function(id, params, endpoint) {
             var name = this.getName(id);
 
@@ -3261,6 +3291,25 @@ qq.status = {
         _uploadFile: function(id) {
             if (!this._handler.upload(id)) {
                 this._uploadData.setStatus(id, qq.status.QUEUED);
+            }
+        },
+
+        _uploadStoredFiles: function() {
+            var idToUpload, stillSubmitting,
+                self = this;
+
+            while (this._storedIds.length) {
+                idToUpload = this._storedIds.shift();
+                this._uploadFile(idToUpload);
+            }
+
+            // If we are still waiting for some files to clear validation, attempt to upload these again in a bit
+            stillSubmitting = this.getUploads({status: qq.status.SUBMITTING}).length;
+            if (stillSubmitting) {
+                qq.log("Still waiting for " + stillSubmitting + " files to clear submit queue. Will re-parse stored IDs array shortly.");
+                setTimeout(function() {
+                    self._uploadStoredFiles();
+                }, 1000);
             }
         },
 
@@ -5462,7 +5511,7 @@ qq.XhrUploadHandler = function(spec) {
         _iterateResumeRecords: function(callback) {
             if (resumeEnabled) {
                 qq.each(localStorage, function(key, item) {
-                    if (key.indexOf(qq.format("qq{}resume-", namespace)) === 0) {
+                    if (key.indexOf(qq.format("qq{}resume", namespace)) === 0) {
                         var uploadData = JSON.parse(item);
                         callback(key, uploadData);
                     }
@@ -5729,7 +5778,9 @@ qq.WindowReceiveMessage = function(o) {
         },
 
         getItemByFileId: function(id) {
-            return this._templating.getFileContainer(id);
+            if (!this._templating.isHiddenForever(id)) {
+                return this._templating.getFileContainer(id);
+            }
         },
 
         reset: function() {
@@ -6239,11 +6290,6 @@ qq.WindowReceiveMessage = function(o) {
                 dontDisplay = this._handler.isProxied(id) && this._options.scaling.hideScaled,
                 record;
 
-            // If we don't want this file to appear in the UI, skip all of this UI-related logic.
-            if (dontDisplay) {
-                return;
-            }
-
             if (this._options.display.prependFiles) {
                 if (this._totalFilesInBatch > 1 && this._filesInBatchAddedToUi > 0) {
                     prependIndex = this._filesInBatchAddedToUi - 1;
@@ -6275,7 +6321,7 @@ qq.WindowReceiveMessage = function(o) {
                 }
             }
 
-            this._templating.addFile(id, this._options.formatFileName(name), prependData);
+            this._templating.addFile(id, this._options.formatFileName(name), prependData, dontDisplay);
 
             if (canned) {
                 this._thumbnailUrls[id] && this._templating.updateThumbnail(id, this._thumbnailUrls[id], true);
@@ -6639,6 +6685,7 @@ qq.Templating = function(spec) {
         HIDE_DROPZONE_ATTR = "qq-hide-dropzone",
         DROPZPONE_TEXT_ATTR = "qq-drop-area-text",
         IN_PROGRESS_CLASS = "qq-in-progress",
+        HIDDEN_FOREVER_CLASS = "qq-hidden-forever",
         isCancelDisabled = false,
         generatedThumbnails = 0,
         thumbnailQueueMonitorRunning = false,
@@ -7274,7 +7321,7 @@ qq.Templating = function(spec) {
             isCancelDisabled = true;
         },
 
-        addFile: function(id, name, prependInfo) {
+        addFile: function(id, name, prependInfo, hideForever) {
             var fileEl = qq.toElement(templateHtml.fileTemplate),
                 fileNameEl = getTemplateEl(fileEl, selectorClasses.file),
                 uploaderEl = getTemplateEl(container, selectorClasses.uploader),
@@ -7297,30 +7344,36 @@ qq.Templating = function(spec) {
                 fileList.appendChild(fileEl);
             }
 
-            hide(getProgress(id));
-            hide(getSize(id));
-            hide(getDelete(id));
-            hide(getRetry(id));
-            hide(getPause(id));
-            hide(getContinue(id));
-
-            if (isCancelDisabled) {
-                this.hideCancel(id);
+            if (hideForever) {
+                fileEl.style.display = "none";
+                qq(fileEl).addClass(HIDDEN_FOREVER_CLASS);
             }
+            else {
+                hide(getProgress(id));
+                hide(getSize(id));
+                hide(getDelete(id));
+                hide(getRetry(id));
+                hide(getPause(id));
+                hide(getContinue(id));
 
-            thumb = getThumbnail(id);
-            if (thumb && !thumb.src) {
-                cachedWaitingForThumbnailImg.then(function(waitingImg) {
-                    thumb.src = waitingImg.src;
-                    if (waitingImg.style.maxHeight && waitingImg.style.maxWidth) {
-                        qq(thumb).css({
-                            maxHeight: waitingImg.style.maxHeight,
-                            maxWidth: waitingImg.style.maxWidth
-                        });
-                    }
+                if (isCancelDisabled) {
+                    this.hideCancel(id);
+                }
 
-                    show(thumb);
-                });
+                thumb = getThumbnail(id);
+                if (thumb && !thumb.src) {
+                    cachedWaitingForThumbnailImg.then(function(waitingImg) {
+                        thumb.src = waitingImg.src;
+                        if (waitingImg.style.maxHeight && waitingImg.style.maxWidth) {
+                            qq(thumb).css({
+                                maxHeight: waitingImg.style.maxHeight,
+                                maxWidth: waitingImg.style.maxWidth
+                            });
+                        }
+
+                        show(thumb);
+                    });
+                }
             }
         },
 
@@ -7412,6 +7465,10 @@ qq.Templating = function(spec) {
             var icon = getEditIcon(id);
 
             icon && qq(icon).addClass(options.classes.editable);
+        },
+
+        isHiddenForever: function(id) {
+            return qq(getFile(id)).hasClass(HIDDEN_FOREVER_CLASS);
         },
 
         hideEditIcon: function(id) {
@@ -7573,13 +7630,17 @@ qq.Templating = function(spec) {
         },
 
         generatePreview: function(id, optFileOrBlob) {
-            thumbGenerationQueue.push({id: id, optFileOrBlob: optFileOrBlob});
-            !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
+            if (!this.isHiddenForever(id)) {
+                thumbGenerationQueue.push({id: id, optFileOrBlob: optFileOrBlob});
+                !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
+            }
         },
 
         updateThumbnail: function(id, thumbnailUrl, showWaitingImg) {
-            thumbGenerationQueue.push({update: true, id: id, thumbnailUrl: thumbnailUrl, showWaitingImg: showWaitingImg});
-            !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
+            if (!this.isHiddenForever(id)) {
+                thumbGenerationQueue.push({update: true, id: id, thumbnailUrl: thumbnailUrl, showWaitingImg: showWaitingImg});
+                !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
+            }
         },
 
         hasDialog: function(type) {
@@ -10107,7 +10168,7 @@ qq.Scaler = function(spec, log) {
     "use strict";
 
     var self = this,
-        includeReference = spec.sendOriginal,
+        includeOriginal = spec.sendOriginal,
         orient = spec.orient,
         defaultType = spec.defaultType,
         defaultQuality = spec.defaultQuality / 100,
@@ -10157,16 +10218,18 @@ qq.Scaler = function(spec, log) {
                     });
                 });
 
-                includeReference && records.push({
+                records.push({
                     uuid: originalFileUuid,
                     name: originalFileName,
-                    blob: originalBlob
+                    size: originalBlob.size,
+                    blob: includeOriginal ? originalBlob : null
                 });
             }
             else {
                 records.push({
                     uuid: originalFileUuid,
                     name: originalFileName,
+                    size: originalBlob.size,
                     blob: originalBlob
                 });
             }
@@ -10185,19 +10248,17 @@ qq.Scaler = function(spec, log) {
                 proxyGroupId = qq.getUniqueId();
 
             qq.each(self.getFileRecords(uuid, name, file), function(idx, record) {
-                var relatedBlob = file,
-                    relatedSize = size,
+                var blobSize = record.size,
                     id;
 
                 if (record.blob instanceof qq.BlobProxy) {
-                    relatedBlob = record.blob;
-                    relatedSize = -1;
+                    blobSize = -1;
                 }
 
                 id = uploadData.addFile({
                     uuid: record.uuid,
                     name: record.name,
-                    size: relatedSize,
+                    size: blobSize,
                     batchId: batchId,
                     proxyGroupId: proxyGroupId
                 });
@@ -10209,10 +10270,13 @@ qq.Scaler = function(spec, log) {
                     originalId = id;
                 }
 
-                addFileToHandler(id, relatedBlob);
-
-                fileList.push({id: id, file: relatedBlob});
-
+                if (record.blob) {
+                    addFileToHandler(id, record.blob);
+                    fileList.push({id: id, file: record.blob});
+                }
+                else {
+                    uploadData.setStatus(id, qq.status.REJECTED);
+                }
             });
 
             // If we are potentially uploading an original file and some scaled versions,
@@ -10225,8 +10289,8 @@ qq.Scaler = function(spec, log) {
                         qqparentsize: uploadData.retrieve({id: originalId}).size
                     };
 
-                    // Make SURE the UUID for each scaled image is sent with the upload request,
-                    // to be consistent (since we need to ensure it is sent for the original file as well).
+                    // Make sure the UUID for each scaled image is sent with the upload request,
+                    // to be consistent (since we may need to ensure it is sent for the original file as well).
                     params[uuidParamName] = uploadData.retrieve({id: scaledId}).uuid;
 
                     uploadData.setParentId(scaledId, originalId);

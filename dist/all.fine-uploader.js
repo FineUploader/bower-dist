@@ -3,7 +3,7 @@
 *
 * Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.2.2
+* Version: 5.3.0
 *
 * Homepage: http://fineuploader.com
 *
@@ -894,7 +894,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version = "5.2.2";
+qq.version = "5.3.0";
 
 /* globals qq */
 qq.supportedFeatures = (function() {
@@ -1928,6 +1928,10 @@ qq.status = {
             this._endpointStore.set(endpoint, id);
         },
 
+        setForm: function(elementOrId) {
+            this._updateFormSupportAndParams(elementOrId);
+        },
+
         setItemLimit: function(newItemLimit) {
             this._currentItemLimit = newItemLimit;
         },
@@ -1945,16 +1949,11 @@ qq.status = {
         },
 
         uploadStoredFiles: function() {
-            var idToUpload;
-
             if (this._storedIds.length === 0) {
                 this._itemError("noFilesError");
             }
             else {
-                while (this._storedIds.length) {
-                    idToUpload = this._storedIds.shift();
-                    this._uploadFile(idToUpload);
-                }
+                this._uploadStoredFiles();
             }
         }
     };
@@ -2038,10 +2037,11 @@ qq.status = {
             });
         },
 
-        _createStore: function(initialValue, readOnlyValues) {
+        _createStore: function(initialValue, _readOnlyValues_) {
             var store = {},
                 catchall = initialValue,
                 perIdReadOnlyValues = {},
+                readOnlyValues = _readOnlyValues_,
                 copy = function(orig) {
                     if (qq.isObject(orig)) {
                         return qq.extend({}, orig);
@@ -2095,8 +2095,20 @@ qq.status = {
                 addReadOnly: function(id, values) {
                     // Only applicable to Object stores
                     if (qq.isObject(store)) {
-                        perIdReadOnlyValues[id] = perIdReadOnlyValues[id] || {};
-                        qq.extend(perIdReadOnlyValues[id], values);
+                        // If null ID, apply readonly values to all files
+                        if (id === null) {
+                            if (qq.isFunction(values)) {
+                                readOnlyValues = values;
+                            }
+                            else {
+                                readOnlyValues = readOnlyValues || {};
+                                qq.extend(readOnlyValues, values);
+                            }
+                        }
+                        else {
+                            perIdReadOnlyValues[id] = perIdReadOnlyValues[id] || {};
+                            qq.extend(perIdReadOnlyValues[id], values);
+                        }
                     }
                 },
 
@@ -3005,13 +3017,14 @@ qq.status = {
             this._onSubmit.apply(this, arguments);
             this._uploadData.setStatus(id, qq.status.SUBMITTED);
             this._onSubmitted.apply(this, arguments);
-            this._options.callbacks.onSubmitted.apply(this, arguments);
 
             if (this._options.autoUpload) {
+                this._options.callbacks.onSubmitted.apply(this, arguments);
                 this._uploadFile(id);
             }
             else {
                 this._storeForLater(id);
+                this._options.callbacks.onSubmitted.apply(this, arguments);
             }
         },
 
@@ -3238,6 +3251,23 @@ qq.status = {
             }
         },
 
+        _updateFormSupportAndParams: function(formElementOrId) {
+            this._options.form.element = formElementOrId;
+
+            this._formSupport = qq.FormSupport && new qq.FormSupport(
+                    this._options.form, qq.bind(this.uploadStoredFiles, this), qq.bind(this.log, this)
+                );
+
+            if (this._formSupport && this._formSupport.attachedToForm) {
+                this._paramsStore.addReadOnly(null, this._formSupport.getFormInputsAsObject);
+
+                this._options.autoUpload = this._formSupport.newAutoUpload;
+                if (this._formSupport.newEndpoint) {
+                    this.setEndpoint(this._formSupport.newEndpoint);
+                }
+            }
+        },
+
         _upload: function(id, params, endpoint) {
             var name = this.getName(id);
 
@@ -3261,6 +3291,25 @@ qq.status = {
         _uploadFile: function(id) {
             if (!this._handler.upload(id)) {
                 this._uploadData.setStatus(id, qq.status.QUEUED);
+            }
+        },
+
+        _uploadStoredFiles: function() {
+            var idToUpload, stillSubmitting,
+                self = this;
+
+            while (this._storedIds.length) {
+                idToUpload = this._storedIds.shift();
+                this._uploadFile(idToUpload);
+            }
+
+            // If we are still waiting for some files to clear validation, attempt to upload these again in a bit
+            stillSubmitting = this.getUploads({status: qq.status.SUBMITTING}).length;
+            if (stillSubmitting) {
+                qq.log("Still waiting for " + stillSubmitting + " files to clear submit queue. Will re-parse stored IDs array shortly.");
+                setTimeout(function() {
+                    self._uploadStoredFiles();
+                }, 1000);
             }
         },
 
@@ -5462,7 +5511,7 @@ qq.XhrUploadHandler = function(spec) {
         _iterateResumeRecords: function(callback) {
             if (resumeEnabled) {
                 qq.each(localStorage, function(key, item) {
-                    if (key.indexOf(qq.format("qq{}resume-", namespace)) === 0) {
+                    if (key.indexOf(qq.format("qq{}resume", namespace)) === 0) {
                         var uploadData = JSON.parse(item);
                         callback(key, uploadData);
                     }
@@ -5729,7 +5778,9 @@ qq.WindowReceiveMessage = function(o) {
         },
 
         getItemByFileId: function(id) {
-            return this._templating.getFileContainer(id);
+            if (!this._templating.isHiddenForever(id)) {
+                return this._templating.getFileContainer(id);
+            }
         },
 
         reset: function() {
@@ -6239,11 +6290,6 @@ qq.WindowReceiveMessage = function(o) {
                 dontDisplay = this._handler.isProxied(id) && this._options.scaling.hideScaled,
                 record;
 
-            // If we don't want this file to appear in the UI, skip all of this UI-related logic.
-            if (dontDisplay) {
-                return;
-            }
-
             if (this._options.display.prependFiles) {
                 if (this._totalFilesInBatch > 1 && this._filesInBatchAddedToUi > 0) {
                     prependIndex = this._filesInBatchAddedToUi - 1;
@@ -6275,7 +6321,7 @@ qq.WindowReceiveMessage = function(o) {
                 }
             }
 
-            this._templating.addFile(id, this._options.formatFileName(name), prependData);
+            this._templating.addFile(id, this._options.formatFileName(name), prependData, dontDisplay);
 
             if (canned) {
                 this._thumbnailUrls[id] && this._templating.updateThumbnail(id, this._thumbnailUrls[id], true);
@@ -6639,6 +6685,7 @@ qq.Templating = function(spec) {
         HIDE_DROPZONE_ATTR = "qq-hide-dropzone",
         DROPZPONE_TEXT_ATTR = "qq-drop-area-text",
         IN_PROGRESS_CLASS = "qq-in-progress",
+        HIDDEN_FOREVER_CLASS = "qq-hidden-forever",
         isCancelDisabled = false,
         generatedThumbnails = 0,
         thumbnailQueueMonitorRunning = false,
@@ -7274,7 +7321,7 @@ qq.Templating = function(spec) {
             isCancelDisabled = true;
         },
 
-        addFile: function(id, name, prependInfo) {
+        addFile: function(id, name, prependInfo, hideForever) {
             var fileEl = qq.toElement(templateHtml.fileTemplate),
                 fileNameEl = getTemplateEl(fileEl, selectorClasses.file),
                 uploaderEl = getTemplateEl(container, selectorClasses.uploader),
@@ -7297,30 +7344,36 @@ qq.Templating = function(spec) {
                 fileList.appendChild(fileEl);
             }
 
-            hide(getProgress(id));
-            hide(getSize(id));
-            hide(getDelete(id));
-            hide(getRetry(id));
-            hide(getPause(id));
-            hide(getContinue(id));
-
-            if (isCancelDisabled) {
-                this.hideCancel(id);
+            if (hideForever) {
+                fileEl.style.display = "none";
+                qq(fileEl).addClass(HIDDEN_FOREVER_CLASS);
             }
+            else {
+                hide(getProgress(id));
+                hide(getSize(id));
+                hide(getDelete(id));
+                hide(getRetry(id));
+                hide(getPause(id));
+                hide(getContinue(id));
 
-            thumb = getThumbnail(id);
-            if (thumb && !thumb.src) {
-                cachedWaitingForThumbnailImg.then(function(waitingImg) {
-                    thumb.src = waitingImg.src;
-                    if (waitingImg.style.maxHeight && waitingImg.style.maxWidth) {
-                        qq(thumb).css({
-                            maxHeight: waitingImg.style.maxHeight,
-                            maxWidth: waitingImg.style.maxWidth
-                        });
-                    }
+                if (isCancelDisabled) {
+                    this.hideCancel(id);
+                }
 
-                    show(thumb);
-                });
+                thumb = getThumbnail(id);
+                if (thumb && !thumb.src) {
+                    cachedWaitingForThumbnailImg.then(function(waitingImg) {
+                        thumb.src = waitingImg.src;
+                        if (waitingImg.style.maxHeight && waitingImg.style.maxWidth) {
+                            qq(thumb).css({
+                                maxHeight: waitingImg.style.maxHeight,
+                                maxWidth: waitingImg.style.maxWidth
+                            });
+                        }
+
+                        show(thumb);
+                    });
+                }
             }
         },
 
@@ -7412,6 +7465,10 @@ qq.Templating = function(spec) {
             var icon = getEditIcon(id);
 
             icon && qq(icon).addClass(options.classes.editable);
+        },
+
+        isHiddenForever: function(id) {
+            return qq(getFile(id)).hasClass(HIDDEN_FOREVER_CLASS);
         },
 
         hideEditIcon: function(id) {
@@ -7573,13 +7630,17 @@ qq.Templating = function(spec) {
         },
 
         generatePreview: function(id, optFileOrBlob) {
-            thumbGenerationQueue.push({id: id, optFileOrBlob: optFileOrBlob});
-            !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
+            if (!this.isHiddenForever(id)) {
+                thumbGenerationQueue.push({id: id, optFileOrBlob: optFileOrBlob});
+                !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
+            }
         },
 
         updateThumbnail: function(id, thumbnailUrl, showWaitingImg) {
-            thumbGenerationQueue.push({update: true, id: id, thumbnailUrl: thumbnailUrl, showWaitingImg: showWaitingImg});
-            !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
+            if (!this.isHiddenForever(id)) {
+                thumbGenerationQueue.push({update: true, id: id, thumbnailUrl: thumbnailUrl, showWaitingImg: showWaitingImg});
+                !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
+            }
         },
 
         hasDialog: function(type) {
@@ -10107,7 +10168,7 @@ qq.Scaler = function(spec, log) {
     "use strict";
 
     var self = this,
-        includeReference = spec.sendOriginal,
+        includeOriginal = spec.sendOriginal,
         orient = spec.orient,
         defaultType = spec.defaultType,
         defaultQuality = spec.defaultQuality / 100,
@@ -10157,16 +10218,18 @@ qq.Scaler = function(spec, log) {
                     });
                 });
 
-                includeReference && records.push({
+                records.push({
                     uuid: originalFileUuid,
                     name: originalFileName,
-                    blob: originalBlob
+                    size: originalBlob.size,
+                    blob: includeOriginal ? originalBlob : null
                 });
             }
             else {
                 records.push({
                     uuid: originalFileUuid,
                     name: originalFileName,
+                    size: originalBlob.size,
                     blob: originalBlob
                 });
             }
@@ -10185,19 +10248,17 @@ qq.Scaler = function(spec, log) {
                 proxyGroupId = qq.getUniqueId();
 
             qq.each(self.getFileRecords(uuid, name, file), function(idx, record) {
-                var relatedBlob = file,
-                    relatedSize = size,
+                var blobSize = record.size,
                     id;
 
                 if (record.blob instanceof qq.BlobProxy) {
-                    relatedBlob = record.blob;
-                    relatedSize = -1;
+                    blobSize = -1;
                 }
 
                 id = uploadData.addFile({
                     uuid: record.uuid,
                     name: record.name,
-                    size: relatedSize,
+                    size: blobSize,
                     batchId: batchId,
                     proxyGroupId: proxyGroupId
                 });
@@ -10209,10 +10270,13 @@ qq.Scaler = function(spec, log) {
                     originalId = id;
                 }
 
-                addFileToHandler(id, relatedBlob);
-
-                fileList.push({id: id, file: relatedBlob});
-
+                if (record.blob) {
+                    addFileToHandler(id, record.blob);
+                    fileList.push({id: id, file: record.blob});
+                }
+                else {
+                    uploadData.setStatus(id, qq.status.REJECTED);
+                }
             });
 
             // If we are potentially uploading an original file and some scaled versions,
@@ -10225,8 +10289,8 @@ qq.Scaler = function(spec, log) {
                         qqparentsize: uploadData.retrieve({id: originalId}).size
                     };
 
-                    // Make SURE the UUID for each scaled image is sent with the upload request,
-                    // to be consistent (since we need to ensure it is sent for the original file as well).
+                    // Make sure the UUID for each scaled image is sent with the upload request,
+                    // to be consistent (since we may need to ensure it is sent for the original file as well).
                     params[uuidParamName] = uploadData.retrieve({id: scaledId}).uuid;
 
                     uploadData.setParentId(scaledId, originalId);
@@ -11090,384 +11154,6 @@ qq.FilenameEditHandler = function(s, inheritedInternalApi) {
         }
     });
 };
-
-/*globals jQuery, qq*/
-(function($) {
-    "use strict";
-    var $el,
-        pluginOptions = ["uploaderType", "endpointType"];
-
-    function init(options) {
-        var xformedOpts = transformVariables(options || {}),
-            newUploaderInstance = getNewUploaderInstance(xformedOpts);
-
-        uploader(newUploaderInstance);
-        addCallbacks(xformedOpts, newUploaderInstance);
-
-        return $el;
-    }
-
-    function getNewUploaderInstance(params) {
-        var uploaderType = pluginOption("uploaderType"),
-            namespace = pluginOption("endpointType");
-
-        // If the integrator has defined a specific type of uploader to load, use that, otherwise assume `qq.FineUploader`
-        if (uploaderType) {
-            // We can determine the correct constructor function to invoke by combining "FineUploader"
-            // with the upper camel cased `uploaderType` value.
-            uploaderType = uploaderType.charAt(0).toUpperCase() + uploaderType.slice(1).toLowerCase();
-
-            if (namespace) {
-                return new qq[namespace]["FineUploader" + uploaderType](params);
-            }
-
-            return new qq["FineUploader" + uploaderType](params);
-        }
-        else {
-            if (namespace) {
-                return new qq[namespace].FineUploader(params);
-            }
-
-            return new qq.FineUploader(params);
-        }
-    }
-
-    function dataStore(key, val) {
-        var data = $el.data("fineuploader");
-
-        if (val) {
-            if (data === undefined) {
-                data = {};
-            }
-            data[key] = val;
-            $el.data("fineuploader", data);
-        }
-        else {
-            if (data === undefined) {
-                return null;
-            }
-            return data[key];
-        }
-    }
-
-    //the underlying Fine Uploader instance is stored in jQuery's data stored, associated with the element
-    // tied to this instance of the plug-in
-    function uploader(instanceToStore) {
-        return dataStore("uploader", instanceToStore);
-    }
-
-    function pluginOption(option, optionVal) {
-        return dataStore(option, optionVal);
-    }
-
-    // Implement all callbacks defined in Fine Uploader as functions that trigger appropriately names events and
-    // return the result of executing the bound handler back to Fine Uploader
-    function addCallbacks(transformedOpts, newUploaderInstance) {
-        var callbacks = transformedOpts.callbacks = {};
-
-        $.each(newUploaderInstance._options.callbacks, function(prop, nonJqueryCallback) {
-            var name, callbackEventTarget;
-
-            name = /^on(\w+)/.exec(prop)[1];
-            name = name.substring(0, 1).toLowerCase() + name.substring(1);
-            callbackEventTarget = $el;
-
-            callbacks[prop] = function() {
-                var originalArgs = Array.prototype.slice.call(arguments),
-                    transformedArgs = [],
-                    nonJqueryCallbackRetVal, jqueryEventCallbackRetVal;
-
-                $.each(originalArgs, function(idx, arg) {
-                    transformedArgs.push(maybeWrapInJquery(arg));
-                });
-
-                nonJqueryCallbackRetVal = nonJqueryCallback.apply(this, originalArgs);
-
-                try {
-                    jqueryEventCallbackRetVal = callbackEventTarget.triggerHandler(name, transformedArgs);
-                }
-                catch (error) {
-                    qq.log("Caught error in Fine Uploader jQuery event handler: " + error.message, "error");
-                }
-
-                /*jshint -W116*/
-                if (nonJqueryCallbackRetVal != null) {
-                    return nonJqueryCallbackRetVal;
-                }
-                return jqueryEventCallbackRetVal;
-            };
-        });
-
-        newUploaderInstance._options.callbacks = callbacks;
-    }
-
-    //transform jQuery objects into HTMLElements, and pass along all other option properties
-    function transformVariables(source, dest) {
-        var xformed, arrayVals;
-
-        if (dest === undefined) {
-            if (source.uploaderType !== "basic") {
-                xformed = { element: $el[0] };
-            }
-            else {
-                xformed = {};
-            }
-        }
-        else {
-            xformed = dest;
-        }
-
-        $.each(source, function(prop, val) {
-            if ($.inArray(prop, pluginOptions) >= 0) {
-                pluginOption(prop, val);
-            }
-            else if (val instanceof $) {
-                xformed[prop] = val[0];
-            }
-            else if ($.isPlainObject(val)) {
-                xformed[prop] = {};
-                transformVariables(val, xformed[prop]);
-            }
-            else if ($.isArray(val)) {
-                arrayVals = [];
-                $.each(val, function(idx, arrayVal) {
-                    var arrayObjDest = {};
-
-                    if (arrayVal instanceof $) {
-                        $.merge(arrayVals, arrayVal);
-                    }
-                    else if ($.isPlainObject(arrayVal)) {
-                        transformVariables(arrayVal, arrayObjDest);
-                        arrayVals.push(arrayObjDest);
-                    }
-                    else {
-                        arrayVals.push(arrayVal);
-                    }
-                });
-                xformed[prop] = arrayVals;
-            }
-            else {
-                xformed[prop] = val;
-            }
-        });
-
-        if (dest === undefined) {
-            return xformed;
-        }
-    }
-
-    function isValidCommand(command) {
-        return $.type(command) === "string" &&
-            !command.match(/^_/) && //enforce private methods convention
-            uploader()[command] !== undefined;
-    }
-
-    // Assuming we have already verified that this is a valid command, call the associated function in the underlying
-    // Fine Uploader instance (passing along the arguments from the caller) and return the result of the call back to the caller
-    function delegateCommand(command) {
-        var xformedArgs = [],
-            origArgs = Array.prototype.slice.call(arguments, 1),
-            retVal;
-
-        transformVariables(origArgs, xformedArgs);
-
-        retVal = uploader()[command].apply(uploader(), xformedArgs);
-
-        return maybeWrapInJquery(retVal);
-    }
-
-    // If the value is an `HTMLElement` or `HTMLDocument`, wrap it in a `jQuery` object
-    function maybeWrapInJquery(val) {
-        var transformedVal = val;
-
-        // If the command is returning an `HTMLElement` or `HTMLDocument`, wrap it in a `jQuery` object
-        /*jshint -W116*/
-        if (val != null && typeof val === "object" &&
-           (val.nodeType === 1 || val.nodeType === 9) && val.cloneNode) {
-
-            transformedVal = $(val);
-        }
-
-        return transformedVal;
-    }
-
-    $.fn.fineUploader = function(optionsOrCommand) {
-        var self = this, selfArgs = arguments, retVals = [];
-
-        this.each(function(index, el) {
-            $el = $(el);
-
-            if (uploader() && isValidCommand(optionsOrCommand)) {
-                retVals.push(delegateCommand.apply(self, selfArgs));
-
-                if (self.length === 1) {
-                    return false;
-                }
-            }
-            else if (typeof optionsOrCommand === "object" || !optionsOrCommand) {
-                init.apply(self, selfArgs);
-            }
-            else {
-                $.error("Method " +  optionsOrCommand + " does not exist on jQuery.fineUploader");
-            }
-        });
-
-        if (retVals.length === 1) {
-            return retVals[0];
-        }
-        else if (retVals.length > 1) {
-            return retVals;
-        }
-
-        return this;
-    };
-
-}(jQuery));
-
-/*globals jQuery, qq*/
-(function($) {
-    "use strict";
-    var rootDataKey = "fineUploaderDnd",
-        $el;
-
-    function init(options) {
-        if (!options) {
-            options = {};
-        }
-
-        options.dropZoneElements = [$el];
-        var xformedOpts = transformVariables(options);
-        addCallbacks(xformedOpts);
-        dnd(new qq.DragAndDrop(xformedOpts));
-
-        return $el;
-    }
-
-    function dataStore(key, val) {
-        var data = $el.data(rootDataKey);
-
-        if (val) {
-            if (data === undefined) {
-                data = {};
-            }
-            data[key] = val;
-            $el.data(rootDataKey, data);
-        }
-        else {
-            if (data === undefined) {
-                return null;
-            }
-            return data[key];
-        }
-    }
-
-    function dnd(instanceToStore) {
-        return dataStore("dndInstance", instanceToStore);
-    }
-
-    function addCallbacks(transformedOpts) {
-        var callbacks = transformedOpts.callbacks = {};
-
-        $.each(new qq.DragAndDrop.callbacks(), function(prop, func) {
-            var name = prop,
-                $callbackEl;
-
-            $callbackEl = $el;
-
-            callbacks[prop] = function() {
-                var args = Array.prototype.slice.call(arguments),
-                    jqueryHandlerResult = $callbackEl.triggerHandler(name, args);
-
-                return jqueryHandlerResult;
-            };
-        });
-    }
-
-    //transform jQuery objects into HTMLElements, and pass along all other option properties
-    function transformVariables(source, dest) {
-        var xformed, arrayVals;
-
-        if (dest === undefined) {
-            xformed = {};
-        }
-        else {
-            xformed = dest;
-        }
-
-        $.each(source, function(prop, val) {
-            if (val instanceof $) {
-                xformed[prop] = val[0];
-            }
-            else if ($.isPlainObject(val)) {
-                xformed[prop] = {};
-                transformVariables(val, xformed[prop]);
-            }
-            else if ($.isArray(val)) {
-                arrayVals = [];
-                $.each(val, function(idx, arrayVal) {
-                    if (arrayVal instanceof $) {
-                        $.merge(arrayVals, arrayVal);
-                    }
-                    else {
-                        arrayVals.push(arrayVal);
-                    }
-                });
-                xformed[prop] = arrayVals;
-            }
-            else {
-                xformed[prop] = val;
-            }
-        });
-
-        if (dest === undefined) {
-            return xformed;
-        }
-    }
-
-    function isValidCommand(command) {
-        return $.type(command) === "string" &&
-            command === "dispose" &&
-            dnd()[command] !== undefined;
-    }
-
-    function delegateCommand(command) {
-        var xformedArgs = [], origArgs = Array.prototype.slice.call(arguments, 1);
-        transformVariables(origArgs, xformedArgs);
-        return dnd()[command].apply(dnd(), xformedArgs);
-    }
-
-    $.fn.fineUploaderDnd = function(optionsOrCommand) {
-        var self = this, selfArgs = arguments, retVals = [];
-
-        this.each(function(index, el) {
-            $el = $(el);
-
-            if (dnd() && isValidCommand(optionsOrCommand)) {
-                retVals.push(delegateCommand.apply(self, selfArgs));
-
-                if (self.length === 1) {
-                    return false;
-                }
-            }
-            else if (typeof optionsOrCommand === "object" || !optionsOrCommand) {
-                init.apply(self, selfArgs);
-            }
-            else {
-                $.error("Method " +  optionsOrCommand + " does not exist in Fine Uploader's DnD module.");
-            }
-        });
-
-        if (retVals.length === 1) {
-            return retVals[0];
-        }
-        else if (retVals.length > 1) {
-            return retVals;
-        }
-
-        return this;
-    };
-
-}(jQuery));
 
 /*globals qq */
 qq.s3 = qq.s3 || {};
@@ -14130,29 +13816,6 @@ qq.s3.FormUploadHandler = function(options, proxy) {
     qq.extend(qq.s3.FineUploader.prototype, qq.uiPrivateApi);
 }());
 
-/*globals jQuery*/
-/**
- * Simply an alias for the `fineUploader` plug-in wrapper, but hides the required `endpointType` option from the
- * integrator.  I thought it may be confusing to convey to the integrator that, when using Fine Uploader in S3 mode,
- * you need to specify an `endpointType` with a value of S3, and perhaps an `uploaderType` with a value of "basic" if
- * you want to use basic mode when uploading directly to S3 as well.  So, you can use this plug-in alias and not worry
- * about the `endpointType` option at all.
- */
-(function($) {
-    "use strict";
-
-    $.fn.fineUploaderS3 = function(optionsOrCommand) {
-        if (typeof optionsOrCommand === "object") {
-
-            // This option is used to tell the plug-in wrapper to instantiate the appropriate S3-namespace modules.
-            optionsOrCommand.endpointType = "s3";
-        }
-
-        return $.fn.fineUploader.apply(this, arguments);
-    };
-
-}(jQuery));
-
 /*globals qq */
 qq.azure = qq.azure || {};
 qq.azure.util = qq.azure.util || (function() {
@@ -14161,20 +13824,69 @@ qq.azure.util = qq.azure.util || (function() {
     return {
         AZURE_PARAM_PREFIX: "x-ms-meta-",
 
+        /** Test if a request header is actually a known Azure parameter. See: https://msdn.microsoft.com/en-us/library/azure/dd179451.aspx
+         *
+         * @param name Name of the Request Header parameter.
+         * @returns {Boolean} Test result.
+         */
+        _paramNameMatchesAzureParameter: function(name) {
+            switch (name)
+            {
+                case "Cache-Control":
+                case "Content-Disposition":
+                case "Content-Encoding":
+                case "Content-MD5":
+                case "x-ms-blob-content-encoding":
+                case "x-ms-blob-content-disposition":
+                case "x-ms-blob-content-md5":
+                case "x-ms-blob-cache-control":
+                    return true;
+                default:
+                    return false;
+            }
+        },
+
+        /** Create Prefixed request headers which are appropriate for Azure.
+         *
+         * If the request header is appropriate for Azure (e.g. Cache-Control) then it should be
+         * passed along without a metadata prefix. For all other request header parameter names,
+         * qq.azure.util.AZURE_PARAM_PREFIX should be prepended.
+         *
+         * @param name Name of the Request Header parameter to construct a (possibly) prefixed name.
+         * @returns {String} A valid Request Header parameter name.
+         */
+        _getPrefixedParamName: function(name) {
+            if (qq.azure.util._paramNameMatchesAzureParameter(name)) {
+                return name;
+            }
+            else {
+                return qq.azure.util.AZURE_PARAM_PREFIX + name;
+            }
+        },
+
         getParamsAsHeaders: function(params) {
             var headers = {};
 
             qq.each(params, function(name, val) {
-                var headerName = qq.azure.util.AZURE_PARAM_PREFIX + name;
+                var headerName = qq.azure.util._getPrefixedParamName(name),
+                    value = null;
 
                 if (qq.isFunction(val)) {
-                    headers[headerName] = encodeURIComponent(String(val()));
+                    value = String(val());
                 }
                 else if (qq.isObject(val)) {
                     qq.extend(headers, qq.azure.util.getParamsAsHeaders(val));
                 }
                 else {
-                    headers[headerName] = encodeURIComponent(String(val));
+                    value = String(val);
+                }
+
+                if (value !== null) {
+                    if (qq.azure.util._paramNameMatchesAzureParameter(name)) {
+                        headers[headerName] = value;
+                    } else {
+                        headers[headerName] = encodeURIComponent(value);
+                    }
                 }
             });
 
@@ -15095,29 +14807,6 @@ qq.azure.PutBlock = function(o) {
     qq.extend(qq.azure.FineUploader.prototype, {
     });
 }());
-
-/*globals jQuery*/
-/**
- * Simply an alias for the `fineUploader` plug-in wrapper, but hides the required `endpointType` option from the
- * integrator.  I thought it may be confusing to convey to the integrator that, when using Fine Uploader in Azure mode,
- * you need to specify an `endpointType` with a value of "azure", and perhaps an `uploaderType` with a value of "basic" if
- * you want to use basic mode when uploading directly to Azure as well.  So, you can use this plug-in alias and not worry
- * about the `endpointType` option at all.
- */
-(function($) {
-    "use strict";
-
-    $.fn.fineUploaderAzure = function(optionsOrCommand) {
-        if (typeof optionsOrCommand === "object") {
-
-            // This option is used to tell the plug-in wrapper to instantiate the appropriate Azure-namespace modules.
-            optionsOrCommand.endpointType = "azure";
-        }
-
-        return $.fn.fineUploader.apply(this, arguments);
-    };
-
-}(jQuery));
 
 /*
 CryptoJS v3.1.2

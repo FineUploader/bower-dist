@@ -1,19 +1,9 @@
 {
   "name": "fineuploader-dist",
-  "version": "5.2.2",
+  "version": "5.3.0",
   "author": "Fery Wardiyanto",
-  "description": "A bower build for Widen/fine-uploader",
-  "license": "GPLv3",
-  "licenses": [
-    {
-      "type": "GPL 3",
-      "url": "http://www.gnu.org/licenses/gpl-3.0.txt"
-    },
-    {
-      "type": "Widen Commerical License",
-      "url": "http://fineuploader.com/downloads.html"
-    }
-  ],
+  "description": "A bower build for FineUploader/fine-uploader",
+  "license": "https://raw.githubusercontent.com/FineUploader/fine-uploader/master/LICENSE",
   "keywords": [
     "fineuploader",
     "dist",
