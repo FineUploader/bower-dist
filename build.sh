@@ -67,8 +67,8 @@ sed -i -e "s/[0-9].[0-9].[0-9]/${version}/" README.md
 sed -i -e "s/[0-9].[0-9].[0-9]/${version}/" build.sh
 
 e '33;5' "${cmt_msg}"
-git add -qA && \
-git commit -qam "${cmt_msg}"
+git add -A && \
+git commit -am "${cmt_msg}" -q
 
 if [[ $2 = '--release-tag' ]] || [[ $3 = '--release-tag' ]]; then
 	git tag -s $version -m "${cmt_msg}"
