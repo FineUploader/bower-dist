@@ -19,7 +19,7 @@ __Enjoy__
 
 ### Updating or building manually
 
-Currently the build is for fine-uploader `v5.3.0`.
+Currently the build is for fine-uploader `v5.3.1`.
 You can build yourself by doing the following
 
 ##### Prepping (getting fine-uploader)
@@ -40,7 +40,7 @@ $ git submodule foreach git pull origin
 1. In your terminal please navigate to where the project is cloned
 
 	```bash
-	$ ./build.sh <version> # e.g: ./build.sh 5.3.0
+	$ ./build.sh <version> # e.g: ./build.sh 5.3.1
 	```
 
 	**NOTE:**
