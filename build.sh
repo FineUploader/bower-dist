@@ -18,6 +18,7 @@ if [ -z $1 ]; then
 fi
 
 version=$1
+cmt_msg="Bump v${version}"
 
 e '32;5' 'Clean up dist folder'
 rm -rf dist/*
@@ -53,10 +54,9 @@ cd ..
 sed -i -e "s/[0-9].[0-9].[0-9]/${version}/" bower.json
 sed -i -e "s/[0-9].[0-9].[0-9]/${version}/" README.md
 
-msg="Bump v${version}"
-e '32;5' "${msg}"
+e '32;5' "${cmt_msg}"
 git add -A && \
-git commit -am "${msg}" && \
-git tag -s $version -m "${msg}"
+git commit -am "${cmt_msg}" && \
+git tag -s $version -m "${cmt_msg}"
 
 e '32;5' 'Done!'
