@@ -3,7 +3,7 @@
 *
 * Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.2.1
+* Version: 5.2.2
 *
 * Homepage: http://fineuploader.com
 *
@@ -894,7 +894,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version = "5.2.1";
+qq.version = "5.2.2";
 
 /* globals qq */
 qq.supportedFeatures = (function() {
@@ -6389,9 +6389,18 @@ qq.WindowReceiveMessage = function(o) {
         },
 
         _maybeUpdateThumbnail: function(fileId) {
-            var thumbnailUrl = this._thumbnailUrls[fileId];
+            var thumbnailUrl = this._thumbnailUrls[fileId],
+                fileStatus = this.getUploads({id: fileId}).status;
 
-            this._templating.updateThumbnail(fileId, thumbnailUrl);
+            if (fileStatus !== qq.status.DELETED &&
+                (thumbnailUrl ||
+                this._options.thumbnails.placeholders.waitUntilResponse ||
+                !qq.supportedFeatures.imagePreviews)) {
+
+                // This will replace the "waiting" placeholder with a "preview not available" placeholder
+                // if called with a null thumbnailUrl.
+                this._templating.updateThumbnail(fileId, thumbnailUrl);
+            }
         },
 
         _addCannedFile: function(sessionData) {
@@ -7122,6 +7131,10 @@ qq.Templating = function(spec) {
                             }
                         });
                     }
+                }
+                // File element in template may have been removed, so move on to next item in queue
+                else {
+                    generateNextQueuedPreview();
                 }
             }
             else if (thumbnail) {
