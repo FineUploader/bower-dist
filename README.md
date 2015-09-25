@@ -3,7 +3,7 @@
 
 ## [UNOFFICIAL] [Bower](http://bower.io) distribution build of [FineUploader](http://fineuploader.com)
 
-[![Gratipay](https://img.shields.io/gratipay/~feryardiant.svg?style=flat-square)](https://gratipay.com/feryardiant)
+[![Gratipay](https://img.shields.io/gratipay/feryardiant.svg?style=flat-square)](https://gratipay.com/feryardiant)
 
 ### DISCLAIMER
 
