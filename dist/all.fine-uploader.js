@@ -3,7 +3,7 @@
 *
 * Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.3.1
+* Version: 5.3.2
 *
 * Homepage: http://fineuploader.com
 *
@@ -119,11 +119,14 @@ var qq = function(element) {
             return this;
         },
 
-        getByClass: function(className) {
+        getByClass: function(className, first) {
             var candidates,
                 result = [];
 
-            if (element.querySelectorAll) {
+            if (first && element.querySelector) {
+                return element.querySelector("." + className);
+            }
+            else if (element.querySelectorAll) {
                 return element.querySelectorAll("." + className);
             }
 
@@ -134,7 +137,11 @@ var qq = function(element) {
                     result.push(val);
                 }
             });
-            return result;
+            return first ? result[0] : result;
+        },
+
+        getFirstByClass: function(className) {
+            return qq(element).getByClass(className, true);
         },
 
         children: function() {
@@ -894,7 +901,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version = "5.3.1";
+qq.version = "5.3.2";
 
 /* globals qq */
 qq.supportedFeatures = (function() {
@@ -3194,7 +3201,7 @@ qq.status = {
 
                 setTimeout(function() {
                     self._session.refresh().then(function(response, xhrOrXdr) {
-
+                        self._sessionRequestComplete();
                         self._options.callbacks.onSessionRequestComplete(response, true, xhrOrXdr);
 
                     }, function(response, xhrOrXdr) {
@@ -3204,6 +3211,8 @@ qq.status = {
                 }, 0);
             }
         },
+
+        _sessionRequestComplete: function() {},
 
         _setSize: function(id, newSize) {
             this._uploadData.updateSize(id, newSize);
@@ -6320,12 +6329,12 @@ qq.WindowReceiveMessage = function(o) {
                 }
             }
 
-            this._templating.addFile(id, this._options.formatFileName(name), prependData, dontDisplay);
-
             if (canned) {
+                this._templating.addFileToCache(id, this._options.formatFileName(name), prependData, dontDisplay);
                 this._thumbnailUrls[id] && this._templating.updateThumbnail(id, this._thumbnailUrls[id], true);
             }
             else {
+                this._templating.addFile(id, this._options.formatFileName(name), prependData, dontDisplay);
                 this._templating.generatePreview(id, this.getFile(id));
             }
 
@@ -6463,6 +6472,11 @@ qq.WindowReceiveMessage = function(o) {
             this._parent.prototype._setSize.apply(this, arguments);
 
             this._templating.updateSize(id, this._formatSize(newSize));
+        },
+
+        _sessionRequestComplete: function() {
+            this._templating.addCacheToDom();
+            this._parent.prototype._sessionRequestComplete.apply(this, arguments);
         }
     };
 }());
@@ -6685,6 +6699,10 @@ qq.Templating = function(spec) {
         DROPZPONE_TEXT_ATTR = "qq-drop-area-text",
         IN_PROGRESS_CLASS = "qq-in-progress",
         HIDDEN_FOREVER_CLASS = "qq-hidden-forever",
+        fileBatch = {
+            content: document.createElement("span"),
+            map: {}
+        },
         isCancelDisabled = false,
         generatedThumbnails = 0,
         thumbnailQueueMonitorRunning = false,
@@ -6897,7 +6915,7 @@ qq.Templating = function(spec) {
         },
 
         getFile = function(id) {
-            return qq(fileList).getByClass(FILE_CLASS_PREFIX + id)[0];
+            return fileBatch.map[id] || qq(fileList).getFirstByClass(FILE_CLASS_PREFIX + id);
         },
 
         getFilename = function(id) {
@@ -6934,7 +6952,7 @@ qq.Templating = function(spec) {
         },
 
         getTemplateEl = function(context, cssClass) {
-            return context && qq(context).getByClass(cssClass)[0];
+            return context && qq(context).getFirstByClass(cssClass);
         },
 
         getThumbnail = function(id) {
@@ -7039,12 +7057,12 @@ qq.Templating = function(spec) {
             scriptHtml = qq.trimStr(scriptHtml);
             tempTemplateEl = document.createElement("div");
             tempTemplateEl.appendChild(qq.toElement(scriptHtml));
-            uploaderEl = qq(tempTemplateEl).getByClass(selectorClasses.uploader)[0];
+            uploaderEl = qq(tempTemplateEl).getFirstByClass(selectorClasses.uploader);
 
             // Don't include the default template button in the DOM
             // if an alternate button container has been specified.
             if (options.button) {
-                defaultButton = qq(tempTemplateEl).getByClass(selectorClasses.button)[0];
+                defaultButton = qq(tempTemplateEl).getFirstByClass(selectorClasses.button);
                 if (defaultButton) {
                     qq(defaultButton).remove();
                 }
@@ -7056,13 +7074,13 @@ qq.Templating = function(spec) {
             // to support layouts where the drop zone is also a container for visible elements,
             // such as the file list.
             if (!qq.DragAndDrop || !qq.supportedFeatures.fileDrop) {
-                dropProcessing = qq(tempTemplateEl).getByClass(selectorClasses.dropProcessing)[0];
+                dropProcessing = qq(tempTemplateEl).getFirstByClass(selectorClasses.dropProcessing);
                 if (dropProcessing) {
                     qq(dropProcessing).remove();
                 }
             }
 
-            dropArea = qq(tempTemplateEl).getByClass(selectorClasses.drop)[0];
+            dropArea = qq(tempTemplateEl).getFirstByClass(selectorClasses.drop);
 
             // If DnD is not available then remove
             // it from the DOM as well.
@@ -7085,13 +7103,13 @@ qq.Templating = function(spec) {
                 }
             }
             else if (qq(uploaderEl).hasAttribute(DROPZPONE_TEXT_ATTR) && dropArea) {
-                dropTextEl = qq(dropArea).getByClass(selectorClasses.dropText)[0];
+                dropTextEl = qq(dropArea).getFirstByClass(selectorClasses.dropText);
                 dropTextEl && qq(dropTextEl).remove();
             }
 
             // Ensure the `showThumbnails` flag is only set if the thumbnail element
             // is present in the template AND the current UA is capable of generating client-side previews.
-            thumbnail = qq(tempTemplateEl).getByClass(selectorClasses.thumbnail)[0];
+            thumbnail = qq(tempTemplateEl).getFirstByClass(selectorClasses.thumbnail);
             if (!showThumbnails) {
                 thumbnail && qq(thumbnail).remove();
             }
@@ -7107,7 +7125,7 @@ qq.Templating = function(spec) {
             isEditElementsExist = qq(tempTemplateEl).getByClass(selectorClasses.editFilenameInput).length > 0;
             isRetryElementExist = qq(tempTemplateEl).getByClass(selectorClasses.retry).length > 0;
 
-            fileListNode = qq(tempTemplateEl).getByClass(selectorClasses.list)[0];
+            fileListNode = qq(tempTemplateEl).getFirstByClass(selectorClasses.list);
             /*jshint -W116*/
             if (fileListNode == null) {
                 throw new Error("Could not find the file list container in the template!");
@@ -7129,7 +7147,7 @@ qq.Templating = function(spec) {
             };
         },
 
-        prependFile = function(el, index) {
+        prependFile = function(el, index, fileList) {
             var parentEl = fileList,
                 beforeEl = parentEl.firstChild;
 
@@ -7237,7 +7255,7 @@ qq.Templating = function(spec) {
                 progressBarSelector = id == null ? selectorClasses.totalProgressBar : selectorClasses.progressBar;
 
             if (bar && !qq(bar).hasClass(progressBarSelector)) {
-                bar = qq(bar).getByClass(progressBarSelector)[0];
+                bar = qq(bar).getFirstByClass(progressBarSelector);
             }
 
             if (bar) {
@@ -7320,11 +7338,16 @@ qq.Templating = function(spec) {
             isCancelDisabled = true;
         },
 
-        addFile: function(id, name, prependInfo, hideForever) {
+        addFile: function(id, name, prependInfo, hideForever, batch) {
             var fileEl = qq.toElement(templateHtml.fileTemplate),
                 fileNameEl = getTemplateEl(fileEl, selectorClasses.file),
                 uploaderEl = getTemplateEl(container, selectorClasses.uploader),
+                fileContainer = batch ? fileBatch.content : fileList,
                 thumb;
+
+            if (batch) {
+                fileBatch.map[id] = fileEl;
+            }
 
             qq(fileEl).addClass(FILE_CLASS_PREFIX + id);
             uploaderEl.removeAttribute(DROPZPONE_TEXT_ATTR);
@@ -7337,10 +7360,10 @@ qq.Templating = function(spec) {
             fileEl.setAttribute(FILE_ID_ATTR, id);
 
             if (prependInfo) {
-                prependFile(fileEl, prependInfo.index);
+                prependFile(fileEl, prependInfo.index, fileContainer);
             }
             else {
-                fileList.appendChild(fileEl);
+                fileContainer.appendChild(fileEl);
             }
 
             if (hideForever) {
@@ -7374,6 +7397,16 @@ qq.Templating = function(spec) {
                     });
                 }
             }
+        },
+
+        addFileToCache: function(id, name, prependInfo, hideForever) {
+            this.addFile(id, name, prependInfo, hideForever, true);
+        },
+
+        addCacheToDom: function() {
+            fileList.appendChild(fileBatch.content);
+            fileBatch.content = document.createElement("span");
+            fileBatch.map = {};
         },
 
         removeFile: function(id) {
@@ -15899,4 +15932,4 @@ code.google.com/p/crypto-js/wiki/License
     C.HmacSHA1 = Hasher._createHmacHelper(SHA1);
 }());
 
-/*! 2015-09-12 */
+/*! 2015-09-25 */

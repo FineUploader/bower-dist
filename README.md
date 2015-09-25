@@ -1,4 +1,4 @@
-[![Fine Uploader](http://fineuploader.com/img/FineUploader_logo.png)](http://fineuploader.com) v5.3.1
+[![Fine Uploader](http://fineuploader.com/img/FineUploader_logo.png)](http://fineuploader.com) v5.3.2
 
 ## [UNOFFICIAL] [Bower](http://bower.io) distribution build of [FineUploader](http://fineuploader.com)
 
@@ -27,7 +27,7 @@ __Enjoy__
 
 ### Updating or building manually
 
-Currently the build is for fine-uploader `v5.3.1`.
+Currently the build is for fine-uploader `v5.3.2`.
 You can build yourself by doing the following
 
 ### Prepping (getting fine-uploader)
@@ -48,7 +48,7 @@ $ git pull origin
 In your terminal please navigate to where the project is cloned
 
 ```bash
-$ ./build.sh <version> # e.g: ./build.sh 5.3.1
+$ ./build.sh <version> # e.g: ./build.sh 5.3.2
 ```
 
 **NOTE:**
