@@ -1,6 +1,9 @@
-[![Fine Uploader](http://fineuploader.com/img/FineUploader_logo.png)](http://fineuploader.com) v5.3.2
+[![Fine Uploader](http://fineuploader.com/img/FineUploader_logo.png)](http://fineuploader.com)
+![Bower](https://img.shields.io/bower/v/fineuploader-dist.svg?style=flat-square)
 
 ## [UNOFFICIAL] [Bower](http://bower.io) distribution build of [FineUploader](http://fineuploader.com)
+
+[![Gratipay](https://img.shields.io/gratipay/~feryardiant.svg?style=flat-square)](https://gratipay.com/feryardiant)
 
 ### DISCLAIMER
 
