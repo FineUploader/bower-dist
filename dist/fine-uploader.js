@@ -3,7 +3,7 @@
 *
 * Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.3.2
+* Version: 5.4.0
 *
 * Homepage: http://fineuploader.com
 *
@@ -901,7 +901,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version = "5.3.2";
+qq.version = "5.4.0";
 
 /* globals qq */
 qq.supportedFeatures = (function() {
@@ -989,7 +989,9 @@ qq.supportedFeatures = (function() {
 
     function isLocalStorageSupported() {
         try {
-            return !!window.localStorage;
+            return !!window.localStorage &&
+                // unpatched versions of IE10/11 have buggy impls of localStorage where setItem is a string
+                qq.isFunction(window.localStorage.setItem);
         }
         catch (error) {
             // probably caught a security exception, so no localStorage for you
@@ -3803,6 +3805,11 @@ qq.AjaxRequester = function(o) {
 
             if (xhrOrXdr.withCredentials === undefined) {
                 xhrOrXdr = new XDomainRequest();
+                // Workaround for XDR bug in IE9 - https://social.msdn.microsoft.com/Forums/ie/en-US/30ef3add-767c-4436-b8a9-f1ca19b4812e/ie9-rtm-xdomainrequest-issued-requests-may-abort-if-all-event-handlers-not-specified?forum=iewebdevelopment
+                xhrOrXdr.onload = function() {};
+                xhrOrXdr.onerror = function() {};
+                xhrOrXdr.ontimeout = function() {};
+                xhrOrXdr.onprogress = function() {};
             }
         }
 
@@ -3900,7 +3907,7 @@ qq.AjaxRequester = function(o) {
 
         options.onSend(id);
 
-        url = createUrl(id, params);
+        url = createUrl(id, params, requestData[id].additionalQueryParams);
 
         // XDR and XHR status detection APIs differ a bit.
         if (isXdr(xhr)) {
@@ -3945,7 +3952,7 @@ qq.AjaxRequester = function(o) {
         return xhr;
     }
 
-    function createUrl(id, params) {
+    function createUrl(id, params, additionalQueryParams) {
         var endpoint = options.endpointStore.get(id),
             addToPath = requestData[id].addToPath;
 
@@ -3955,11 +3962,14 @@ qq.AjaxRequester = function(o) {
         }
 
         if (shouldParamsBeInQueryString && params) {
-            return qq.obj2url(params, endpoint);
+            endpoint = qq.obj2url(params, endpoint);
         }
-        else {
-            return endpoint;
+
+        if (additionalQueryParams) {
+            endpoint = qq.obj2url(additionalQueryParams, endpoint);
         }
+
+        return endpoint;
     }
 
     // Invoked by the UA to indicate a number of possible states that describe
@@ -4040,10 +4050,11 @@ qq.AjaxRequester = function(o) {
         return qq.indexOf(options.successfulResponseCodes[options.method], responseCode) >= 0;
     }
 
-    function prepareToSend(id, optXhr, addToPath, additionalParams, additionalHeaders, payload) {
+    function prepareToSend(id, optXhr, addToPath, additionalParams, additionalQueryParams, additionalHeaders, payload) {
         requestData[id] = {
             addToPath: addToPath,
             additionalParams: additionalParams,
+            additionalQueryParams: additionalQueryParams,
             additionalHeaders: additionalHeaders,
             payload: payload
         };
@@ -4061,7 +4072,7 @@ qq.AjaxRequester = function(o) {
     qq.extend(this, {
         // Start the process of sending the request.  The ID refers to the file associated with the request.
         initTransport: function(id) {
-            var path, params, headers, payload, cacheBuster;
+            var path, params, headers, payload, cacheBuster, additionalQueryParams;
 
             return {
                 // Optionally specify the end of the endpoint path for the request.
@@ -4076,6 +4087,11 @@ qq.AjaxRequester = function(o) {
                 // how these parameters should be formatted as well.
                 withParams: function(additionalParams) {
                     params = additionalParams;
+                    return this;
+                },
+
+                withQueryParams: function(_additionalQueryParams_) {
+                    additionalQueryParams = _additionalQueryParams_;
                     return this;
                 },
 
@@ -4103,7 +4119,7 @@ qq.AjaxRequester = function(o) {
                         params.qqtimestamp = new Date().getTime();
                     }
 
-                    return prepareToSend(id, optXhr, path, params, headers, payload);
+                    return prepareToSend(id, optXhr, path, params, additionalQueryParams, headers, payload);
                 }
             };
         },
@@ -11187,4 +11203,4 @@ qq.FilenameEditHandler = function(s, inheritedInternalApi) {
     });
 };
 
-/*! 2015-09-25 */
+/*! 2015-12-04 */

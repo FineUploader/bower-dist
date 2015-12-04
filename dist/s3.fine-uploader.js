@@ -3,7 +3,7 @@
 *
 * Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.3.2
+* Version: 5.4.0
 *
 * Homepage: http://fineuploader.com
 *
@@ -901,7 +901,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version = "5.3.2";
+qq.version = "5.4.0";
 
 /* globals qq */
 qq.supportedFeatures = (function() {
@@ -989,7 +989,9 @@ qq.supportedFeatures = (function() {
 
     function isLocalStorageSupported() {
         try {
-            return !!window.localStorage;
+            return !!window.localStorage &&
+                // unpatched versions of IE10/11 have buggy impls of localStorage where setItem is a string
+                qq.isFunction(window.localStorage.setItem);
         }
         catch (error) {
             // probably caught a security exception, so no localStorage for you
@@ -3803,6 +3805,11 @@ qq.AjaxRequester = function(o) {
 
             if (xhrOrXdr.withCredentials === undefined) {
                 xhrOrXdr = new XDomainRequest();
+                // Workaround for XDR bug in IE9 - https://social.msdn.microsoft.com/Forums/ie/en-US/30ef3add-767c-4436-b8a9-f1ca19b4812e/ie9-rtm-xdomainrequest-issued-requests-may-abort-if-all-event-handlers-not-specified?forum=iewebdevelopment
+                xhrOrXdr.onload = function() {};
+                xhrOrXdr.onerror = function() {};
+                xhrOrXdr.ontimeout = function() {};
+                xhrOrXdr.onprogress = function() {};
             }
         }
 
@@ -3900,7 +3907,7 @@ qq.AjaxRequester = function(o) {
 
         options.onSend(id);
 
-        url = createUrl(id, params);
+        url = createUrl(id, params, requestData[id].additionalQueryParams);
 
         // XDR and XHR status detection APIs differ a bit.
         if (isXdr(xhr)) {
@@ -3945,7 +3952,7 @@ qq.AjaxRequester = function(o) {
         return xhr;
     }
 
-    function createUrl(id, params) {
+    function createUrl(id, params, additionalQueryParams) {
         var endpoint = options.endpointStore.get(id),
             addToPath = requestData[id].addToPath;
 
@@ -3955,11 +3962,14 @@ qq.AjaxRequester = function(o) {
         }
 
         if (shouldParamsBeInQueryString && params) {
-            return qq.obj2url(params, endpoint);
+            endpoint = qq.obj2url(params, endpoint);
         }
-        else {
-            return endpoint;
+
+        if (additionalQueryParams) {
+            endpoint = qq.obj2url(additionalQueryParams, endpoint);
         }
+
+        return endpoint;
     }
 
     // Invoked by the UA to indicate a number of possible states that describe
@@ -4040,10 +4050,11 @@ qq.AjaxRequester = function(o) {
         return qq.indexOf(options.successfulResponseCodes[options.method], responseCode) >= 0;
     }
 
-    function prepareToSend(id, optXhr, addToPath, additionalParams, additionalHeaders, payload) {
+    function prepareToSend(id, optXhr, addToPath, additionalParams, additionalQueryParams, additionalHeaders, payload) {
         requestData[id] = {
             addToPath: addToPath,
             additionalParams: additionalParams,
+            additionalQueryParams: additionalQueryParams,
             additionalHeaders: additionalHeaders,
             payload: payload
         };
@@ -4061,7 +4072,7 @@ qq.AjaxRequester = function(o) {
     qq.extend(this, {
         // Start the process of sending the request.  The ID refers to the file associated with the request.
         initTransport: function(id) {
-            var path, params, headers, payload, cacheBuster;
+            var path, params, headers, payload, cacheBuster, additionalQueryParams;
 
             return {
                 // Optionally specify the end of the endpoint path for the request.
@@ -4076,6 +4087,11 @@ qq.AjaxRequester = function(o) {
                 // how these parameters should be formatted as well.
                 withParams: function(additionalParams) {
                     params = additionalParams;
+                    return this;
+                },
+
+                withQueryParams: function(_additionalQueryParams_) {
+                    additionalQueryParams = _additionalQueryParams_;
                     return this;
                 },
 
@@ -4103,7 +4119,7 @@ qq.AjaxRequester = function(o) {
                         params.qqtimestamp = new Date().getTime();
                     }
 
-                    return prepareToSend(id, optXhr, path, params, headers, payload);
+                    return prepareToSend(id, optXhr, path, params, additionalQueryParams, headers, payload);
                 }
             };
         },
@@ -7729,15 +7745,25 @@ qq.s3.util = qq.s3.util || (function() {
     "use strict";
 
     return {
+        ALGORITHM_PARAM_NAME: "x-amz-algorithm",
+
         AWS_PARAM_PREFIX: "x-amz-meta-",
 
-        SESSION_TOKEN_PARAM_NAME: "x-amz-security-token",
+        CREDENTIAL_PARAM_NAME: "x-amz-credential",
+
+        DATE_PARAM_NAME: "x-amz-date",
 
         REDUCED_REDUNDANCY_PARAM_NAME: "x-amz-storage-class",
         REDUCED_REDUNDANCY_PARAM_VALUE: "REDUCED_REDUNDANCY",
 
         SERVER_SIDE_ENCRYPTION_PARAM_NAME: "x-amz-server-side-encryption",
         SERVER_SIDE_ENCRYPTION_PARAM_VALUE: "AES256",
+
+        SESSION_TOKEN_PARAM_NAME: "x-amz-security-token",
+
+        V4_ALGORITHM_PARAM_VALUE: "AWS4-HMAC-SHA256",
+
+        V4_SIGNATURE_PARAM_NAME: "x-amz-signature",
 
         /**
          * This allows for the region to be specified in the bucket's endpoint URL, or not.
@@ -7777,6 +7803,28 @@ qq.s3.util = qq.s3.util || (function() {
             return bucket;
         },
 
+        /** Create Prefixed request headers which are appropriate for S3.
+         *
+         * If the request header is appropriate for S3 (e.g. Cache-Control) then pass
+         * it along without a metadata prefix. For all other request header parameter names,
+         * apply qq.s3.util.AWS_PARAM_PREFIX before the name.
+         * See: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPUT.html
+         */
+        _getPrefixedParamName: function(name) {
+            switch (name) {
+                case "Cache-Control":
+                case "Content-Disposition":
+                case "Content-Encoding":
+                case "Content-MD5": // CAW: Content-MD5 might not be appropriate from user-land
+                case "x-amz-server-side-encryption-customer-algorithm":
+                case "x-amz-server-side-encryption-customer-key":
+                case "x-amz-server-side-encryption-customer-key-MD5":
+                    return name;
+                default:
+                    return qq.s3.util.AWS_PARAM_PREFIX + name;
+            }
+        },
+
         /**
          * Create a policy document to be signed and sent along with the S3 upload request.
          *
@@ -7787,10 +7835,11 @@ qq.s3.util = qq.s3.util || (function() {
             var policy = {},
                 conditions = [],
                 bucket = spec.bucket,
+                date = spec.date,
                 key = spec.key,
+                accessKey = spec.accessKey,
                 acl = spec.acl,
                 type = spec.type,
-                expirationDate = new Date(),
                 expectedStatus = spec.expectedStatus,
                 sessionToken = spec.sessionToken,
                 params = spec.params,
@@ -7798,9 +7847,11 @@ qq.s3.util = qq.s3.util || (function() {
                 minFileSize = spec.minFileSize,
                 maxFileSize = spec.maxFileSize,
                 reducedRedundancy = spec.reducedRedundancy,
-                serverSideEncryption = spec.serverSideEncryption;
+                region = spec.region,
+                serverSideEncryption = spec.serverSideEncryption,
+                signatureVersion = spec.signatureVersion;
 
-            policy.expiration = qq.s3.util.getPolicyExpirationDate(expirationDate);
+            policy.expiration = qq.s3.util.getPolicyExpirationDate(date);
 
             conditions.push({acl: acl});
             conditions.push({bucket: bucket});
@@ -7833,11 +7884,28 @@ qq.s3.util = qq.s3.util || (function() {
                 conditions[conditions.length - 1][qq.s3.util.SERVER_SIDE_ENCRYPTION_PARAM_NAME] = qq.s3.util.SERVER_SIDE_ENCRYPTION_PARAM_VALUE;
             }
 
-            conditions.push({key: key});
+            if (signatureVersion === 2) {
+                conditions.push({key: key});
+            }
+            else if (signatureVersion === 4) {
+                conditions.push({});
+                conditions[conditions.length - 1][qq.s3.util.ALGORITHM_PARAM_NAME] = qq.s3.util.V4_ALGORITHM_PARAM_VALUE;
+
+                conditions.push({});
+                conditions[conditions.length - 1].key = key;
+
+                conditions.push({});
+                conditions[conditions.length - 1][qq.s3.util.CREDENTIAL_PARAM_NAME] =
+                    qq.s3.util.getV4CredentialsString({date: date, key: accessKey, region: region});
+
+                conditions.push({});
+                conditions[conditions.length - 1][qq.s3.util.DATE_PARAM_NAME] =
+                    qq.s3.util.getV4PolicyDate(date);
+            }
 
             // user metadata
             qq.each(params, function(name, val) {
-                var awsParamName = qq.s3.util.AWS_PARAM_PREFIX + name,
+                var awsParamName = qq.s3.util._getPrefixedParamName(name),
                     param = {};
 
                 param[awsParamName] = encodeURIComponent(val);
@@ -7880,18 +7948,17 @@ qq.s3.util = qq.s3.util || (function() {
          * Generates all parameters to be passed along with the S3 upload request.  This includes invoking a callback
          * that is expected to asynchronously retrieve a signature for the policy document.  Note that the server
          * signing the request should reject a "tainted" policy document that includes unexpected values, since it is
-         * still possible for a malicious user to tamper with these values during policy document generation, b
+         * still possible for a malicious user to tamper with these values during policy document generation,
          * before it is sent to the server for signing.
          *
          * @param spec Object with properties: `params`, `type`, `key`, `accessKey`, `acl`, `expectedStatus`, `successRedirectUrl`,
-         * `reducedRedundancy`, serverSideEncryption, and `log()`, along with any options associated with `qq.s3.util.getPolicy()`.
+         * `reducedRedundancy`, `region`, `serverSideEncryption`, `version`, and `log()`, along with any options associated with `qq.s3.util.getPolicy()`.
          * @returns {qq.Promise} Promise that will be fulfilled once all parameters have been determined.
          */
         generateAwsParams: function(spec, signPolicyCallback) {
             var awsParams = {},
                 customParams = spec.params,
                 promise = new qq.Promise(),
-                policyJson = qq.s3.util.getPolicy(spec),
                 sessionToken = spec.sessionToken,
                 type = spec.type,
                 key = spec.key,
@@ -7900,11 +7967,17 @@ qq.s3.util = qq.s3.util || (function() {
                 expectedStatus = spec.expectedStatus,
                 successRedirectUrl = qq.s3.util.getSuccessRedirectAbsoluteUrl(spec.successRedirectUrl),
                 reducedRedundancy = spec.reducedRedundancy,
+                region = spec.region,
                 serverSideEncryption = spec.serverSideEncryption,
-                log = spec.log;
+                signatureVersion = spec.signatureVersion,
+                now = new Date(),
+                log = spec.log,
+                policyJson;
+
+            spec.date = now;
+            policyJson = qq.s3.util.getPolicy(spec);
 
             awsParams.key = key;
-            awsParams.AWSAccessKeyId = accessKey;
 
             if (type) {
                 awsParams["Content-Type"] = type;
@@ -7933,22 +8006,39 @@ qq.s3.util = qq.s3.util || (function() {
             awsParams.acl = acl;
 
             // Custom (user-supplied) params must be prefixed with the value of `qq.s3.util.AWS_PARAM_PREFIX`.
-            // Custom param values will be URI encoded as well.
+            // Params such as Cache-Control or Content-Disposition will not be prefixed.
+            // All param values will be URI encoded as well.
             qq.each(customParams, function(name, val) {
-                var awsParamName = qq.s3.util.AWS_PARAM_PREFIX + name;
+                var awsParamName = qq.s3.util._getPrefixedParamName(name);
                 awsParams[awsParamName] = encodeURIComponent(val);
             });
+
+            if (signatureVersion === 2) {
+                awsParams.AWSAccessKeyId = accessKey;
+            }
+            else if (signatureVersion === 4) {
+                awsParams[qq.s3.util.ALGORITHM_PARAM_NAME] = qq.s3.util.V4_ALGORITHM_PARAM_VALUE;
+                awsParams[qq.s3.util.CREDENTIAL_PARAM_NAME] = qq.s3.util.getV4CredentialsString({date: now, key: accessKey, region: region});
+                awsParams[qq.s3.util.DATE_PARAM_NAME] = qq.s3.util.getV4PolicyDate(now);
+            }
 
             // Invoke a promissory callback that should provide us with a base64-encoded policy doc and an
             // HMAC signature for the policy doc.
             signPolicyCallback(policyJson).then(
                 function(policyAndSignature, updatedAccessKey, updatedSessionToken) {
                     awsParams.policy = policyAndSignature.policy;
-                    awsParams.signature = policyAndSignature.signature;
 
-                    if (updatedAccessKey) {
-                        awsParams.AWSAccessKeyId = updatedAccessKey;
+                    if (spec.signatureVersion === 2) {
+                        awsParams.signature = policyAndSignature.signature;
+
+                        if (updatedAccessKey) {
+                            awsParams.AWSAccessKeyId = updatedAccessKey;
+                        }
                     }
+                    else if (spec.signatureVersion === 4) {
+                        awsParams[qq.s3.util.V4_SIGNATURE_PARAM_NAME] = policyAndSignature.signature;
+                    }
+
                     if (updatedSessionToken) {
                         awsParams[qq.s3.util.SESSION_TOKEN_PARAM_NAME] = updatedSessionToken;
                     }
@@ -7987,16 +8077,29 @@ qq.s3.util = qq.s3.util || (function() {
         },
 
         getPolicyExpirationDate: function(date) {
+            return qq.s3.util.getPolicyDate(date, 5);
+        },
+
+        getCredentialsDate: function(date) {
+            return date.getUTCFullYear() + "" +
+                ("0" + (date.getUTCMonth() + 1)).slice(-2) +
+                ("0" + date.getUTCDate()).slice(-2);
+        },
+
+        getPolicyDate: function(date, _minutesToAdd_) {
+            var minutesToAdd = _minutesToAdd_ || 0,
+                pad, r;
+
             /*jshint -W014 */
             // Is this going to be a problem if we encounter this moments before 2 AM just before daylight savings time ends?
-            date.setMinutes(date.getMinutes() + 5);
+            date.setMinutes(date.getMinutes() + (minutesToAdd || 0));
 
             if (Date.prototype.toISOString) {
                 return date.toISOString();
             }
             else {
-                var pad = function(number) {
-                    var r = String(number);
+                pad = function(number) {
+                    r = String(number);
 
                     if (r.length === 1) {
                         r = "0" + r;
@@ -8006,13 +8109,13 @@ qq.s3.util = qq.s3.util || (function() {
                 };
 
                 return date.getUTCFullYear()
-                        + "-" + pad(date.getUTCMonth() + 1)
-                        + "-" + pad(date.getUTCDate())
-                        + "T" + pad(date.getUTCHours())
-                        + ":" + pad(date.getUTCMinutes())
-                        + ":" + pad(date.getUTCSeconds())
-                        + "." + String((date.getUTCMilliseconds() / 1000).toFixed(3)).slice(2, 5)
-                        + "Z";
+                    + "-" + pad(date.getUTCMonth() + 1)
+                    + "-" + pad(date.getUTCDate())
+                    + "T" + pad(date.getUTCHours())
+                    + ":" + pad(date.getUTCMinutes())
+                    + ":" + pad(date.getUTCSeconds())
+                    + "." + String((date.getUTCMilliseconds() / 1000).toFixed(3)).slice(2, 5)
+                    + "Z";
             }
         },
 
@@ -8065,6 +8168,20 @@ qq.s3.util = qq.s3.util || (function() {
                     return targetAnchor.href;
                 }
             }
+        },
+
+        getV4CredentialsString: function(spec) {
+            return spec.key + "/" +
+                qq.s3.util.getCredentialsDate(spec.date) + "/" +
+                spec.region + "/s3/aws4_request";
+        },
+
+        getV4PolicyDate: function(date) {
+            return qq.s3.util.getCredentialsDate(date) + "T" +
+                    ("0" + date.getUTCHours()).slice(-2) +
+                    ("0" + date.getUTCMinutes()).slice(-2) +
+                    ("0" + date.getUTCSeconds()).slice(-2) +
+                    "Z";
         },
 
         // AWS employs a strict interpretation of [RFC 3986](http://tools.ietf.org/html/rfc3986#page-12).
@@ -8227,10 +8344,18 @@ qq.s3.util = qq.s3.util || (function() {
                     return qq.s3.util.getBucket(this.getEndpoint(id));
                 }, this),
 
+                // string or a function which may be promissory - only used for V4 multipart uploads
+                host: qq.bind(function(id) {
+                    return (/(?:http|https):\/\/(.+)(?:\/.+)?/).exec(this._endpointStore.get(id))[1];
+                }, this),
+
                 // 'uuid', 'filename', or a function which may be promissory
                 key: "uuid",
 
                 reducedRedundancy: false,
+
+                // Defined at http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region
+                region: "us-east-1",
 
                 serverSideEncryption: false
             },
@@ -8247,10 +8372,11 @@ qq.s3.util = qq.s3.util || (function() {
                 sessionToken: null
             },
 
-            // optional/ignored if `credentials` is provided
+            // All but `version` are ignored if `credentials` is provided.
             signature: {
+                customHeaders: {},
                 endpoint: null,
-                customHeaders: {}
+                version: 2
             },
 
             uploadSuccess: {
@@ -8308,6 +8434,7 @@ qq.s3.util = qq.s3.util || (function() {
         this._cannedBuckets = {};
 
         this._buckets = {};
+        this._hosts = {};
     };
 
     // Inherit basic public & private API methods.
@@ -8345,6 +8472,7 @@ qq.s3.util = qq.s3.util || (function() {
             qq.FineUploaderBasic.prototype.reset.call(this);
             this._failedSuccessRequestCallbacks = [];
             this._buckets = {};
+            this._hosts = {};
         },
 
         setCredentials: function(credentials, ignoreEmpty) {
@@ -8390,6 +8518,7 @@ qq.s3.util = qq.s3.util || (function() {
                 additionalOptions = {
                     aclStore: this._aclStore,
                     getBucket: qq.bind(this._determineBucket, this),
+                    getHost: qq.bind(this._determineHost, this),
                     getKeyName: qq.bind(this._determineKeyName, this),
                     iframeSupport: this._options.iframeSupport,
                     objectProperties: this._options.objectProperties,
@@ -8468,35 +8597,43 @@ qq.s3.util = qq.s3.util || (function() {
             return qq.FineUploaderBasic.prototype._createUploadHandler.call(this, additionalOptions, "s3");
         },
 
-        _determineBucket: function(id) {
-            var maybeBucket = this._options.objectProperties.bucket,
+        _determineObjectPropertyValue: function(id, property) {
+            var maybe = this._options.objectProperties[property],
                 promise = new qq.Promise(),
                 self = this;
 
-            if (qq.isFunction(maybeBucket)) {
-                maybeBucket = maybeBucket(id);
-                if (qq.isGenericPromise(maybeBucket)) {
-                    promise = maybeBucket;
+            if (qq.isFunction(maybe)) {
+                maybe = maybe(id);
+                if (qq.isGenericPromise(maybe)) {
+                    promise = maybe;
                 }
                 else {
-                    promise.success(maybeBucket);
+                    promise.success(maybe);
                 }
             }
-            else if (qq.isString(maybeBucket)) {
-                promise.success(maybeBucket);
+            else if (qq.isString(maybe)) {
+                promise.success(maybe);
             }
 
             promise.then(
-                function success(bucket) {
-                    self._buckets[id] = bucket;
+                function success(value) {
+                    self["_" + property + "s"][id] = value;
                 },
 
                 function failure(errorMsg) {
-                    qq.log("Problem determining bucket for ID " + id + " (" + errorMsg + ")", "error");
+                    qq.log("Problem determining " + property + " for ID " + id + " (" + errorMsg + ")", "error");
                 }
             );
 
             return promise;
+        },
+
+        _determineBucket: function(id) {
+            return this._determineObjectPropertyValue(id, "bucket");
+        },
+
+        _determineHost: function(id) {
+            return this._determineObjectPropertyValue(id, "host");
         },
 
         /**
@@ -8626,6 +8763,12 @@ qq.s3.util = qq.s3.util || (function() {
 }());
 
 /* globals qq, CryptoJS */
+
+// IE 10 does not support Uint8ClampedArray. We don't need it, but CryptoJS attempts to reference it
+// inside a conditional via an instanceof check, which breaks S3 v4 signatures for chunked uploads.
+if (!window.Uint8ClampedArray) {
+    window.Uint8ClampedArray = function() {};
+}
 /**
  * Handles signature determination for HTML Form Upload requests and Multipart Uploader requests (via the S3 REST API).
  *
@@ -8652,9 +8795,11 @@ qq.s3.RequestSigner = function(o) {
             signatureSpec: {
                 credentialsProvider: {},
                 endpoint: null,
-                customHeaders: {}
+                customHeaders: {},
+                version: 2
             },
             maxConnections: 3,
+            endpointStore: {},
             paramsStore: {},
             cors: {
                 expected: false,
@@ -8662,7 +8807,217 @@ qq.s3.RequestSigner = function(o) {
             },
             log: function(str, level) {}
         },
-        credentialsProvider;
+        credentialsProvider,
+
+        generateHeaders = function(signatureConstructor, signature, promise) {
+            var headers = signatureConstructor.getHeaders();
+
+            if (options.signatureSpec.version === 4) {
+                headers.Authorization = qq.s3.util.V4_ALGORITHM_PARAM_VALUE +
+                    " Credential=" + options.signatureSpec.credentialsProvider.get().accessKey + "/" +
+                    qq.s3.util.getCredentialsDate(signatureConstructor.getRequestDate()) + "/" +
+                    options.signatureSpec.region + "/" +
+                    "s3/aws4_request," +
+                    "SignedHeaders=" + signatureConstructor.getSignedHeaders() + "," +
+                    "Signature=" + signature;
+            }
+            else {
+                headers.Authorization = "AWS " + options.signatureSpec.credentialsProvider.get().accessKey + ":" + signature;
+            }
+
+            promise.success(headers, signatureConstructor.getEndOfUrl());
+        },
+
+        v2 = {
+            getStringToSign: function(signatureSpec) {
+                return qq.format("{}\n\n{}\n\n{}/{}/{}",
+                    signatureSpec.method,
+                    signatureSpec.contentType || "",
+                    signatureSpec.headersStr || "\n",
+                    signatureSpec.bucket,
+                    signatureSpec.endOfUrl);
+            },
+
+            signApiRequest: function(signatureConstructor, headersStr, signatureEffort) {
+                var headersWordArray = CryptoJS.enc.Utf8.parse(headersStr),
+                    headersHmacSha1 = CryptoJS.HmacSHA1(headersWordArray, credentialsProvider.get().secretKey),
+                    headersHmacSha1Base64 = CryptoJS.enc.Base64.stringify(headersHmacSha1);
+
+                generateHeaders(signatureConstructor, headersHmacSha1Base64, signatureEffort);
+            },
+
+            signPolicy: function(policy, signatureEffort, updatedAccessKey, updatedSessionToken) {
+                var policyStr = JSON.stringify(policy),
+                    policyWordArray = CryptoJS.enc.Utf8.parse(policyStr),
+                    base64Policy = CryptoJS.enc.Base64.stringify(policyWordArray),
+                    policyHmacSha1 = CryptoJS.HmacSHA1(base64Policy, credentialsProvider.get().secretKey),
+                    policyHmacSha1Base64 = CryptoJS.enc.Base64.stringify(policyHmacSha1);
+
+                signatureEffort.success({
+                    policy: base64Policy,
+                    signature: policyHmacSha1Base64
+                }, updatedAccessKey, updatedSessionToken);
+            }
+        },
+
+        v4 = {
+            getCanonicalQueryString: function(endOfUri) {
+                var queryParamIdx = endOfUri.indexOf("?"),
+                    canonicalQueryString = "",
+                    encodedQueryParams, encodedQueryParamNames, queryStrings;
+
+                if (queryParamIdx >= 0) {
+                    encodedQueryParams = {};
+                    queryStrings = endOfUri.substr(queryParamIdx + 1).split("&");
+
+                    qq.each(queryStrings, function(idx, queryString) {
+                        var nameAndVal = queryString.split("="),
+                            paramVal = nameAndVal[1];
+
+                        if (paramVal == null) {
+                            paramVal = "";
+                        }
+
+                        encodedQueryParams[encodeURIComponent(nameAndVal[0])] = encodeURIComponent(paramVal);
+                    });
+
+                    encodedQueryParamNames = Object.keys(encodedQueryParams).sort();
+                    encodedQueryParamNames.forEach(function(encodedQueryParamName, idx) {
+                        canonicalQueryString += encodedQueryParamName + "=" + encodedQueryParams[encodedQueryParamName];
+                        if (idx < encodedQueryParamNames.length - 1) {
+                            canonicalQueryString += "&";
+                        }
+                    });
+                }
+
+                return canonicalQueryString;
+            },
+
+            getCanonicalRequest: function(signatureSpec) {
+                return qq.format("{}\n{}\n{}\n{}\n{}\n{}",
+                    signatureSpec.method,
+                    v4.getCanonicalUri(signatureSpec.endOfUrl),
+                    v4.getCanonicalQueryString(signatureSpec.endOfUrl),
+                    signatureSpec.headersStr || "\n",
+                    v4.getSignedHeaders(signatureSpec.headerNames),
+                    signatureSpec.hashedContent);
+            },
+
+            getCanonicalUri: function(endOfUri) {
+                var path = endOfUri,
+                    queryParamIdx = endOfUri.indexOf("?");
+
+                if (queryParamIdx > 0) {
+                    path = endOfUri.substr(0, queryParamIdx);
+                }
+                return escape("/" + decodeURIComponent(path));
+            },
+
+            getEncodedHashedPayload: function(body) {
+                var promise = new qq.Promise(),
+                    reader;
+
+                if (qq.isBlob(body)) {
+                    // TODO hash blob in webworker if this becomes a notable perf issue
+                    reader = new FileReader();
+                    reader.onloadend = function(e) {
+                        if (e.target.readyState === FileReader.DONE) {
+                            if (e.target.error) {
+                                promise.failure(e.target.error);
+                            }
+                            else {
+                                var wordArray = CryptoJS.lib.WordArray.create(e.target.result);
+                                promise.success(CryptoJS.SHA256(wordArray).toString());
+                            }
+                        }
+                    };
+                    reader.readAsArrayBuffer(body);
+                }
+                else {
+                    body = body || "";
+                    promise.success(CryptoJS.SHA256(body).toString());
+                }
+
+                return promise;
+            },
+
+            getScope: function(date, region) {
+                return qq.s3.util.getCredentialsDate(date) + "/" +
+                    region + "/s3/aws4_request";
+            },
+
+            getStringToSign: function(signatureSpec) {
+                var canonicalRequest = v4.getCanonicalRequest(signatureSpec),
+                    date = qq.s3.util.getV4PolicyDate(signatureSpec.date),
+                    hashedRequest = CryptoJS.SHA256(canonicalRequest).toString(),
+                    scope = v4.getScope(signatureSpec.date, options.signatureSpec.region),
+                    stringToSignTemplate = "AWS4-HMAC-SHA256\n{}\n{}\n{}";
+
+                return {
+                    hashed: qq.format(stringToSignTemplate, date, scope, hashedRequest),
+                    raw: qq.format(stringToSignTemplate, date, scope, canonicalRequest)
+                };
+            },
+
+            getSignedHeaders: function(headerNames) {
+                var signedHeaders = "";
+
+                headerNames.forEach(function(headerName, idx) {
+                    signedHeaders += headerName.toLowerCase();
+
+                    if (idx < headerNames.length - 1) {
+                        signedHeaders += ";";
+                    }
+                });
+
+                return signedHeaders;
+            },
+
+            signApiRequest: function(signatureConstructor, headersStr, signatureEffort) {
+                var secretKey = credentialsProvider.get().secretKey,
+                    headersPattern = /.+\n.+\n(\d+)\/(.+)\/s3\/.+\n(.+)/,
+                    matches = headersPattern.exec(headersStr),
+                    dateKey, dateRegionKey, dateRegionServiceKey, signingKey;
+
+                dateKey = CryptoJS.HmacSHA256(matches[1], "AWS4" + secretKey);
+                dateRegionKey = CryptoJS.HmacSHA256(matches[2], dateKey);
+                dateRegionServiceKey = CryptoJS.HmacSHA256("s3", dateRegionKey);
+                signingKey = CryptoJS.HmacSHA256("aws4_request", dateRegionServiceKey);
+
+                generateHeaders(signatureConstructor, CryptoJS.HmacSHA256(headersStr, signingKey), signatureEffort);
+            },
+
+            signPolicy: function(policy, signatureEffort, updatedAccessKey, updatedSessionToken) {
+                var policyStr = JSON.stringify(policy),
+                    policyWordArray = CryptoJS.enc.Utf8.parse(policyStr),
+                    base64Policy = CryptoJS.enc.Base64.stringify(policyWordArray),
+                    secretKey = credentialsProvider.get().secretKey,
+                    credentialPattern = /.+\/(.+)\/(.+)\/s3\/aws4_request/,
+                    credentialCondition = (function() {
+                        var credential = null;
+                        qq.each(policy.conditions, function(key, condition) {
+                            var val = condition["x-amz-credential"];
+                            if (val) {
+                                credential = val;
+                                return false;
+                            }
+                        });
+                        return credential;
+                    }()),
+                    matches, dateKey, dateRegionKey, dateRegionServiceKey, signingKey;
+
+                matches = credentialPattern.exec(credentialCondition);
+                dateKey = CryptoJS.HmacSHA256(matches[1], "AWS4" + secretKey);
+                dateRegionKey = CryptoJS.HmacSHA256(matches[2], dateKey);
+                dateRegionServiceKey = CryptoJS.HmacSHA256("s3", dateRegionKey);
+                signingKey = CryptoJS.HmacSHA256("aws4_request", dateRegionServiceKey);
+
+                signatureEffort.success({
+                    policy: base64Policy,
+                    signature: CryptoJS.HmacSHA256(base64Policy, signingKey).toString()
+                }, updatedAccessKey, updatedSessionToken);
+            }
+        };
 
     qq.extend(options, o, true);
     credentialsProvider = options.signatureSpec.credentialsProvider;
@@ -8671,6 +9026,7 @@ qq.s3.RequestSigner = function(o) {
         var responseJson = xhrOrXdr.responseText,
             pendingSignatureData = pendingSignatures[id],
             promise = pendingSignatureData.promise,
+            signatureConstructor = pendingSignatureData.signatureConstructor,
             errorMessage, response;
 
         delete pendingSignatures[id];
@@ -8715,54 +9071,92 @@ qq.s3.RequestSigner = function(o) {
 
             promise.failure(errorMessage);
         }
+        else if (signatureConstructor) {
+            generateHeaders(signatureConstructor, response.signature, promise);
+        }
         else {
             promise.success(response);
         }
     }
 
-    function getToSignAndEndOfUrl(type, bucket, key, contentType, headers, uploadId, partNum) {
-        var method = "POST",
+    function getStringToSignArtifacts(id, version, requestInfo) {
+        var promise = new qq.Promise(),
+            method = "POST",
             headerNames = [],
-            headersAsString = "",
-            endOfUrl;
+            headersStr = "",
+            now = new Date(),
+            endOfUrl, signatureSpec, toSign,
+
+            generateStringToSign = function(requestInfo) {
+                qq.each(requestInfo.headers, function(name) {
+                    headerNames.push(name);
+                });
+                headerNames.sort();
+
+                qq.each(headerNames, function(idx, name) {
+                    headersStr += name.toLowerCase() + ":" + requestInfo.headers[name].trim() + "\n";
+                });
+
+                signatureSpec = {
+                    bucket: requestInfo.bucket,
+                    contentType: requestInfo.contentType,
+                    date: now,
+                    endOfUrl: endOfUrl,
+                    hashedContent: requestInfo.hashedContent,
+                    headerNames: headerNames,
+                    headersStr: headersStr,
+                    method: method
+                };
+
+                toSign = version === 2 ? v2.getStringToSign(signatureSpec) : v4.getStringToSign(signatureSpec);
+
+                return {
+                    date: now,
+                    endOfUrl: endOfUrl,
+                    signedHeaders: version === 4 ? v4.getSignedHeaders(signatureSpec.headerNames) : null,
+                    toSign: version === 4 ? toSign.hashed : toSign,
+                    toSignRaw: version === 4 ? toSign.raw : toSign
+                };
+            };
 
         /*jshint indent:false */
-        switch (type) {
+        switch (requestInfo.type) {
             case thisSignatureRequester.REQUEST_TYPE.MULTIPART_ABORT:
                 method = "DELETE";
-                endOfUrl = qq.format("uploadId={}", uploadId);
+                endOfUrl = qq.format("uploadId={}", requestInfo.uploadId);
                 break;
             case thisSignatureRequester.REQUEST_TYPE.MULTIPART_INITIATE:
                 endOfUrl = "uploads";
                 break;
             case thisSignatureRequester.REQUEST_TYPE.MULTIPART_COMPLETE:
-                endOfUrl = qq.format("uploadId={}", uploadId);
+                endOfUrl = qq.format("uploadId={}", requestInfo.uploadId);
                 break;
             case thisSignatureRequester.REQUEST_TYPE.MULTIPART_UPLOAD:
                 method = "PUT";
-                endOfUrl = qq.format("partNumber={}&uploadId={}", partNum, uploadId);
+                endOfUrl = qq.format("partNumber={}&uploadId={}", requestInfo.partNum, requestInfo.uploadId);
                 break;
         }
 
-        endOfUrl = key + "?" + endOfUrl;
+        endOfUrl = requestInfo.key + "?" + endOfUrl;
 
-        qq.each(headers, function(name) {
-            headerNames.push(name);
-        });
-        headerNames.sort();
+        if (version === 4) {
+            v4.getEncodedHashedPayload(requestInfo.content).then(function(hashedContent) {
+                requestInfo.headers["x-amz-content-sha256"] = hashedContent;
+                requestInfo.headers.Host = requestInfo.host;
+                requestInfo.headers["x-amz-date"] = qq.s3.util.getV4PolicyDate(now);
+                requestInfo.hashedContent = hashedContent;
 
-        qq.each(headerNames, function(idx, name) {
-            headersAsString += name + ":" + headers[name] + "\n";
-        });
+                promise.success(generateStringToSign(requestInfo));
+            });
+        }
+        else {
+            promise.success(generateStringToSign(requestInfo));
+        }
 
-        return {
-            toSign: qq.format("{}\n\n{}\n\n{}/{}/{}",
-                        method, contentType || "", headersAsString || "\n", bucket, endOfUrl),
-            endOfUrl: endOfUrl
-        };
+        return promise;
     }
 
-    function determineSignatureClientSide(toBeSigned, signatureEffort, updatedAccessKey, updatedSessionToken) {
+    function determineSignatureClientSide(id, toBeSigned, signatureEffort, updatedAccessKey, updatedSessionToken) {
         var updatedHeaders;
 
         // REST API request
@@ -8773,7 +9167,9 @@ qq.s3.RequestSigner = function(o) {
                 toBeSigned.signatureConstructor.withHeaders(updatedHeaders);
             }
 
-            signApiRequest(toBeSigned.signatureConstructor.getToSign().stringToSign, signatureEffort);
+            toBeSigned.signatureConstructor.getToSign(id).then(function(signatureArtifacts) {
+                signApiRequest(toBeSigned.signatureConstructor, signatureArtifacts.stringToSign, signatureEffort);
+            });
         }
         // Form upload (w/ policy document)
         else {
@@ -8783,24 +9179,21 @@ qq.s3.RequestSigner = function(o) {
     }
 
     function signPolicy(policy, signatureEffort, updatedAccessKey, updatedSessionToken) {
-        var policyStr = JSON.stringify(policy),
-            policyWordArray = CryptoJS.enc.Utf8.parse(policyStr),
-            base64Policy = CryptoJS.enc.Base64.stringify(policyWordArray),
-            policyHmacSha1 = CryptoJS.HmacSHA1(base64Policy, credentialsProvider.get().secretKey),
-            policyHmacSha1Base64 = CryptoJS.enc.Base64.stringify(policyHmacSha1);
-
-        signatureEffort.success({
-            policy: base64Policy,
-            signature: policyHmacSha1Base64
-        }, updatedAccessKey, updatedSessionToken);
+        if (options.signatureSpec.version === 4) {
+            v4.signPolicy(policy, signatureEffort, updatedAccessKey, updatedSessionToken);
+        }
+        else {
+            v2.signPolicy(policy, signatureEffort, updatedAccessKey, updatedSessionToken);
+        }
     }
 
-    function signApiRequest(headersStr, signatureEffort) {
-        var headersWordArray = CryptoJS.enc.Utf8.parse(headersStr),
-            headersHmacSha1 = CryptoJS.HmacSHA1(headersWordArray, credentialsProvider.get().secretKey),
-            headersHmacSha1Base64 = CryptoJS.enc.Base64.stringify(headersHmacSha1);
-
-        signatureEffort.success({signature: headersHmacSha1Base64});
+    function signApiRequest(signatureConstructor, headersStr, signatureEffort) {
+        if (options.signatureSpec.version === 4) {
+            v4.signApiRequest(signatureConstructor, headersStr, signatureEffort);
+        }
+        else {
+            v2.signApiRequest(signatureConstructor, headersStr, signatureEffort);
+        }
     }
 
     requester = qq.extend(this, new qq.AjaxRequester({
@@ -8831,16 +9224,22 @@ qq.s3.RequestSigner = function(o) {
          */
         getSignature: function(id, toBeSigned) {
             var params = toBeSigned,
-                signatureEffort = new qq.Promise();
+                signatureConstructor = toBeSigned.signatureConstructor,
+                signatureEffort = new qq.Promise(),
+                queryParams;
+
+            if (options.signatureSpec.version === 4) {
+                queryParams = {v4: true};
+            }
 
             if (credentialsProvider.get().secretKey && window.CryptoJS) {
                 if (credentialsProvider.get().expiration.getTime() > Date.now()) {
-                    determineSignatureClientSide(toBeSigned, signatureEffort);
+                    determineSignatureClientSide(id, toBeSigned, signatureEffort);
                 }
                 // If credentials are expired, ask for new ones before attempting to sign request
                 else {
                     credentialsProvider.onExpired().then(function() {
-                        determineSignatureClientSide(toBeSigned,
+                        determineSignatureClientSide(id, toBeSigned,
                             signatureEffort,
                             credentialsProvider.get().accessKey,
                             credentialsProvider.get().sessionToken);
@@ -8853,25 +9252,34 @@ qq.s3.RequestSigner = function(o) {
             else {
                 options.log("Submitting S3 signature request for " + id);
 
-                if (params.signatureConstructor) {
-                    params = {headers: params.signatureConstructor.getToSign().stringToSign};
+                if (signatureConstructor) {
+                    signatureConstructor.getToSign(id).then(function(signatureArtifacts) {
+                        params = {headers: signatureArtifacts.stringToSignRaw};
+                        requester.initTransport(id)
+                            .withParams(params)
+                            .withQueryParams(queryParams)
+                            .send();
+                    });
+                }
+                else {
+                    requester.initTransport(id)
+                        .withParams(params)
+                        .withQueryParams(queryParams)
+                        .send();
                 }
 
-                requester.initTransport(id)
-                    .withParams(params)
-                    .send();
-
                 pendingSignatures[id] = {
-                    promise: signatureEffort
+                    promise: signatureEffort,
+                    signatureConstructor: signatureConstructor
                 };
             }
 
             return signatureEffort;
         },
 
-        constructStringToSign: function(type, bucket, key) {
+        constructStringToSign: function(type, bucket, host, key) {
             var headers = {},
-                uploadId, contentType, partNum, toSignAndEndOfUrl;
+                uploadId, content, contentType, partNum, artifacts;
 
             return {
                 withHeaders: function(theHeaders) {
@@ -8881,6 +9289,11 @@ qq.s3.RequestSigner = function(o) {
 
                 withUploadId: function(theUploadId) {
                     uploadId = theUploadId;
+                    return this;
+                },
+
+                withContent: function(theContent) {
+                    content = theContent;
                     return this;
                 },
 
@@ -8894,8 +9307,9 @@ qq.s3.RequestSigner = function(o) {
                     return this;
                 },
 
-                getToSign: function() {
-                    var sessionToken = credentialsProvider.get().sessionToken;
+                getToSign: function(id) {
+                    var sessionToken = credentialsProvider.get().sessionToken,
+                        promise = new qq.Promise();
 
                     headers["x-amz-date"] = new Date().toUTCString();
 
@@ -8903,19 +9317,36 @@ qq.s3.RequestSigner = function(o) {
                         headers[qq.s3.util.SESSION_TOKEN_PARAM_NAME] = sessionToken;
                     }
 
-                    toSignAndEndOfUrl = getToSignAndEndOfUrl(type, bucket, key, contentType, headers, uploadId, partNum);
+                    getStringToSignArtifacts(id, options.signatureSpec.version, {
+                        bucket: bucket,
+                        content: content,
+                        contentType: contentType,
+                        headers: headers,
+                        host: host,
+                        key: key,
+                        partNum: partNum,
+                        type: type,
+                        uploadId: uploadId
+                    }).then(function(_artifacts_) {
+                        artifacts = _artifacts_;
+                        promise.success({
+                            headers: (function() {
+                                if (contentType) {
+                                    headers["Content-Type"] = contentType;
+                                }
 
-                    return {
-                        headers: (function() {
-                            if (contentType) {
-                                headers["Content-Type"] = contentType;
-                            }
+                                delete headers.Host; // we don't want this to be set on the XHR-initiated request
+                                return headers;
+                            }()),
+                            date: artifacts.date,
+                            endOfUrl: artifacts.endOfUrl,
+                            signedHeaders: artifacts.signedHeaders,
+                            stringToSign: artifacts.toSign,
+                            stringToSignRaw: artifacts.toSignRaw
+                        });
+                    });
 
-                            return headers;
-                        }()),
-                        endOfUrl: toSignAndEndOfUrl.endOfUrl,
-                        stringToSign: toSignAndEndOfUrl.toSign
-                    };
+                    return promise;
                 },
 
                 getHeaders: function() {
@@ -8923,7 +9354,15 @@ qq.s3.RequestSigner = function(o) {
                 },
 
                 getEndOfUrl: function() {
-                    return toSignAndEndOfUrl && toSignAndEndOfUrl.endOfUrl;
+                    return artifacts && artifacts.endOfUrl;
+                },
+
+                getRequestDate: function() {
+                    return artifacts && artifacts.date;
+                },
+
+                getSignedHeaders: function() {
+                    return artifacts && artifacts.signedHeaders;
                 }
             };
         }
@@ -9073,6 +9512,7 @@ qq.s3.InitiateMultipartAjaxRequester = function(o) {
             maxConnections: 3,
             getContentType: function(id) {},
             getBucket: function(id) {},
+            getHost: function(id) {},
             getKey: function(id) {},
             getName: function(id) {},
             log: function(str, level) {}
@@ -9082,6 +9522,7 @@ qq.s3.InitiateMultipartAjaxRequester = function(o) {
     qq.extend(options, o);
 
     getSignatureAjaxRequester = new qq.s3.RequestSigner({
+        endpointStore: options.endpointStore,
         signatureSpec: options.signatureSpec,
         cors: options.cors,
         log: options.log
@@ -9098,6 +9539,7 @@ qq.s3.InitiateMultipartAjaxRequester = function(o) {
      */
     function getHeaders(id) {
         var bucket = options.getBucket(id),
+            host = options.getHost(id),
             headers = {},
             promise = new qq.Promise(),
             key = options.getKey(id),
@@ -9120,16 +9562,12 @@ qq.s3.InitiateMultipartAjaxRequester = function(o) {
         });
 
         signatureConstructor = getSignatureAjaxRequester.constructStringToSign
-            (getSignatureAjaxRequester.REQUEST_TYPE.MULTIPART_INITIATE, bucket, key)
+            (getSignatureAjaxRequester.REQUEST_TYPE.MULTIPART_INITIATE, bucket, host, key)
             .withContentType(options.getContentType(id))
             .withHeaders(headers);
 
         // Ask the local server to sign the request.  Use this signature to form the Authorization header.
-        getSignatureAjaxRequester.getSignature(id, {signatureConstructor: signatureConstructor}).then(function(response) {
-            headers = signatureConstructor.getHeaders();
-            headers.Authorization = "AWS " + options.signatureSpec.credentialsProvider.get().accessKey + ":" + response.signature;
-            promise.success(headers, signatureConstructor.getEndOfUrl());
-        }, promise.failure);
+        getSignatureAjaxRequester.getSignature(id, {signatureConstructor: signatureConstructor}).then(promise.success, promise.failure);
 
         return promise;
     }
@@ -9247,6 +9685,7 @@ qq.s3.CompleteMultipartAjaxRequester = function(o) {
             signatureSpec: null,
             maxConnections: 3,
             getBucket: function(id) {},
+            getHost: function(id) {},
             getKey: function(id) {},
             log: function(str, level) {}
         },
@@ -9256,6 +9695,7 @@ qq.s3.CompleteMultipartAjaxRequester = function(o) {
 
     // Transport for requesting signatures (for the "Complete" requests) from the local server
     getSignatureAjaxRequester = new qq.s3.RequestSigner({
+        endpointStore: options.endpointStore,
         signatureSpec: options.signatureSpec,
         cors: options.cors,
         log: options.log
@@ -9266,25 +9706,21 @@ qq.s3.CompleteMultipartAjaxRequester = function(o) {
      * that will fulfill the associated promise once all headers have been attached or when an error has occurred that
      * prevents headers from being attached.
      *
-     * @param id Associated file ID
-     * @param uploadId ID of the associated upload, according to AWS
      * @returns {qq.Promise}
      */
-    function getHeaders(id, uploadId) {
+    function getHeaders(id, uploadId, body) {
         var headers = {},
             promise = new qq.Promise(),
             bucket = options.getBucket(id),
+            host = options.getHost(id),
             signatureConstructor = getSignatureAjaxRequester.constructStringToSign
-                (getSignatureAjaxRequester.REQUEST_TYPE.MULTIPART_COMPLETE, bucket, options.getKey(id))
+                (getSignatureAjaxRequester.REQUEST_TYPE.MULTIPART_COMPLETE, bucket, host, options.getKey(id))
                 .withUploadId(uploadId)
+                .withContent(body)
                 .withContentType("application/xml; charset=UTF-8");
 
         // Ask the local server to sign the request.  Use this signature to form the Authorization header.
-        getSignatureAjaxRequester.getSignature(id, {signatureConstructor: signatureConstructor}).then(function(response) {
-            headers = signatureConstructor.getHeaders();
-            headers.Authorization = "AWS " + options.signatureSpec.credentialsProvider.get().accessKey + ":" + response.signature;
-            promise.success(headers, signatureConstructor.getEndOfUrl());
-        }, promise.failure);
+        getSignatureAjaxRequester.getSignature(id, {signatureConstructor: signatureConstructor}).then(promise.success, promise.failure);
 
         return promise;
     }
@@ -9394,11 +9830,10 @@ qq.s3.CompleteMultipartAjaxRequester = function(o) {
          * @returns {qq.Promise}
          */
         send: function(id, uploadId, etagEntries) {
-            var promise = new qq.Promise();
+            var promise = new qq.Promise(),
+                body = getCompleteRequestBody(etagEntries);
 
-            getHeaders(id, uploadId).then(function(headers, endOfUrl) {
-                var body = getCompleteRequestBody(etagEntries);
-
+            getHeaders(id, uploadId, body).then(function(headers, endOfUrl) {
                 options.log("Submitting S3 complete multipart upload request for " + id);
 
                 pendingCompleteRequests[id] = promise;
@@ -9434,6 +9869,7 @@ qq.s3.AbortMultipartAjaxRequester = function(o) {
             signatureSpec: null,
             maxConnections: 3,
             getBucket: function(id) {},
+            getHost: function(id) {},
             getKey: function(id) {},
             log: function(str, level) {}
         },
@@ -9443,6 +9879,7 @@ qq.s3.AbortMultipartAjaxRequester = function(o) {
 
     // Transport for requesting signatures (for the "Complete" requests) from the local server
     getSignatureAjaxRequester = new qq.s3.RequestSigner({
+        endpointStore: options.endpointStore,
         signatureSpec: options.signatureSpec,
         cors: options.cors,
         log: options.log
@@ -9460,18 +9897,14 @@ qq.s3.AbortMultipartAjaxRequester = function(o) {
     function getHeaders(id, uploadId) {
         var headers = {},
             promise = new qq.Promise(),
-            endpoint = options.endpointStore.get(id),
             bucket = options.getBucket(id),
+            host = options.getHost(id),
             signatureConstructor = getSignatureAjaxRequester.constructStringToSign
-                (getSignatureAjaxRequester.REQUEST_TYPE.MULTIPART_ABORT, bucket, options.getKey(id))
+                (getSignatureAjaxRequester.REQUEST_TYPE.MULTIPART_ABORT, bucket, host, options.getKey(id))
                 .withUploadId(uploadId);
 
         // Ask the local server to sign the request.  Use this signature to form the Authorization header.
-        getSignatureAjaxRequester.getSignature(id, {signatureConstructor: signatureConstructor}).then(function(response) {
-            headers = signatureConstructor.getHeaders();
-            headers.Authorization = "AWS " + options.signatureSpec.credentialsProvider.get().accessKey + ":" + response.signature;
-            promise.success(headers, signatureConstructor.getEndOfUrl());
-        }, promise.failure);
+        getSignatureAjaxRequester.getSignature(id, {signatureConstructor: signatureConstructor}).then(promise.success, promise.failure);
 
         return promise;
     }
@@ -9559,15 +9992,17 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
         log = proxy.log,
         expectedStatus = 200,
         onGetBucket = spec.getBucket,
+        onGetHost = spec.getHost,
         onGetKeyName = spec.getKeyName,
         filenameParam = spec.filenameParam,
         paramsStore = spec.paramsStore,
         endpointStore = spec.endpointStore,
         aclStore = spec.aclStore,
         reducedRedundancy = spec.objectProperties.reducedRedundancy,
+        region = spec.objectProperties.region,
         serverSideEncryption = spec.objectProperties.serverSideEncryption,
         validation = spec.validation,
-        signature = spec.signature,
+        signature = qq.extend({region: region}, spec.signature),
         handler = this,
         credentialsProvider = spec.signature.credentialsProvider,
 
@@ -9619,23 +10054,20 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
              * @param chunkIdx Index of the chunk to PUT
              * @returns {qq.Promise}
              */
-            initHeaders: function(id, chunkIdx) {
+            initHeaders: function(id, chunkIdx, blob) {
                 var headers = {},
-                    endpoint = spec.endpointStore.get(id),
                     bucket = upload.bucket.getName(id),
+                    host = upload.host.getName(id),
                     key = upload.key.urlSafe(id),
                     promise = new qq.Promise(),
                     signatureConstructor = requesters.restSignature.constructStringToSign
-                        (requesters.restSignature.REQUEST_TYPE.MULTIPART_UPLOAD, bucket, key)
+                        (requesters.restSignature.REQUEST_TYPE.MULTIPART_UPLOAD, bucket, host, key)
                         .withPartNum(chunkIdx + 1)
+                        .withContent(blob)
                         .withUploadId(handler._getPersistableData(id).uploadId);
 
                 // Ask the local server to sign the request.  Use this signature to form the Authorization header.
-                requesters.restSignature.getSignature(id + "." + chunkIdx, {signatureConstructor: signatureConstructor}).then(function(response) {
-                    headers = signatureConstructor.getHeaders();
-                    headers.Authorization = "AWS " + credentialsProvider.get().accessKey + ":" + response.signature;
-                    promise.success(headers, signatureConstructor.getEndOfUrl());
-                }, promise.failure);
+                requesters.restSignature.getSignature(id + "." + chunkIdx, {signatureConstructor: signatureConstructor}).then(promise.success, promise.failure);
 
                 return promise;
             },
@@ -9648,7 +10080,7 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
 
                 // Add appropriate headers to the multipart upload request.
                 // Once these have been determined (asynchronously) attach the headers and send the chunk.
-                chunked.initHeaders(id, chunkIdx).then(function(headers, endOfUrl) {
+                chunked.initHeaders(id, chunkIdx, chunkData.blob).then(function(headers, endOfUrl) {
                     var url = domain + "/" + endOfUrl;
                     handler._registerProgressHandler(id, chunkIdx, chunkData.size);
                     upload.track(id, xhr, chunkIdx).then(promise.success, promise.failure);
@@ -9733,6 +10165,9 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
                 getBucket: function(id) {
                     return upload.bucket.getName(id);
                 },
+                getHost: function(id) {
+                    return upload.host.getName(id);
+                },
                 getKey: function(id) {
                     return upload.key.urlSafe(id);
                 }
@@ -9745,6 +10180,9 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
                 log: log,
                 getBucket: function(id) {
                     return upload.bucket.getName(id);
+                },
+                getHost: function(id) {
+                    return upload.host.getName(id);
                 },
                 getKey: function(id) {
                     return upload.key.urlSafe(id);
@@ -9767,6 +10205,9 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
                 getBucket: function(id) {
                     return upload.bucket.getName(id);
                 },
+                getHost: function(id) {
+                    return upload.host.getName(id);
+                },
                 getKey: function(id) {
                     return upload.key.urlSafe(id);
                 },
@@ -9783,6 +10224,7 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
             }),
 
             restSignature: new qq.s3.RequestSigner({
+                endpointStore: endpointStore,
                 signatureSpec: signature,
                 cors: spec.cors,
                 log: log
@@ -9817,7 +10259,9 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
                     minFileSize: validation.minSizeLimit,
                     maxFileSize: validation.maxSizeLimit,
                     reducedRedundancy: reducedRedundancy,
+                    region: region,
                     serverSideEncryption: serverSideEncryption,
+                    signatureVersion: signature.version,
                     log: log
                 },
                 qq.bind(requesters.policySignature.getSignature, this, id));
@@ -9913,6 +10357,29 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
                 }
             },
 
+            host: {
+                promise: function(id) {
+                    var promise = new qq.Promise(),
+                        cachedHost = handler._getFileState(id).host;
+
+                    if (cachedHost) {
+                        promise.success(cachedHost);
+                    }
+                    else {
+                        onGetHost(id).then(function(host) {
+                            handler._getFileState(id).host = host;
+                            promise.success(host);
+                        }, promise.failure);
+                    }
+
+                    return promise;
+                },
+
+                getName: function(id) {
+                    return handler._getFileState(id).host;
+                }
+            },
+
             done: function(id, xhr) {
                 var response = upload.response.parse(id, xhr),
                     isError = response.success !== true;
@@ -9958,7 +10425,8 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
                 },
 
                 urlSafe: function(id) {
-                    return encodeURIComponent(handler.getThirdPartyFileId(id));
+                    var encodedKey = encodeURIComponent(handler.getThirdPartyFileId(id));
+                    return encodedKey.replace(/%2F/g, "/");
                 }
             },
 
@@ -10034,13 +10502,15 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
 
                 upload.key.promise(id).then(function() {
                     upload.bucket.promise(id).then(function() {
-                        /* jshint eqnull:true */
-                        if (optChunkIdx == null) {
-                            simple.send(id).then(promise.success, promise.failure);
-                        }
-                        else {
-                            chunked.send(id, optChunkIdx).then(promise.success, promise.failure);
-                        }
+                        upload.host.promise(id).then(function() {
+                            /* jshint eqnull:true */
+                            if (optChunkIdx == null) {
+                                simple.send(id).then(promise.success, promise.failure);
+                            }
+                            else {
+                                chunked.send(id, optChunkIdx).then(promise.success, promise.failure);
+                            }
+                        });
                     });
                 },
                 function(errorReason) {
@@ -10135,6 +10605,7 @@ qq.s3.FormUploadHandler = function(options, proxy) {
         endpointStore = options.endpointStore,
         aclStore = options.aclStore,
         reducedRedundancy = options.objectProperties.reducedRedundancy,
+        region = options.objectProperties.region,
         serverSideEncryption = options.objectProperties.serverSideEncryption,
         validation = options.validation,
         signature = options.signature,
@@ -10208,7 +10679,9 @@ qq.s3.FormUploadHandler = function(options, proxy) {
             maxFileSize: validation.maxSizeLimit,
             successRedirectUrl: successRedirectUrl,
             reducedRedundancy: reducedRedundancy,
+            region: region,
             serverSideEncryption: serverSideEncryption,
+            signatureVersion: signature.version,
             log: log
         },
         qq.bind(getSignatureAjaxRequester.getSignature, this, id));
@@ -14502,4 +14975,253 @@ code.google.com/p/crypto-js/wiki/License
     C.HmacSHA1 = Hasher._createHmacHelper(SHA1);
 }());
 
-/*! 2015-09-25 */
+/*
+CryptoJS v3.1.2
+code.google.com/p/crypto-js
+(c) 2009-2013 by Jeff Mott. All rights reserved.
+code.google.com/p/crypto-js/wiki/License
+*/
+(function (Math) {
+    // Shortcuts
+    var C = CryptoJS;
+    var C_lib = C.lib;
+    var WordArray = C_lib.WordArray;
+    var Hasher = C_lib.Hasher;
+    var C_algo = C.algo;
+
+    // Initialization and round constants tables
+    var H = [];
+    var K = [];
+
+    // Compute constants
+    (function () {
+        function isPrime(n) {
+            var sqrtN = Math.sqrt(n);
+            for (var factor = 2; factor <= sqrtN; factor++) {
+                if (!(n % factor)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function getFractionalBits(n) {
+            return ((n - (n | 0)) * 0x100000000) | 0;
+        }
+
+        var n = 2;
+        var nPrime = 0;
+        while (nPrime < 64) {
+            if (isPrime(n)) {
+                if (nPrime < 8) {
+                    H[nPrime] = getFractionalBits(Math.pow(n, 1 / 2));
+                }
+                K[nPrime] = getFractionalBits(Math.pow(n, 1 / 3));
+
+                nPrime++;
+            }
+
+            n++;
+        }
+    }());
+
+    // Reusable object
+    var W = [];
+
+    /**
+     * SHA-256 hash algorithm.
+     */
+    var SHA256 = C_algo.SHA256 = Hasher.extend({
+        _doReset: function () {
+            this._hash = new WordArray.init(H.slice(0));
+        },
+
+        _doProcessBlock: function (M, offset) {
+            // Shortcut
+            var H = this._hash.words;
+
+            // Working variables
+            var a = H[0];
+            var b = H[1];
+            var c = H[2];
+            var d = H[3];
+            var e = H[4];
+            var f = H[5];
+            var g = H[6];
+            var h = H[7];
+
+            // Computation
+            for (var i = 0; i < 64; i++) {
+                if (i < 16) {
+                    W[i] = M[offset + i] | 0;
+                } else {
+                    var gamma0x = W[i - 15];
+                    var gamma0  = ((gamma0x << 25) | (gamma0x >>> 7))  ^
+                                  ((gamma0x << 14) | (gamma0x >>> 18)) ^
+                                   (gamma0x >>> 3);
+
+                    var gamma1x = W[i - 2];
+                    var gamma1  = ((gamma1x << 15) | (gamma1x >>> 17)) ^
+                                  ((gamma1x << 13) | (gamma1x >>> 19)) ^
+                                   (gamma1x >>> 10);
+
+                    W[i] = gamma0 + W[i - 7] + gamma1 + W[i - 16];
+                }
+
+                var ch  = (e & f) ^ (~e & g);
+                var maj = (a & b) ^ (a & c) ^ (b & c);
+
+                var sigma0 = ((a << 30) | (a >>> 2)) ^ ((a << 19) | (a >>> 13)) ^ ((a << 10) | (a >>> 22));
+                var sigma1 = ((e << 26) | (e >>> 6)) ^ ((e << 21) | (e >>> 11)) ^ ((e << 7)  | (e >>> 25));
+
+                var t1 = h + sigma1 + ch + K[i] + W[i];
+                var t2 = sigma0 + maj;
+
+                h = g;
+                g = f;
+                f = e;
+                e = (d + t1) | 0;
+                d = c;
+                c = b;
+                b = a;
+                a = (t1 + t2) | 0;
+            }
+
+            // Intermediate hash value
+            H[0] = (H[0] + a) | 0;
+            H[1] = (H[1] + b) | 0;
+            H[2] = (H[2] + c) | 0;
+            H[3] = (H[3] + d) | 0;
+            H[4] = (H[4] + e) | 0;
+            H[5] = (H[5] + f) | 0;
+            H[6] = (H[6] + g) | 0;
+            H[7] = (H[7] + h) | 0;
+        },
+
+        _doFinalize: function () {
+            // Shortcuts
+            var data = this._data;
+            var dataWords = data.words;
+
+            var nBitsTotal = this._nDataBytes * 8;
+            var nBitsLeft = data.sigBytes * 8;
+
+            // Add padding
+            dataWords[nBitsLeft >>> 5] |= 0x80 << (24 - nBitsLeft % 32);
+            dataWords[(((nBitsLeft + 64) >>> 9) << 4) + 14] = Math.floor(nBitsTotal / 0x100000000);
+            dataWords[(((nBitsLeft + 64) >>> 9) << 4) + 15] = nBitsTotal;
+            data.sigBytes = dataWords.length * 4;
+
+            // Hash final blocks
+            this._process();
+
+            // Return final computed hash
+            return this._hash;
+        },
+
+        clone: function () {
+            var clone = Hasher.clone.call(this);
+            clone._hash = this._hash.clone();
+
+            return clone;
+        }
+    });
+
+    /**
+     * Shortcut function to the hasher's object interface.
+     *
+     * @param {WordArray|string} message The message to hash.
+     *
+     * @return {WordArray} The hash.
+     *
+     * @static
+     *
+     * @example
+     *
+     *     var hash = CryptoJS.SHA256('message');
+     *     var hash = CryptoJS.SHA256(wordArray);
+     */
+    C.SHA256 = Hasher._createHelper(SHA256);
+
+    /**
+     * Shortcut function to the HMAC's object interface.
+     *
+     * @param {WordArray|string} message The message to hash.
+     * @param {WordArray|string} key The secret key.
+     *
+     * @return {WordArray} The HMAC.
+     *
+     * @static
+     *
+     * @example
+     *
+     *     var hmac = CryptoJS.HmacSHA256(message, key);
+     */
+    C.HmacSHA256 = Hasher._createHmacHelper(SHA256);
+}(Math));
+
+/*
+CryptoJS v3.1.2
+code.google.com/p/crypto-js
+(c) 2009-2013 by Jeff Mott. All rights reserved.
+code.google.com/p/crypto-js/wiki/License
+*/
+(function () {
+    // Check if typed arrays are supported
+    if (typeof ArrayBuffer != 'function') {
+        return;
+    }
+
+    // Shortcuts
+    var C = CryptoJS;
+    var C_lib = C.lib;
+    var WordArray = C_lib.WordArray;
+
+    // Reference original init
+    var superInit = WordArray.init;
+
+    // Augment WordArray.init to handle typed arrays
+    var subInit = WordArray.init = function (typedArray) {
+        // Convert buffers to uint8
+        if (typedArray instanceof ArrayBuffer) {
+            typedArray = new Uint8Array(typedArray);
+        }
+
+        // Convert other array views to uint8
+        if (
+            typedArray instanceof Int8Array ||
+            typedArray instanceof Uint8ClampedArray ||
+            typedArray instanceof Int16Array ||
+            typedArray instanceof Uint16Array ||
+            typedArray instanceof Int32Array ||
+            typedArray instanceof Uint32Array ||
+            typedArray instanceof Float32Array ||
+            typedArray instanceof Float64Array
+        ) {
+            typedArray = new Uint8Array(typedArray.buffer, typedArray.byteOffset, typedArray.byteLength);
+        }
+
+        // Handle Uint8Array
+        if (typedArray instanceof Uint8Array) {
+            // Shortcut
+            var typedArrayByteLength = typedArray.byteLength;
+
+            // Extract bytes
+            var words = [];
+            for (var i = 0; i < typedArrayByteLength; i++) {
+                words[i >>> 2] |= typedArray[i] << (24 - (i % 4) * 8);
+            }
+
+            // Initialize this word array
+            superInit.call(this, words, typedArrayByteLength);
+        } else {
+            // Else call normal init
+            superInit.apply(this, arguments);
+        }
+    };
+
+    subInit.prototype = WordArray;
+}());
+
+/*! 2015-12-04 */
