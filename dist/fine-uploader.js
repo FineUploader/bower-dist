@@ -3,7 +3,7 @@
 *
 * Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.4.0
+* Version: 5.4.1
 *
 * Homepage: http://fineuploader.com
 *
@@ -901,7 +901,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version = "5.4.0";
+qq.version = "5.4.1";
 
 /* globals qq */
 qq.supportedFeatures = (function() {
@@ -6716,7 +6716,7 @@ qq.Templating = function(spec) {
         IN_PROGRESS_CLASS = "qq-in-progress",
         HIDDEN_FOREVER_CLASS = "qq-hidden-forever",
         fileBatch = {
-            content: document.createElement("span"),
+            content: document.createDocumentFragment(),
             map: {}
         },
         isCancelDisabled = false,
@@ -7421,7 +7421,7 @@ qq.Templating = function(spec) {
 
         addCacheToDom: function() {
             fileList.appendChild(fileBatch.content);
-            fileBatch.content = document.createElement("span");
+            fileBatch.content = document.createDocumentFragment();
             fileBatch.map = {};
         },
 
