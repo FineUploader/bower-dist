@@ -3,7 +3,7 @@
 *
 * Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.5.1
+* Version: 5.5.2
 *
 * Homepage: http://fineuploader.com
 *
@@ -901,7 +901,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version = "5.5.1";
+qq.version = "5.5.2";
 
 /* globals qq */
 qq.supportedFeatures = (function() {
@@ -14183,7 +14183,7 @@ qq.s3.FormUploadHandler = function(options, proxy) {
     function isValidResponse(id, iframe) {
         var response,
             endpoint = options.endpointStore.get(id),
-            bucket = qq.s3.util.getBucket(endpoint),
+            bucket = handler._getFileState(id).bucket,
             doc,
             innerHtml,
             responseData;
