@@ -3,7 +3,7 @@
 *
 * Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.7.1
+* Version: 5.8.0
 *
 * Homepage: http://fineuploader.com
 *
@@ -13,6 +13,7 @@
 */ 
 
 
+(function(global) {
 /*globals window, navigator, document, FormData, File, HTMLInputElement, XMLHttpRequest, Blob, Storage, ActiveXObject */
 /* jshint -W079 */
 var qq = function(element) {
@@ -905,7 +906,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version = "5.7.1";
+qq.version = "5.8.0";
 
 /* globals qq */
 qq.supportedFeatures = (function() {
@@ -11372,7 +11373,7 @@ qq.extend(qq.Scaler.prototype, {
 
         reader.onload = function() {
             originalImageDataUri = reader.result;
-            insertionEffort.success(ExifRestorer.restore(originalImageDataUri, scaledImageDataUri));
+            insertionEffort.success(qq.ExifRestorer.restore(originalImageDataUri, scaledImageDataUri));
         };
 
         reader.onerror = function() {
@@ -11435,7 +11436,7 @@ qq.extend(qq.Scaler.prototype, {
 //Based on MinifyJpeg
 //http://elicon.blog57.fc2.com/blog-entry-206.html
 
-var ExifRestorer = (function()
+qq.ExifRestorer = (function()
 {
    
 	var ExifRestorer = {};
@@ -12429,5 +12430,17 @@ qq.FilenameEditHandler = function(s, inheritedInternalApi) {
     };
 
 }(jQuery));
+if (typeof define === 'function' && define.amd) {
+   define(function() {
+       return qq;
+   });
+}
+else if (typeof module !== 'undefined' && module.exports) {
+   module.exports = qq;
+}
+else {
+   global.qq = qq;
+}
+}(window));
 
 /*! 2016-05-12 */
