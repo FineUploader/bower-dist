@@ -13,7 +13,7 @@ e() {
 
 if [ -z $1 ]; then
 	e '31;0' 'Please specify Fine-uploader version you want to build.'
-	e '31;0' 'Example: ./build.sh 5.5.2'
+	e '31;0' 'Example: ./build.sh 5.6.0'
 	e '31;0' '    See: https://github.com/FineUploader/fine-uploader/releases'
 	exit;
 fi
