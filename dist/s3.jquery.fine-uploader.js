@@ -3,7 +3,7 @@
 *
 * Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.7.0
+* Version: 5.7.1
 *
 * Homepage: http://fineuploader.com
 *
@@ -905,7 +905,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version = "5.7.0";
+qq.version = "5.7.1";
 
 /* globals qq */
 qq.supportedFeatures = (function() {
@@ -10250,10 +10250,10 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
                             uploadIdPromise.success(uploadId);
                             promise.success(uploadId);
                         },
-                        function(errorMsg) {
+                        function(errorMsg, xhr) {
                             handler._getPersistableData(id).uploadId = null;
-                            promise.failure(errorMsg);
-                            uploadIdPromise.failure(errorMsg);
+                            promise.failure(errorMsg, xhr);
+                            uploadIdPromise.failure(errorMsg, xhr);
                         }
                     );
                 }
