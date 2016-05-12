@@ -3,7 +3,7 @@
 *
 * Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.4.1
+* Version: 5.5.0
 *
 * Homepage: http://fineuploader.com
 *
@@ -901,7 +901,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version = "5.4.1";
+qq.version = "5.5.0";
 
 /* globals qq */
 qq.supportedFeatures = (function() {
@@ -7765,6 +7765,30 @@ qq.s3.util = qq.s3.util || (function() {
 
         V4_SIGNATURE_PARAM_NAME: "x-amz-signature",
 
+        CASE_SENSITIVE_PARAM_NAMES: [
+            "Cache-Control",
+            "Content-Disposition",
+            "Content-Encoding",
+            "Content-MD5"
+        ],
+
+        UNSIGNABLE_REST_HEADER_NAMES: [
+            "Cache-Control",
+            "Content-Disposition",
+            "Content-Encoding",
+            "Content-MD5"
+        ],
+
+        UNPREFIXED_PARAM_NAMES: [
+            "Cache-Control",
+            "Content-Disposition",
+            "Content-Encoding",
+            "Content-MD5",
+            "x-amz-server-side-encryption-customer-algorithm",
+            "x-amz-server-side-encryption-customer-key",
+            "x-amz-server-side-encryption-customer-key-MD5"
+        ],
+
         /**
          * This allows for the region to be specified in the bucket's endpoint URL, or not.
          *
@@ -7811,18 +7835,10 @@ qq.s3.util = qq.s3.util || (function() {
          * See: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPUT.html
          */
         _getPrefixedParamName: function(name) {
-            switch (name) {
-                case "Cache-Control":
-                case "Content-Disposition":
-                case "Content-Encoding":
-                case "Content-MD5": // CAW: Content-MD5 might not be appropriate from user-land
-                case "x-amz-server-side-encryption-customer-algorithm":
-                case "x-amz-server-side-encryption-customer-key":
-                case "x-amz-server-side-encryption-customer-key-MD5":
-                    return name;
-                default:
-                    return qq.s3.util.AWS_PARAM_PREFIX + name;
+            if (qq.indexOf(qq.s3.util.UNPREFIXED_PARAM_NAMES, name) >= 0) {
+                return name;
             }
+            return qq.s3.util.AWS_PARAM_PREFIX + name;
         },
 
         /**
@@ -7836,6 +7852,7 @@ qq.s3.util = qq.s3.util || (function() {
                 conditions = [],
                 bucket = spec.bucket,
                 date = spec.date,
+                drift = spec.clockDrift,
                 key = spec.key,
                 accessKey = spec.accessKey,
                 acl = spec.acl,
@@ -7851,7 +7868,7 @@ qq.s3.util = qq.s3.util || (function() {
                 serverSideEncryption = spec.serverSideEncryption,
                 signatureVersion = spec.signatureVersion;
 
-            policy.expiration = qq.s3.util.getPolicyExpirationDate(date);
+            policy.expiration = qq.s3.util.getPolicyExpirationDate(date, drift);
 
             conditions.push({acl: acl});
             conditions.push({bucket: bucket});
@@ -7900,7 +7917,7 @@ qq.s3.util = qq.s3.util || (function() {
 
                 conditions.push({});
                 conditions[conditions.length - 1][qq.s3.util.DATE_PARAM_NAME] =
-                    qq.s3.util.getV4PolicyDate(date);
+                    qq.s3.util.getV4PolicyDate(date, drift);
             }
 
             // user metadata
@@ -7908,7 +7925,13 @@ qq.s3.util = qq.s3.util || (function() {
                 var awsParamName = qq.s3.util._getPrefixedParamName(name),
                     param = {};
 
-                param[awsParamName] = encodeURIComponent(val);
+                if (qq.indexOf(qq.s3.util.UNPREFIXED_PARAM_NAMES, awsParamName) >= 0) {
+                    param[awsParamName] = val;
+                }
+                else {
+                    param[awsParamName] = encodeURIComponent(val);
+                }
+
                 conditions.push(param);
             });
 
@@ -7960,6 +7983,7 @@ qq.s3.util = qq.s3.util || (function() {
                 customParams = spec.params,
                 promise = new qq.Promise(),
                 sessionToken = spec.sessionToken,
+                drift = spec.clockDrift,
                 type = spec.type,
                 key = spec.key,
                 accessKey = spec.accessKey,
@@ -8007,10 +8031,16 @@ qq.s3.util = qq.s3.util || (function() {
 
             // Custom (user-supplied) params must be prefixed with the value of `qq.s3.util.AWS_PARAM_PREFIX`.
             // Params such as Cache-Control or Content-Disposition will not be prefixed.
-            // All param values will be URI encoded as well.
+            // Prefixed param values will be URI encoded as well.
             qq.each(customParams, function(name, val) {
                 var awsParamName = qq.s3.util._getPrefixedParamName(name);
-                awsParams[awsParamName] = encodeURIComponent(val);
+
+                if (qq.indexOf(qq.s3.util.UNPREFIXED_PARAM_NAMES, awsParamName) >= 0) {
+                    awsParams[awsParamName] = val;
+                }
+                else {
+                    awsParams[awsParamName] = encodeURIComponent(val);
+                }
             });
 
             if (signatureVersion === 2) {
@@ -8019,7 +8049,7 @@ qq.s3.util = qq.s3.util || (function() {
             else if (signatureVersion === 4) {
                 awsParams[qq.s3.util.ALGORITHM_PARAM_NAME] = qq.s3.util.V4_ALGORITHM_PARAM_VALUE;
                 awsParams[qq.s3.util.CREDENTIAL_PARAM_NAME] = qq.s3.util.getV4CredentialsString({date: now, key: accessKey, region: region});
-                awsParams[qq.s3.util.DATE_PARAM_NAME] = qq.s3.util.getV4PolicyDate(now);
+                awsParams[qq.s3.util.DATE_PARAM_NAME] = qq.s3.util.getV4PolicyDate(now, drift);
             }
 
             // Invoke a promissory callback that should provide us with a base64-encoded policy doc and an
@@ -8076,8 +8106,9 @@ qq.s3.util = qq.s3.util || (function() {
             }
         },
 
-        getPolicyExpirationDate: function(date) {
-            return qq.s3.util.getPolicyDate(date, 5);
+        getPolicyExpirationDate: function(date, drift) {
+            var adjustedDate = new Date(date.getTime() + drift);
+            return qq.s3.util.getPolicyDate(adjustedDate, 5);
         },
 
         getCredentialsDate: function(date) {
@@ -8176,11 +8207,13 @@ qq.s3.util = qq.s3.util || (function() {
                 spec.region + "/s3/aws4_request";
         },
 
-        getV4PolicyDate: function(date) {
-            return qq.s3.util.getCredentialsDate(date) + "T" +
-                    ("0" + date.getUTCHours()).slice(-2) +
-                    ("0" + date.getUTCMinutes()).slice(-2) +
-                    ("0" + date.getUTCSeconds()).slice(-2) +
+        getV4PolicyDate: function(date, drift) {
+            var adjustedDate = new Date(date.getTime() + drift);
+
+            return qq.s3.util.getCredentialsDate(adjustedDate) + "T" +
+                    ("0" + adjustedDate.getUTCHours()).slice(-2) +
+                    ("0" + adjustedDate.getUTCMinutes()).slice(-2) +
+                    ("0" + adjustedDate.getUTCSeconds()).slice(-2) +
                     "Z";
         },
 
@@ -8333,7 +8366,10 @@ qq.s3.util = qq.s3.util || (function() {
         var options = {
             request: {
                 // public key (required for server-side signing, ignored if `credentials` have been provided)
-                accessKey: null
+                accessKey: null,
+
+                // padding, in milliseconds, to add to the x-amz-date header & the policy expiration date
+                clockDrift: 0
             },
 
             objectProperties: {
@@ -8523,6 +8559,7 @@ qq.s3.util = qq.s3.util || (function() {
                     iframeSupport: this._options.iframeSupport,
                     objectProperties: this._options.objectProperties,
                     signature: this._options.signature,
+                    clockDrift: this._options.request.clockDrift,
                     // pass size limit validation values to include in the request so AWS enforces this server-side
                     validation: {
                         minSizeLimit: this._options.validation.minSizeLimit,
@@ -8545,7 +8582,7 @@ qq.s3.util = qq.s3.util || (function() {
                 };
             });
 
-            // Param names should be lower case to avoid signature mismatches
+            // Some param names should be lower case to avoid signature mismatches
             qq.override(this._paramsStore, function(super_) {
                 return {
                     get: function(id) {
@@ -8553,7 +8590,13 @@ qq.s3.util = qq.s3.util || (function() {
                             modifiedParams = {};
 
                         qq.each(oldParams, function(name, val) {
-                            modifiedParams[name.toLowerCase()] = qq.isFunction(val) ? val() : val;
+                            var paramName = name;
+
+                            if (qq.indexOf(qq.s3.util.CASE_SENSITIVE_PARAM_NAMES, paramName) < 0) {
+                                paramName = paramName.toLowerCase();
+                            }
+
+                            modifiedParams[paramName] = qq.isFunction(val) ? val() : val;
                         });
 
                         return modifiedParams;
@@ -8793,6 +8836,7 @@ qq.s3.RequestSigner = function(o) {
             expectingPolicy: false,
             method: "POST",
             signatureSpec: {
+                drift: 0,
                 credentialsProvider: {},
                 endpoint: null,
                 customHeaders: {},
@@ -8830,8 +8874,9 @@ qq.s3.RequestSigner = function(o) {
 
         v2 = {
             getStringToSign: function(signatureSpec) {
-                return qq.format("{}\n\n{}\n\n{}/{}/{}",
+                return qq.format("{}\n{}\n{}\n\n{}/{}/{}",
                     signatureSpec.method,
+                    signatureSpec.contentMd5 || "",
                     signatureSpec.contentType || "",
                     signatureSpec.headersStr || "\n",
                     signatureSpec.bucket,
@@ -8948,7 +8993,7 @@ qq.s3.RequestSigner = function(o) {
 
             getStringToSign: function(signatureSpec) {
                 var canonicalRequest = v4.getCanonicalRequest(signatureSpec),
-                    date = qq.s3.util.getV4PolicyDate(signatureSpec.date),
+                    date = qq.s3.util.getV4PolicyDate(signatureSpec.date, signatureSpec.drift),
                     hashedRequest = CryptoJS.SHA256(canonicalRequest).toString(),
                     scope = v4.getScope(signatureSpec.date, options.signatureSpec.region),
                     stringToSignTemplate = "AWS4-HMAC-SHA256\n{}\n{}\n{}";
@@ -9088,19 +9133,36 @@ qq.s3.RequestSigner = function(o) {
             endOfUrl, signatureSpec, toSign,
 
             generateStringToSign = function(requestInfo) {
+                var contentMd5,
+                    headerIndexesToRemove = [];
+
                 qq.each(requestInfo.headers, function(name) {
                     headerNames.push(name);
                 });
                 headerNames.sort();
 
-                qq.each(headerNames, function(idx, name) {
-                    headersStr += name.toLowerCase() + ":" + requestInfo.headers[name].trim() + "\n";
+                qq.each(headerNames, function(idx, headerName) {
+                    if (qq.indexOf(qq.s3.util.UNSIGNABLE_REST_HEADER_NAMES, headerName) < 0) {
+                        headersStr += headerName.toLowerCase() + ":" + requestInfo.headers[headerName].trim() + "\n";
+                    }
+                    else if (headerName === "Content-MD5") {
+                        contentMd5 = requestInfo.headers[headerName];
+                    }
+                    else {
+                        headerIndexesToRemove.unshift(idx);
+                    }
+                });
+
+                qq.each(headerIndexesToRemove, function(idx, headerIdx) {
+                    headerNames.splice(headerIdx, 1);
                 });
 
                 signatureSpec = {
                     bucket: requestInfo.bucket,
+                    contentMd5: contentMd5,
                     contentType: requestInfo.contentType,
                     date: now,
+                    drift: options.signatureSpec.drift,
                     endOfUrl: endOfUrl,
                     hashedContent: requestInfo.hashedContent,
                     headerNames: headerNames,
@@ -9143,7 +9205,7 @@ qq.s3.RequestSigner = function(o) {
             v4.getEncodedHashedPayload(requestInfo.content).then(function(hashedContent) {
                 requestInfo.headers["x-amz-content-sha256"] = hashedContent;
                 requestInfo.headers.Host = requestInfo.host;
-                requestInfo.headers["x-amz-date"] = qq.s3.util.getV4PolicyDate(now);
+                requestInfo.headers["x-amz-date"] = qq.s3.util.getV4PolicyDate(now, options.signatureSpec.drift);
                 requestInfo.hashedContent = hashedContent;
 
                 promise.success(generateStringToSign(requestInfo));
@@ -9309,9 +9371,10 @@ qq.s3.RequestSigner = function(o) {
 
                 getToSign: function(id) {
                     var sessionToken = credentialsProvider.get().sessionToken,
-                        promise = new qq.Promise();
+                        promise = new qq.Promise(),
+                        adjustedDate = new Date(Date.now() + options.signatureSpec.drift);
 
-                    headers["x-amz-date"] = new Date().toUTCString();
+                    headers["x-amz-date"] = adjustedDate.toUTCString();
 
                     if (sessionToken) {
                         headers[qq.s3.util.SESSION_TOKEN_PARAM_NAME] = sessionToken;
@@ -9558,7 +9621,12 @@ qq.s3.InitiateMultipartAjaxRequester = function(o) {
         headers[qq.s3.util.AWS_PARAM_PREFIX + options.filenameParam] = encodeURIComponent(options.getName(id));
 
         qq.each(options.paramsStore.get(id), function(name, val) {
-            headers[qq.s3.util.AWS_PARAM_PREFIX + name] = encodeURIComponent(val);
+            if (qq.indexOf(qq.s3.util.UNPREFIXED_PARAM_NAMES, name) >= 0) {
+                headers[name] = val;
+            }
+            else {
+                headers[qq.s3.util.AWS_PARAM_PREFIX + name] = encodeURIComponent(val);
+            }
         });
 
         signatureConstructor = getSignatureAjaxRequester.constructStringToSign
@@ -9990,6 +10058,7 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
 
     var getName = proxy.getName,
         log = proxy.log,
+        clockDrift = spec.clockDrift,
         expectedStatus = 200,
         onGetBucket = spec.getBucket,
         onGetHost = spec.getHost,
@@ -10002,7 +10071,7 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
         region = spec.objectProperties.region,
         serverSideEncryption = spec.objectProperties.serverSideEncryption,
         validation = spec.validation,
-        signature = qq.extend({region: region}, spec.signature),
+        signature = qq.extend({region: region, drift: clockDrift}, spec.signature),
         handler = this,
         credentialsProvider = spec.signature.credentialsProvider,
 
@@ -10248,6 +10317,7 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
 
                 return qq.s3.util.generateAwsParams({
                     endpoint: endpointStore.get(id),
+                    clockDrift: clockDrift,
                     params: customParams,
                     type: handler._getMimeType(id),
                     bucket: upload.bucket.getName(id),
@@ -10594,6 +10664,7 @@ qq.s3.FormUploadHandler = function(options, proxy) {
     "use strict";
 
     var handler = this,
+        clockDrift = options.clockDrift,
         onUuidChanged = proxy.onUuidChanged,
         getName = proxy.getName,
         getUuid = proxy.getUuid,
@@ -10669,6 +10740,7 @@ qq.s3.FormUploadHandler = function(options, proxy) {
 
         return qq.s3.util.generateAwsParams({
             endpoint: endpointStore.get(id),
+            clockDrift: clockDrift,
             params: customParams,
             bucket: handler._getFileState(id).bucket,
             key: handler.getThirdPartyFileId(id),
@@ -15625,4 +15697,4 @@ code.google.com/p/crypto-js/wiki/License
 
 }(jQuery));
 
-/*! 2015-12-04 */
+/*! 2016-05-12 */

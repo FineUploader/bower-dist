@@ -3,7 +3,7 @@
 *
 * Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.4.1
+* Version: 5.5.0
 *
 * Homepage: http://fineuploader.com
 *
@@ -901,7 +901,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version = "5.4.1";
+qq.version = "5.5.0";
 
 /* globals qq */
 qq.supportedFeatures = (function() {
@@ -12391,4 +12391,4 @@ qq.FilenameEditHandler = function(s, inheritedInternalApi) {
 
 }(jQuery));
 
-/*! 2015-12-04 */
+/*! 2016-05-12 */
