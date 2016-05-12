@@ -3,7 +3,7 @@
 *
 * Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
 *
-* Version: 5.5.0
+* Version: 5.5.1
 *
 * Homepage: http://fineuploader.com
 *
@@ -901,7 +901,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version = "5.5.0";
+qq.version = "5.5.1";
 
 /* globals qq */
 qq.supportedFeatures = (function() {
@@ -4331,9 +4331,8 @@ qq.UploadHandlerController = function(o, namespace) {
 
             // Send the next chunk
             else {
-                log("Sending chunked upload request for item " + id + ": bytes " + (chunkData.start + 1) + "-" + chunkData.end + " of " + size);
+                log(qq.format("Sending chunked upload request for item {}.{}, bytes {}-{} of {}.", id, chunkIdx, chunkData.start + 1, chunkData.end, size));
                 options.onUploadChunk(id, name, handler._getChunkDataForCallback(chunkData));
-
                 inProgressChunks.push(chunkIdx);
                 handler._getFileState(id).chunking.inProgress = inProgressChunks;
 
@@ -4372,6 +4371,9 @@ qq.UploadHandlerController = function(o, namespace) {
                         else if (chunked.hasMoreParts(id)) {
                             chunked.sendNext(id);
                         }
+                        else {
+                            log(qq.format("File ID {} has no more chunks to send and these chunk indexes are still marked as in-progress: {}", id, JSON.stringify(inProgressChunks)));
+                        }
                     },
 
                     // upload chunk failure
@@ -4402,8 +4404,13 @@ qq.UploadHandlerController = function(o, namespace) {
                             if (concurrentChunkingPossible) {
                                 handler._getFileState(id).temp.ignoreFailure = true;
 
+                                log(qq.format("Going to attempt to abort these chunks: {}. These are currently in-progress: {}.", JSON.stringify(Object.keys(handler._getXhrs(id))), JSON.stringify(handler._getFileState(id).chunking.inProgress)));
                                 qq.each(handler._getXhrs(id), function(ckid, ckXhr) {
+                                    log(qq.format("Attempting to abort file {}.{}. XHR readyState {}. ", id, ckid, ckXhr.readyState));
                                     ckXhr.abort();
+                                    // Flag the transport, in case we are waiting for some other async operation
+                                    // to complete before attempting to upload the chunk
+                                    ckXhr._cancelled = true;
                                 });
 
                                 // We must indicate that all aborted chunks are no longer in progress
@@ -5375,6 +5382,7 @@ qq.XhrUploadHandler = function(spec) {
                 remaining = optRemaining || handler._getFileState(id).chunking.remaining;
 
             if (inProgress) {
+                log(qq.format("Moving these chunks from in-progress {}, to remaining.", JSON.stringify(inProgress)));
                 inProgress.reverse();
                 qq.each(inProgress, function(idx, chunkIdx) {
                     remaining.unshift(chunkIdx);
@@ -5462,8 +5470,8 @@ qq.XhrUploadHandler = function(spec) {
                 totalChunks = handler._getTotalChunks(id),
                 cachedChunks = this._getFileState(id).temp.cachedChunks,
 
-                // To work around a Webkit GC bug, we must keep each chunk `Blob` in scope until we are done with it.
-                // See https://github.com/Widen/fine-uploader/issues/937#issuecomment-41418760
+            // To work around a Webkit GC bug, we must keep each chunk `Blob` in scope until we are done with it.
+            // See https://github.com/Widen/fine-uploader/issues/937#issuecomment-41418760
                 blob = cachedChunks[chunkIndex] || qq.sliceBlob(fileOrBlob, startBytes, endBytes);
 
             cachedChunks[chunkIndex] = blob;
@@ -13615,16 +13623,22 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
                 // Add appropriate headers to the multipart upload request.
                 // Once these have been determined (asynchronously) attach the headers and send the chunk.
                 chunked.initHeaders(id, chunkIdx, chunkData.blob).then(function(headers, endOfUrl) {
-                    var url = domain + "/" + endOfUrl;
-                    handler._registerProgressHandler(id, chunkIdx, chunkData.size);
-                    upload.track(id, xhr, chunkIdx).then(promise.success, promise.failure);
-                    xhr.open("PUT", url, true);
+                    if (xhr._cancelled) {
+                        log(qq.format("Upload of item {}.{} cancelled. Upload will not start after successful signature request.", id, chunkIdx));
+                        promise.failure({error: "Chunk upload cancelled"});
+                    }
+                    else {
+                        var url = domain + "/" + endOfUrl;
+                        handler._registerProgressHandler(id, chunkIdx, chunkData.size);
+                        upload.track(id, xhr, chunkIdx).then(promise.success, promise.failure);
+                        xhr.open("PUT", url, true);
 
-                    qq.each(headers, function(name, val) {
-                        xhr.setRequestHeader(name, val);
-                    });
+                        qq.each(headers, function(name, val) {
+                            xhr.setRequestHeader(name, val);
+                        });
 
-                    xhr.send(chunkData.blob);
+                        xhr.send(chunkData.blob);
+                    }
                 }, function() {
                     promise.failure({error: "Problem signing the chunk!"}, xhr);
                 });
