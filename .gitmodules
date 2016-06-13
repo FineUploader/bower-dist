@@ -1,3 +1,4 @@
 [submodule "src"]
 	path = src
-	url = https://github.com/Widen/fine-uploader.git
+	url = https://github.com/FineUploader/fine-uploader.git
+	branhc = master
