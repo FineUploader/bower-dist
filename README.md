@@ -1,5 +1,4 @@
 [![Fine Uploader](http://fineuploader.com/img/FineUploader_logo.png)](http://fineuploader.com)
-![Bower](https://img.shields.io/bower/v/fineuploader-dist.svg?style=flat-square)
 
 ![Bower](https://img.shields.io/bower/v/fineuploader-dist.svg?style=flat-square)
 [![license](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE)
@@ -74,4 +73,4 @@ $ ./build.sh <version> # e.g: ./build.sh 5.8.0
 ### Credits
 
 * [Fery Wardiyanto](https://github.com/feryardiant) as original author of this distribution. [Buy him a coffee](https://gratipay.com/~feryardiant/).
-* *Fine Uploader is a code library sponsored by [Widen Enterprises, Inc.](http://www.widen.com/)*
+* **Fine Uploader** is a code library sponsored by [Widen Enterprises, Inc.](http://www.widen.com/)
