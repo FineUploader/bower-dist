@@ -54,7 +54,6 @@ rm -rf ../dist/*
 e '33;0' 'Copying build files'
 cp -rf _build/* ../dist/
 cp -rf client/html/templates/ ../dist/templates
-cp  LICENSE ../dist/
 
 e '33;0' 'Back to master branch'
 git checkout master && \
