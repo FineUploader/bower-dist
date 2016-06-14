@@ -12,20 +12,17 @@
 
 ---
 
-## [Bower](http://bower.io) distribution build of [FineUploader](http://fineuploader.com)
-
-### DISCLAIMER
-
-1. This repo is **ONLY** provide distribution copy from the original FineUploader build.
-2. This repo **DOES NOT** provide any customization of FineUploader.
+## [Bower](http://bower.io) distribution build of [Fine Uploader](http://fineuploader.com)
 
 ### Usage
+
+First, download Fine Uploader: 
 
 ```bash
 bower install fineuploader-dist --save
 ```
 
-Link the necessary javascript files into your page.
+Then, simply reference the necessary JavaScript files on your HTML page:
 
 ```html
 <script src="/bower_components/fineuploader-dist/dist/fineuploader.min.js"></script>
@@ -38,9 +35,9 @@ __Enjoy__
 
 ### Updating or building manually
 
-Currently the build is for fine-uploader `v5.9.0`. You can build yourself by doing the following
+You normally should not have to do this, but you can _also_ build this distribution yourself by following the steps in this section.
 
-### Prepping (getting fine-uploader)
+#### Prepping (getting fine-uploader)
 
 ```bash
 $ git clone --recursive https://github.com/FineUploader/bower-dist.git
@@ -53,7 +50,7 @@ $ cd fineuploader-dist
 $ git pull origin
 ```
 
-### Building
+#### Building
 
 In your terminal please navigate to where the project is cloned
 
@@ -63,8 +60,8 @@ $ ./build.sh <version> # e.g: ./build.sh 5.9.0
 
 **NOTE:**
 
-- The build will automaticaly install node dependencies if node_modules dir is not exist.
-- Somehow you want to reinstall the dependencies. Use `--reinstall-dep` to remove existing `node_modules` directory then reinstall the them.
+- The build will automaticaly install node dependencies if the node_modules directory does not exist.
+- If for some reason you would like to reinstall the dependencies use `--reinstall-dep` to remove existing `node_modules` directory first. After that execute the following command:
 
 	```bash
 	$ ./build.sh <version> --reinstall-dep
