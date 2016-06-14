@@ -1,15 +1,15 @@
 /*!
 * Fine Uploader
 *
-* Copyright 2015, Widen Enterprises, Inc. info@fineuploader.com
+* Copyright 2013-present, Widen Enterprises, Inc.
 *
-* Version: 5.8.0
+* Version: 5.9.0
 *
 * Homepage: http://fineuploader.com
 *
 * Repository: git://github.com/FineUploader/fine-uploader.git
 *
-* Licensed only under the Widen Commercial License (http://fineuploader.com/licensing).
+* Licensed only under the MIT license (http://fineuploader.com/licensing).
 */ 
 
 
@@ -906,7 +906,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version = "5.8.0";
+qq.version = "5.9.0";
 
 /* globals qq */
 qq.supportedFeatures = (function() {
@@ -16788,4 +16788,4 @@ else {
 }
 }(window));
 
-/*! 2016-05-12 */
+/*! 2016-06-14 */
