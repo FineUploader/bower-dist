@@ -1,10 +1,9 @@
 [![Fine Uploader](http://fineuploader.com/img/FineUploader_logo.png)](http://fineuploader.com)
 ![Bower](https://img.shields.io/bower/v/fineuploader-dist.svg?style=flat-square)
 
-## [Bower](http://bower.io) distribution build of [FineUploader](http://fineuploader.com)
-
-[![license](https://img.shields.io/badge/license-MIT-brightgreen.svg)](LICENSE)
-[![Freenode](https://img.shields.io/badge/chat-on%20freenode-brightgreen.svg)](irc://chat.freenode.net/#fineuploader)
+![Bower](https://img.shields.io/bower/v/fineuploader-dist.svg?style=flat-square)
+[![license](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE)
+[![Freenode](https://img.shields.io/badge/chat-on%20freenode-brightgreen.svg?style=flat-square)](irc://chat.freenode.net/#fineuploader)
 
 [**Documentation**](http://docs.fineuploader.com) |
 [**Examples**](http://fineuploader.com/demos) |
@@ -13,6 +12,8 @@
 [**Changelog**](http://blog.fineuploader.com/category/changelog/)
 
 ---
+
+## [Bower](http://bower.io) distribution build of [FineUploader](http://fineuploader.com)
 
 ### DISCLAIMER
 
@@ -72,5 +73,5 @@ $ ./build.sh <version> # e.g: ./build.sh 5.8.0
 
 ### Credits
 
-* @feryardiant as original author of this distribution. [![Gratipay](https://img.shields.io/gratipay/feryardiant.svg?style=flat-square)](https://gratipay.com/feryardiant)
+* [Fery Wardiyanto](https://github.com/feryardiant) as original author of this distribution. [Buy him a coffee](https://gratipay.com/~feryardiant/).
 * *Fine Uploader is a code library sponsored by [Widen Enterprises, Inc.](http://www.widen.com/)*
