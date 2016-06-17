@@ -3,7 +3,7 @@
 *
 * Copyright 2013-present, Widen Enterprises, Inc.
 *
-* Version: 5.9.0
+* Version: 5.10.0
 *
 * Homepage: http://fineuploader.com
 *
@@ -367,4 +367,4 @@ INPUT.qq-edit-filename.qq-editing {
 .qq-uploader DIALOG::backdrop {
     background-color: rgba(0, 0, 0, 0.7);
 }
-/*! 2016-06-14 */
+/*! 2016-06-17 */
