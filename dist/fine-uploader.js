@@ -3,7 +3,7 @@
 *
 * Copyright 2013-present, Widen Enterprises, Inc.
 *
-* Version: 5.10.0
+* Version: 5.10.1
 *
 * Homepage: http://fineuploader.com
 *
@@ -906,7 +906,7 @@ var qq = function(element) {
 }());
 
 /*global qq */
-qq.version = "5.10.0";
+qq.version = "5.10.1";
 
 /* globals qq */
 qq.supportedFeatures = (function() {
@@ -3211,7 +3211,7 @@ qq.status = {
             /* jshint eqnull:true */
             if (qq.Session && this._options.session.endpoint != null) {
                 if (!this._session) {
-                    qq.extend(options, this._options.cors);
+                    qq.extend(options, {cors: this._options.cors});
 
                     options.log = qq.bind(this.log, this);
                     options.addFileRecord = qq.bind(this._addCannedFile, this);
@@ -9272,7 +9272,7 @@ qq.ImageGenerator = function(log) {
     function determineMimeOfFileName(nameWithPath) {
         /*jshint -W015 */
         var pathSegments = nameWithPath.split("/"),
-            name = pathSegments[pathSegments.length - 1],
+            name = pathSegments[pathSegments.length - 1].split("?")[0],
             extension = qq.getExtension(name);
 
         extension = extension && extension.toLowerCase();
@@ -11336,4 +11336,4 @@ else {
 }
 }(window));
 
-/*! 2016-06-17 */
+/*! 2016-08-18 */
