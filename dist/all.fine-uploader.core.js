@@ -5533,1904 +5533,3161 @@
             }
         });
     };
-    qq.DragAndDrop = function(o) {
-        "use strict";
-        var options, HIDE_ZONES_EVENT_NAME = "qq-hidezones", HIDE_BEFORE_ENTER_ATTR = "qq-hide-dropzone", uploadDropZones = [], droppedFiles = [], disposeSupport = new qq.DisposeSupport();
-        options = {
-            dropZoneElements: [],
-            allowMultipleItems: true,
-            classes: {
-                dropActive: null
-            },
-            callbacks: new qq.DragAndDrop.callbacks()
-        };
-        qq.extend(options, o, true);
-        function uploadDroppedFiles(files, uploadDropZone) {
-            var filesAsArray = Array.prototype.slice.call(files);
-            options.callbacks.dropLog("Grabbed " + files.length + " dropped files.");
-            uploadDropZone.dropDisabled(false);
-            options.callbacks.processingDroppedFilesComplete(filesAsArray, uploadDropZone.getElement());
-        }
-        function traverseFileTree(entry) {
-            var parseEntryPromise = new qq.Promise();
-            if (entry.isFile) {
-                entry.file(function(file) {
-                    var name = entry.name, fullPath = entry.fullPath, indexOfNameInFullPath = fullPath.indexOf(name);
-                    fullPath = fullPath.substr(0, indexOfNameInFullPath);
-                    if (fullPath.charAt(0) === "/") {
-                        fullPath = fullPath.substr(1);
+    qq.CryptoJS = function(Math, undefined) {
+        var C = {};
+        var C_lib = C.lib = {};
+        var Base = C_lib.Base = function() {
+            function F() {}
+            return {
+                extend: function(overrides) {
+                    F.prototype = this;
+                    var subtype = new F();
+                    if (overrides) {
+                        subtype.mixIn(overrides);
                     }
-                    file.qqPath = fullPath;
-                    droppedFiles.push(file);
-                    parseEntryPromise.success();
-                }, function(fileError) {
-                    options.callbacks.dropLog("Problem parsing '" + entry.fullPath + "'.  FileError code " + fileError.code + ".", "error");
-                    parseEntryPromise.failure();
-                });
-            } else if (entry.isDirectory) {
-                getFilesInDirectory(entry).then(function allEntriesRead(entries) {
-                    var entriesLeft = entries.length;
-                    qq.each(entries, function(idx, entry) {
-                        traverseFileTree(entry).done(function() {
-                            entriesLeft -= 1;
-                            if (entriesLeft === 0) {
-                                parseEntryPromise.success();
-                            }
-                        });
-                    });
-                    if (!entries.length) {
-                        parseEntryPromise.success();
+                    if (!subtype.hasOwnProperty("init")) {
+                        subtype.init = function() {
+                            subtype.$super.init.apply(this, arguments);
+                        };
                     }
-                }, function readFailure(fileError) {
-                    options.callbacks.dropLog("Problem parsing '" + entry.fullPath + "'.  FileError code " + fileError.code + ".", "error");
-                    parseEntryPromise.failure();
-                });
-            }
-            return parseEntryPromise;
-        }
-        function getFilesInDirectory(entry, reader, accumEntries, existingPromise) {
-            var promise = existingPromise || new qq.Promise(), dirReader = reader || entry.createReader();
-            dirReader.readEntries(function readSuccess(entries) {
-                var newEntries = accumEntries ? accumEntries.concat(entries) : entries;
-                if (entries.length) {
-                    setTimeout(function() {
-                        getFilesInDirectory(entry, dirReader, newEntries, promise);
-                    }, 0);
-                } else {
-                    promise.success(newEntries);
-                }
-            }, promise.failure);
-            return promise;
-        }
-        function handleDataTransfer(dataTransfer, uploadDropZone) {
-            var pendingFolderPromises = [], handleDataTransferPromise = new qq.Promise();
-            options.callbacks.processingDroppedFiles();
-            uploadDropZone.dropDisabled(true);
-            if (dataTransfer.files.length > 1 && !options.allowMultipleItems) {
-                options.callbacks.processingDroppedFilesComplete([]);
-                options.callbacks.dropError("tooManyFilesError", "");
-                uploadDropZone.dropDisabled(false);
-                handleDataTransferPromise.failure();
-            } else {
-                droppedFiles = [];
-                if (qq.isFolderDropSupported(dataTransfer)) {
-                    qq.each(dataTransfer.items, function(idx, item) {
-                        var entry = item.webkitGetAsEntry();
-                        if (entry) {
-                            if (entry.isFile) {
-                                droppedFiles.push(item.getAsFile());
-                            } else {
-                                pendingFolderPromises.push(traverseFileTree(entry).done(function() {
-                                    pendingFolderPromises.pop();
-                                    if (pendingFolderPromises.length === 0) {
-                                        handleDataTransferPromise.success();
-                                    }
-                                }));
-                            }
+                    subtype.init.prototype = subtype;
+                    subtype.$super = this;
+                    return subtype;
+                },
+                create: function() {
+                    var instance = this.extend();
+                    instance.init.apply(instance, arguments);
+                    return instance;
+                },
+                init: function() {},
+                mixIn: function(properties) {
+                    for (var propertyName in properties) {
+                        if (properties.hasOwnProperty(propertyName)) {
+                            this[propertyName] = properties[propertyName];
                         }
-                    });
-                } else {
-                    droppedFiles = dataTransfer.files;
-                }
-                if (pendingFolderPromises.length === 0) {
-                    handleDataTransferPromise.success();
-                }
-            }
-            return handleDataTransferPromise;
-        }
-        function setupDropzone(dropArea) {
-            var dropZone = new qq.UploadDropZone({
-                HIDE_ZONES_EVENT_NAME: HIDE_ZONES_EVENT_NAME,
-                element: dropArea,
-                onEnter: function(e) {
-                    qq(dropArea).addClass(options.classes.dropActive);
-                    e.stopPropagation();
+                    }
+                    if (properties.hasOwnProperty("toString")) {
+                        this.toString = properties.toString;
+                    }
                 },
-                onLeaveNotDescendants: function(e) {
-                    qq(dropArea).removeClass(options.classes.dropActive);
-                },
-                onDrop: function(e) {
-                    handleDataTransfer(e.dataTransfer, dropZone).then(function() {
-                        uploadDroppedFiles(droppedFiles, dropZone);
-                    }, function() {
-                        options.callbacks.dropLog("Drop event DataTransfer parsing failed.  No files will be uploaded.", "error");
-                    });
+                clone: function() {
+                    return this.init.prototype.extend(this);
                 }
-            });
-            disposeSupport.addDisposer(function() {
-                dropZone.dispose();
-            });
-            qq(dropArea).hasAttribute(HIDE_BEFORE_ENTER_ATTR) && qq(dropArea).hide();
-            uploadDropZones.push(dropZone);
-            return dropZone;
-        }
-        function isFileDrag(dragEvent) {
-            var fileDrag;
-            qq.each(dragEvent.dataTransfer.types, function(key, val) {
-                if (val === "Files") {
-                    fileDrag = true;
-                    return false;
-                }
-            });
-            return fileDrag;
-        }
-        function leavingDocumentOut(e) {
-            if (qq.firefox()) {
-                return !e.relatedTarget;
-            }
-            if (qq.safari()) {
-                return e.x < 0 || e.y < 0;
-            }
-            return e.x === 0 && e.y === 0;
-        }
-        function setupDragDrop() {
-            var dropZones = options.dropZoneElements, maybeHideDropZones = function() {
-                setTimeout(function() {
-                    qq.each(dropZones, function(idx, dropZone) {
-                        qq(dropZone).hasAttribute(HIDE_BEFORE_ENTER_ATTR) && qq(dropZone).hide();
-                        qq(dropZone).removeClass(options.classes.dropActive);
-                    });
-                }, 10);
             };
-            qq.each(dropZones, function(idx, dropZone) {
-                var uploadDropZone = setupDropzone(dropZone);
-                if (dropZones.length && qq.supportedFeatures.fileDrop) {
-                    disposeSupport.attach(document, "dragenter", function(e) {
-                        if (!uploadDropZone.dropDisabled() && isFileDrag(e)) {
-                            qq.each(dropZones, function(idx, dropZone) {
-                                if (dropZone instanceof HTMLElement && qq(dropZone).hasAttribute(HIDE_BEFORE_ENTER_ATTR)) {
-                                    qq(dropZone).css({
-                                        display: "block"
-                                    });
-                                }
-                            });
-                        }
-                    });
+        }();
+        var WordArray = C_lib.WordArray = Base.extend({
+            init: function(words, sigBytes) {
+                words = this.words = words || [];
+                if (sigBytes != undefined) {
+                    this.sigBytes = sigBytes;
+                } else {
+                    this.sigBytes = words.length * 4;
                 }
-            });
-            disposeSupport.attach(document, "dragleave", function(e) {
-                if (leavingDocumentOut(e)) {
-                    maybeHideDropZones();
-                }
-            });
-            disposeSupport.attach(qq(document).children()[0], "mouseenter", function(e) {
-                maybeHideDropZones();
-            });
-            disposeSupport.attach(document, "drop", function(e) {
-                e.preventDefault();
-                maybeHideDropZones();
-            });
-            disposeSupport.attach(document, HIDE_ZONES_EVENT_NAME, maybeHideDropZones);
-        }
-        setupDragDrop();
-        qq.extend(this, {
-            setupExtraDropzone: function(element) {
-                options.dropZoneElements.push(element);
-                setupDropzone(element);
             },
-            removeDropzone: function(element) {
-                var i, dzs = options.dropZoneElements;
-                for (i in dzs) {
-                    if (dzs[i] === element) {
-                        return dzs.splice(i, 1);
+            toString: function(encoder) {
+                return (encoder || Hex).stringify(this);
+            },
+            concat: function(wordArray) {
+                var thisWords = this.words;
+                var thatWords = wordArray.words;
+                var thisSigBytes = this.sigBytes;
+                var thatSigBytes = wordArray.sigBytes;
+                this.clamp();
+                if (thisSigBytes % 4) {
+                    for (var i = 0; i < thatSigBytes; i++) {
+                        var thatByte = thatWords[i >>> 2] >>> 24 - i % 4 * 8 & 255;
+                        thisWords[thisSigBytes + i >>> 2] |= thatByte << 24 - (thisSigBytes + i) % 4 * 8;
                     }
+                } else if (thatWords.length > 65535) {
+                    for (var i = 0; i < thatSigBytes; i += 4) {
+                        thisWords[thisSigBytes + i >>> 2] = thatWords[i >>> 2];
+                    }
+                } else {
+                    thisWords.push.apply(thisWords, thatWords);
                 }
+                this.sigBytes += thatSigBytes;
+                return this;
             },
-            dispose: function() {
-                disposeSupport.dispose();
-                qq.each(uploadDropZones, function(idx, dropZone) {
-                    dropZone.dispose();
-                });
+            clamp: function() {
+                var words = this.words;
+                var sigBytes = this.sigBytes;
+                words[sigBytes >>> 2] &= 4294967295 << 32 - sigBytes % 4 * 8;
+                words.length = Math.ceil(sigBytes / 4);
+            },
+            clone: function() {
+                var clone = Base.clone.call(this);
+                clone.words = this.words.slice(0);
+                return clone;
+            },
+            random: function(nBytes) {
+                var words = [];
+                for (var i = 0; i < nBytes; i += 4) {
+                    words.push(Math.random() * 4294967296 | 0);
+                }
+                return new WordArray.init(words, nBytes);
             }
         });
-    };
-    qq.DragAndDrop.callbacks = function() {
-        "use strict";
-        return {
-            processingDroppedFiles: function() {},
-            processingDroppedFilesComplete: function(files, targetEl) {},
-            dropError: function(code, errorSpecifics) {
-                qq.log("Drag & drop error code '" + code + " with these specifics: '" + errorSpecifics + "'", "error");
-            },
-            dropLog: function(message, level) {
-                qq.log(message, level);
-            }
-        };
-    };
-    qq.UploadDropZone = function(o) {
-        "use strict";
-        var disposeSupport = new qq.DisposeSupport(), options, element, preventDrop, dropOutsideDisabled;
-        options = {
-            element: null,
-            onEnter: function(e) {},
-            onLeave: function(e) {},
-            onLeaveNotDescendants: function(e) {},
-            onDrop: function(e) {}
-        };
-        qq.extend(options, o);
-        element = options.element;
-        function dragoverShouldBeCanceled() {
-            return qq.safari() || qq.firefox() && qq.windows();
-        }
-        function disableDropOutside(e) {
-            if (!dropOutsideDisabled) {
-                if (dragoverShouldBeCanceled) {
-                    disposeSupport.attach(document, "dragover", function(e) {
-                        e.preventDefault();
-                    });
-                } else {
-                    disposeSupport.attach(document, "dragover", function(e) {
-                        if (e.dataTransfer) {
-                            e.dataTransfer.dropEffect = "none";
-                            e.preventDefault();
-                        }
-                    });
+        var C_enc = C.enc = {};
+        var Hex = C_enc.Hex = {
+            stringify: function(wordArray) {
+                var words = wordArray.words;
+                var sigBytes = wordArray.sigBytes;
+                var hexChars = [];
+                for (var i = 0; i < sigBytes; i++) {
+                    var bite = words[i >>> 2] >>> 24 - i % 4 * 8 & 255;
+                    hexChars.push((bite >>> 4).toString(16));
+                    hexChars.push((bite & 15).toString(16));
                 }
-                dropOutsideDisabled = true;
+                return hexChars.join("");
+            },
+            parse: function(hexStr) {
+                var hexStrLength = hexStr.length;
+                var words = [];
+                for (var i = 0; i < hexStrLength; i += 2) {
+                    words[i >>> 3] |= parseInt(hexStr.substr(i, 2), 16) << 24 - i % 8 * 4;
+                }
+                return new WordArray.init(words, hexStrLength / 2);
             }
-        }
-        function isValidFileDrag(e) {
-            if (!qq.supportedFeatures.fileDrop) {
-                return false;
+        };
+        var Latin1 = C_enc.Latin1 = {
+            stringify: function(wordArray) {
+                var words = wordArray.words;
+                var sigBytes = wordArray.sigBytes;
+                var latin1Chars = [];
+                for (var i = 0; i < sigBytes; i++) {
+                    var bite = words[i >>> 2] >>> 24 - i % 4 * 8 & 255;
+                    latin1Chars.push(String.fromCharCode(bite));
+                }
+                return latin1Chars.join("");
+            },
+            parse: function(latin1Str) {
+                var latin1StrLength = latin1Str.length;
+                var words = [];
+                for (var i = 0; i < latin1StrLength; i++) {
+                    words[i >>> 2] |= (latin1Str.charCodeAt(i) & 255) << 24 - i % 4 * 8;
+                }
+                return new WordArray.init(words, latin1StrLength);
             }
-            var effectTest, dt = e.dataTransfer, isSafari = qq.safari();
-            effectTest = qq.ie() && qq.supportedFeatures.fileDrop ? true : dt.effectAllowed !== "none";
-            return dt && effectTest && (dt.files || !isSafari && dt.types.contains && dt.types.contains("Files"));
-        }
-        function isOrSetDropDisabled(isDisabled) {
-            if (isDisabled !== undefined) {
-                preventDrop = isDisabled;
-            }
-            return preventDrop;
-        }
-        function triggerHidezonesEvent() {
-            var hideZonesEvent;
-            function triggerUsingOldApi() {
-                hideZonesEvent = document.createEvent("Event");
-                hideZonesEvent.initEvent(options.HIDE_ZONES_EVENT_NAME, true, true);
-            }
-            if (window.CustomEvent) {
+        };
+        var Utf8 = C_enc.Utf8 = {
+            stringify: function(wordArray) {
                 try {
-                    hideZonesEvent = new CustomEvent(options.HIDE_ZONES_EVENT_NAME);
-                } catch (err) {
-                    triggerUsingOldApi();
+                    return decodeURIComponent(escape(Latin1.stringify(wordArray)));
+                } catch (e) {
+                    throw new Error("Malformed UTF-8 data");
                 }
-            } else {
-                triggerUsingOldApi();
+            },
+            parse: function(utf8Str) {
+                return Latin1.parse(unescape(encodeURIComponent(utf8Str)));
             }
-            document.dispatchEvent(hideZonesEvent);
-        }
-        function attachEvents() {
-            disposeSupport.attach(element, "dragover", function(e) {
-                if (!isValidFileDrag(e)) {
-                    return;
+        };
+        var BufferedBlockAlgorithm = C_lib.BufferedBlockAlgorithm = Base.extend({
+            reset: function() {
+                this._data = new WordArray.init();
+                this._nDataBytes = 0;
+            },
+            _append: function(data) {
+                if (typeof data == "string") {
+                    data = Utf8.parse(data);
                 }
-                var effect = qq.ie() && qq.supportedFeatures.fileDrop ? null : e.dataTransfer.effectAllowed;
-                if (effect === "move" || effect === "linkMove") {
-                    e.dataTransfer.dropEffect = "move";
+                this._data.concat(data);
+                this._nDataBytes += data.sigBytes;
+            },
+            _process: function(doFlush) {
+                var data = this._data;
+                var dataWords = data.words;
+                var dataSigBytes = data.sigBytes;
+                var blockSize = this.blockSize;
+                var blockSizeBytes = blockSize * 4;
+                var nBlocksReady = dataSigBytes / blockSizeBytes;
+                if (doFlush) {
+                    nBlocksReady = Math.ceil(nBlocksReady);
                 } else {
-                    e.dataTransfer.dropEffect = "copy";
+                    nBlocksReady = Math.max((nBlocksReady | 0) - this._minBufferSize, 0);
                 }
-                e.stopPropagation();
-                e.preventDefault();
-            });
-            disposeSupport.attach(element, "dragenter", function(e) {
-                if (!isOrSetDropDisabled()) {
-                    if (!isValidFileDrag(e)) {
-                        return;
+                var nWordsReady = nBlocksReady * blockSize;
+                var nBytesReady = Math.min(nWordsReady * 4, dataSigBytes);
+                if (nWordsReady) {
+                    for (var offset = 0; offset < nWordsReady; offset += blockSize) {
+                        this._doProcessBlock(dataWords, offset);
                     }
-                    options.onEnter(e);
+                    var processedWords = dataWords.splice(0, nWordsReady);
+                    data.sigBytes -= nBytesReady;
                 }
-            });
-            disposeSupport.attach(element, "dragleave", function(e) {
-                if (!isValidFileDrag(e)) {
-                    return;
-                }
-                options.onLeave(e);
-                var relatedTarget = document.elementFromPoint(e.clientX, e.clientY);
-                if (qq(this).contains(relatedTarget)) {
-                    return;
-                }
-                options.onLeaveNotDescendants(e);
-            });
-            disposeSupport.attach(element, "drop", function(e) {
-                if (!isOrSetDropDisabled()) {
-                    if (!isValidFileDrag(e)) {
-                        return;
-                    }
-                    e.preventDefault();
-                    e.stopPropagation();
-                    options.onDrop(e);
-                    triggerHidezonesEvent();
-                }
-            });
-        }
-        disableDropOutside();
-        attachEvents();
-        qq.extend(this, {
-            dropDisabled: function(isDisabled) {
-                return isOrSetDropDisabled(isDisabled);
+                return new WordArray.init(processedWords, nBytesReady);
             },
-            dispose: function() {
-                disposeSupport.dispose();
+            clone: function() {
+                var clone = Base.clone.call(this);
+                clone._data = this._data.clone();
+                return clone;
             },
-            getElement: function() {
-                return element;
-            }
+            _minBufferSize: 0
         });
-    };
-    (function() {
-        "use strict";
-        qq.uiPublicApi = {
-            addInitialFiles: function(cannedFileList) {
-                this._parent.prototype.addInitialFiles.apply(this, arguments);
-                this._templating.addCacheToDom();
-            },
-            clearStoredFiles: function() {
-                this._parent.prototype.clearStoredFiles.apply(this, arguments);
-                this._templating.clearFiles();
-            },
-            addExtraDropzone: function(element) {
-                this._dnd && this._dnd.setupExtraDropzone(element);
-            },
-            removeExtraDropzone: function(element) {
-                if (this._dnd) {
-                    return this._dnd.removeDropzone(element);
-                }
-            },
-            getItemByFileId: function(id) {
-                if (!this._templating.isHiddenForever(id)) {
-                    return this._templating.getFileContainer(id);
-                }
+        var Hasher = C_lib.Hasher = BufferedBlockAlgorithm.extend({
+            cfg: Base.extend(),
+            init: function(cfg) {
+                this.cfg = this.cfg.extend(cfg);
+                this.reset();
             },
             reset: function() {
-                this._parent.prototype.reset.apply(this, arguments);
-                this._templating.reset();
-                if (!this._options.button && this._templating.getButton()) {
-                    this._defaultButtonId = this._createUploadButton({
-                        element: this._templating.getButton(),
-                        title: this._options.text.fileInputTitle
-                    }).getButtonId();
+                BufferedBlockAlgorithm.reset.call(this);
+                this._doReset();
+            },
+            update: function(messageUpdate) {
+                this._append(messageUpdate);
+                this._process();
+                return this;
+            },
+            finalize: function(messageUpdate) {
+                if (messageUpdate) {
+                    this._append(messageUpdate);
                 }
-                if (this._dnd) {
-                    this._dnd.dispose();
-                    this._dnd = this._setupDragAndDrop();
+                var hash = this._doFinalize();
+                return hash;
+            },
+            blockSize: 512 / 32,
+            _createHelper: function(hasher) {
+                return function(message, cfg) {
+                    return new hasher.init(cfg).finalize(message);
+                };
+            },
+            _createHmacHelper: function(hasher) {
+                return function(message, key) {
+                    return new C_algo.HMAC.init(hasher, key).finalize(message);
+                };
+            }
+        });
+        var C_algo = C.algo = {};
+        return C;
+    }(Math);
+    (function() {
+        var C = qq.CryptoJS;
+        var C_lib = C.lib;
+        var WordArray = C_lib.WordArray;
+        var C_enc = C.enc;
+        var Base64 = C_enc.Base64 = {
+            stringify: function(wordArray) {
+                var words = wordArray.words;
+                var sigBytes = wordArray.sigBytes;
+                var map = this._map;
+                wordArray.clamp();
+                var base64Chars = [];
+                for (var i = 0; i < sigBytes; i += 3) {
+                    var byte1 = words[i >>> 2] >>> 24 - i % 4 * 8 & 255;
+                    var byte2 = words[i + 1 >>> 2] >>> 24 - (i + 1) % 4 * 8 & 255;
+                    var byte3 = words[i + 2 >>> 2] >>> 24 - (i + 2) % 4 * 8 & 255;
+                    var triplet = byte1 << 16 | byte2 << 8 | byte3;
+                    for (var j = 0; j < 4 && i + j * .75 < sigBytes; j++) {
+                        base64Chars.push(map.charAt(triplet >>> 6 * (3 - j) & 63));
+                    }
                 }
-                this._totalFilesInBatch = 0;
-                this._filesInBatchAddedToUi = 0;
-                this._setupClickAndEditEventHandlers();
+                var paddingChar = map.charAt(64);
+                if (paddingChar) {
+                    while (base64Chars.length % 4) {
+                        base64Chars.push(paddingChar);
+                    }
+                }
+                return base64Chars.join("");
             },
-            setName: function(id, newName) {
-                var formattedFilename = this._options.formatFileName(newName);
-                this._parent.prototype.setName.apply(this, arguments);
-                this._templating.updateFilename(id, formattedFilename);
+            parse: function(base64Str) {
+                var base64StrLength = base64Str.length;
+                var map = this._map;
+                var paddingChar = map.charAt(64);
+                if (paddingChar) {
+                    var paddingIndex = base64Str.indexOf(paddingChar);
+                    if (paddingIndex != -1) {
+                        base64StrLength = paddingIndex;
+                    }
+                }
+                var words = [];
+                var nBytes = 0;
+                for (var i = 0; i < base64StrLength; i++) {
+                    if (i % 4) {
+                        var bits1 = map.indexOf(base64Str.charAt(i - 1)) << i % 4 * 2;
+                        var bits2 = map.indexOf(base64Str.charAt(i)) >>> 6 - i % 4 * 2;
+                        words[nBytes >>> 2] |= (bits1 | bits2) << 24 - nBytes % 4 * 8;
+                        nBytes++;
+                    }
+                }
+                return WordArray.create(words, nBytes);
             },
-            pauseUpload: function(id) {
-                var paused = this._parent.prototype.pauseUpload.apply(this, arguments);
-                paused && this._templating.uploadPaused(id);
-                return paused;
+            _map: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+        };
+    })();
+    (function() {
+        var C = qq.CryptoJS;
+        var C_lib = C.lib;
+        var Base = C_lib.Base;
+        var C_enc = C.enc;
+        var Utf8 = C_enc.Utf8;
+        var C_algo = C.algo;
+        var HMAC = C_algo.HMAC = Base.extend({
+            init: function(hasher, key) {
+                hasher = this._hasher = new hasher.init();
+                if (typeof key == "string") {
+                    key = Utf8.parse(key);
+                }
+                var hasherBlockSize = hasher.blockSize;
+                var hasherBlockSizeBytes = hasherBlockSize * 4;
+                if (key.sigBytes > hasherBlockSizeBytes) {
+                    key = hasher.finalize(key);
+                }
+                key.clamp();
+                var oKey = this._oKey = key.clone();
+                var iKey = this._iKey = key.clone();
+                var oKeyWords = oKey.words;
+                var iKeyWords = iKey.words;
+                for (var i = 0; i < hasherBlockSize; i++) {
+                    oKeyWords[i] ^= 1549556828;
+                    iKeyWords[i] ^= 909522486;
+                }
+                oKey.sigBytes = iKey.sigBytes = hasherBlockSizeBytes;
+                this.reset();
             },
-            continueUpload: function(id) {
-                var continued = this._parent.prototype.continueUpload.apply(this, arguments);
-                continued && this._templating.uploadContinued(id);
-                return continued;
+            reset: function() {
+                var hasher = this._hasher;
+                hasher.reset();
+                hasher.update(this._iKey);
             },
-            getId: function(fileContainerOrChildEl) {
-                return this._templating.getFileId(fileContainerOrChildEl);
+            update: function(messageUpdate) {
+                this._hasher.update(messageUpdate);
+                return this;
             },
-            getDropTarget: function(fileId) {
-                var file = this.getFile(fileId);
-                return file.qqDropTarget;
+            finalize: function(messageUpdate) {
+                var hasher = this._hasher;
+                var innerHash = hasher.finalize(messageUpdate);
+                hasher.reset();
+                var hmac = hasher.finalize(this._oKey.clone().concat(innerHash));
+                return hmac;
+            }
+        });
+    })();
+    (function() {
+        var C = qq.CryptoJS;
+        var C_lib = C.lib;
+        var WordArray = C_lib.WordArray;
+        var Hasher = C_lib.Hasher;
+        var C_algo = C.algo;
+        var W = [];
+        var SHA1 = C_algo.SHA1 = Hasher.extend({
+            _doReset: function() {
+                this._hash = new WordArray.init([ 1732584193, 4023233417, 2562383102, 271733878, 3285377520 ]);
+            },
+            _doProcessBlock: function(M, offset) {
+                var H = this._hash.words;
+                var a = H[0];
+                var b = H[1];
+                var c = H[2];
+                var d = H[3];
+                var e = H[4];
+                for (var i = 0; i < 80; i++) {
+                    if (i < 16) {
+                        W[i] = M[offset + i] | 0;
+                    } else {
+                        var n = W[i - 3] ^ W[i - 8] ^ W[i - 14] ^ W[i - 16];
+                        W[i] = n << 1 | n >>> 31;
+                    }
+                    var t = (a << 5 | a >>> 27) + e + W[i];
+                    if (i < 20) {
+                        t += (b & c | ~b & d) + 1518500249;
+                    } else if (i < 40) {
+                        t += (b ^ c ^ d) + 1859775393;
+                    } else if (i < 60) {
+                        t += (b & c | b & d | c & d) - 1894007588;
+                    } else {
+                        t += (b ^ c ^ d) - 899497514;
+                    }
+                    e = d;
+                    d = c;
+                    c = b << 30 | b >>> 2;
+                    b = a;
+                    a = t;
+                }
+                H[0] = H[0] + a | 0;
+                H[1] = H[1] + b | 0;
+                H[2] = H[2] + c | 0;
+                H[3] = H[3] + d | 0;
+                H[4] = H[4] + e | 0;
+            },
+            _doFinalize: function() {
+                var data = this._data;
+                var dataWords = data.words;
+                var nBitsTotal = this._nDataBytes * 8;
+                var nBitsLeft = data.sigBytes * 8;
+                dataWords[nBitsLeft >>> 5] |= 128 << 24 - nBitsLeft % 32;
+                dataWords[(nBitsLeft + 64 >>> 9 << 4) + 14] = Math.floor(nBitsTotal / 4294967296);
+                dataWords[(nBitsLeft + 64 >>> 9 << 4) + 15] = nBitsTotal;
+                data.sigBytes = dataWords.length * 4;
+                this._process();
+                return this._hash;
+            },
+            clone: function() {
+                var clone = Hasher.clone.call(this);
+                clone._hash = this._hash.clone();
+                return clone;
+            }
+        });
+        C.SHA1 = Hasher._createHelper(SHA1);
+        C.HmacSHA1 = Hasher._createHmacHelper(SHA1);
+    })();
+    (function(Math) {
+        var C = qq.CryptoJS;
+        var C_lib = C.lib;
+        var WordArray = C_lib.WordArray;
+        var Hasher = C_lib.Hasher;
+        var C_algo = C.algo;
+        var H = [];
+        var K = [];
+        (function() {
+            function isPrime(n) {
+                var sqrtN = Math.sqrt(n);
+                for (var factor = 2; factor <= sqrtN; factor++) {
+                    if (!(n % factor)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            function getFractionalBits(n) {
+                return (n - (n | 0)) * 4294967296 | 0;
+            }
+            var n = 2;
+            var nPrime = 0;
+            while (nPrime < 64) {
+                if (isPrime(n)) {
+                    if (nPrime < 8) {
+                        H[nPrime] = getFractionalBits(Math.pow(n, 1 / 2));
+                    }
+                    K[nPrime] = getFractionalBits(Math.pow(n, 1 / 3));
+                    nPrime++;
+                }
+                n++;
+            }
+        })();
+        var W = [];
+        var SHA256 = C_algo.SHA256 = Hasher.extend({
+            _doReset: function() {
+                this._hash = new WordArray.init(H.slice(0));
+            },
+            _doProcessBlock: function(M, offset) {
+                var H = this._hash.words;
+                var a = H[0];
+                var b = H[1];
+                var c = H[2];
+                var d = H[3];
+                var e = H[4];
+                var f = H[5];
+                var g = H[6];
+                var h = H[7];
+                for (var i = 0; i < 64; i++) {
+                    if (i < 16) {
+                        W[i] = M[offset + i] | 0;
+                    } else {
+                        var gamma0x = W[i - 15];
+                        var gamma0 = (gamma0x << 25 | gamma0x >>> 7) ^ (gamma0x << 14 | gamma0x >>> 18) ^ gamma0x >>> 3;
+                        var gamma1x = W[i - 2];
+                        var gamma1 = (gamma1x << 15 | gamma1x >>> 17) ^ (gamma1x << 13 | gamma1x >>> 19) ^ gamma1x >>> 10;
+                        W[i] = gamma0 + W[i - 7] + gamma1 + W[i - 16];
+                    }
+                    var ch = e & f ^ ~e & g;
+                    var maj = a & b ^ a & c ^ b & c;
+                    var sigma0 = (a << 30 | a >>> 2) ^ (a << 19 | a >>> 13) ^ (a << 10 | a >>> 22);
+                    var sigma1 = (e << 26 | e >>> 6) ^ (e << 21 | e >>> 11) ^ (e << 7 | e >>> 25);
+                    var t1 = h + sigma1 + ch + K[i] + W[i];
+                    var t2 = sigma0 + maj;
+                    h = g;
+                    g = f;
+                    f = e;
+                    e = d + t1 | 0;
+                    d = c;
+                    c = b;
+                    b = a;
+                    a = t1 + t2 | 0;
+                }
+                H[0] = H[0] + a | 0;
+                H[1] = H[1] + b | 0;
+                H[2] = H[2] + c | 0;
+                H[3] = H[3] + d | 0;
+                H[4] = H[4] + e | 0;
+                H[5] = H[5] + f | 0;
+                H[6] = H[6] + g | 0;
+                H[7] = H[7] + h | 0;
+            },
+            _doFinalize: function() {
+                var data = this._data;
+                var dataWords = data.words;
+                var nBitsTotal = this._nDataBytes * 8;
+                var nBitsLeft = data.sigBytes * 8;
+                dataWords[nBitsLeft >>> 5] |= 128 << 24 - nBitsLeft % 32;
+                dataWords[(nBitsLeft + 64 >>> 9 << 4) + 14] = Math.floor(nBitsTotal / 4294967296);
+                dataWords[(nBitsLeft + 64 >>> 9 << 4) + 15] = nBitsTotal;
+                data.sigBytes = dataWords.length * 4;
+                this._process();
+                return this._hash;
+            },
+            clone: function() {
+                var clone = Hasher.clone.call(this);
+                clone._hash = this._hash.clone();
+                return clone;
+            }
+        });
+        C.SHA256 = Hasher._createHelper(SHA256);
+        C.HmacSHA256 = Hasher._createHmacHelper(SHA256);
+    })(Math);
+    (function() {
+        if (typeof ArrayBuffer != "function") {
+            return;
+        }
+        var C = qq.CryptoJS;
+        var C_lib = C.lib;
+        var WordArray = C_lib.WordArray;
+        var superInit = WordArray.init;
+        var subInit = WordArray.init = function(typedArray) {
+            if (typedArray instanceof ArrayBuffer) {
+                typedArray = new Uint8Array(typedArray);
+            }
+            if (typedArray instanceof Int8Array || typedArray instanceof Uint8ClampedArray || typedArray instanceof Int16Array || typedArray instanceof Uint16Array || typedArray instanceof Int32Array || typedArray instanceof Uint32Array || typedArray instanceof Float32Array || typedArray instanceof Float64Array) {
+                typedArray = new Uint8Array(typedArray.buffer, typedArray.byteOffset, typedArray.byteLength);
+            }
+            if (typedArray instanceof Uint8Array) {
+                var typedArrayByteLength = typedArray.byteLength;
+                var words = [];
+                for (var i = 0; i < typedArrayByteLength; i++) {
+                    words[i >>> 2] |= typedArray[i] << 24 - i % 4 * 8;
+                }
+                superInit.call(this, words, typedArrayByteLength);
+            } else {
+                superInit.apply(this, arguments);
             }
         };
-        qq.uiPrivateApi = {
-            _getButton: function(buttonId) {
-                var button = this._parent.prototype._getButton.apply(this, arguments);
-                if (!button) {
-                    if (buttonId === this._defaultButtonId) {
-                        button = this._templating.getButton();
-                    }
-                }
-                return button;
-            },
-            _removeFileItem: function(fileId) {
-                this._templating.removeFile(fileId);
-            },
-            _setupClickAndEditEventHandlers: function() {
-                this._fileButtonsClickHandler = qq.FileButtonsClickHandler && this._bindFileButtonsClickEvent();
-                this._focusinEventSupported = !qq.firefox();
-                if (this._isEditFilenameEnabled()) {
-                    this._filenameClickHandler = this._bindFilenameClickEvent();
-                    this._filenameInputFocusInHandler = this._bindFilenameInputFocusInEvent();
-                    this._filenameInputFocusHandler = this._bindFilenameInputFocusEvent();
-                }
-            },
-            _setupDragAndDrop: function() {
-                var self = this, dropZoneElements = this._options.dragAndDrop.extraDropzones, templating = this._templating, defaultDropZone = templating.getDropZone();
-                defaultDropZone && dropZoneElements.push(defaultDropZone);
-                return new qq.DragAndDrop({
-                    dropZoneElements: dropZoneElements,
-                    allowMultipleItems: this._options.multiple,
-                    classes: {
-                        dropActive: this._options.classes.dropActive
-                    },
-                    callbacks: {
-                        processingDroppedFiles: function() {
-                            templating.showDropProcessing();
-                        },
-                        processingDroppedFilesComplete: function(files, targetEl) {
-                            templating.hideDropProcessing();
-                            qq.each(files, function(idx, file) {
-                                file.qqDropTarget = targetEl;
-                            });
-                            if (files.length) {
-                                self.addFiles(files, null, null);
-                            }
-                        },
-                        dropError: function(code, errorData) {
-                            self._itemError(code, errorData);
-                        },
-                        dropLog: function(message, level) {
-                            self.log(message, level);
-                        }
+        subInit.prototype = WordArray;
+    })();
+    qq.s3 = qq.s3 || {};
+    qq.s3.util = qq.s3.util || function() {
+        "use strict";
+        return {
+            ALGORITHM_PARAM_NAME: "x-amz-algorithm",
+            AWS_PARAM_PREFIX: "x-amz-meta-",
+            CREDENTIAL_PARAM_NAME: "x-amz-credential",
+            DATE_PARAM_NAME: "x-amz-date",
+            REDUCED_REDUNDANCY_PARAM_NAME: "x-amz-storage-class",
+            REDUCED_REDUNDANCY_PARAM_VALUE: "REDUCED_REDUNDANCY",
+            SERVER_SIDE_ENCRYPTION_PARAM_NAME: "x-amz-server-side-encryption",
+            SERVER_SIDE_ENCRYPTION_PARAM_VALUE: "AES256",
+            SESSION_TOKEN_PARAM_NAME: "x-amz-security-token",
+            V4_ALGORITHM_PARAM_VALUE: "AWS4-HMAC-SHA256",
+            V4_SIGNATURE_PARAM_NAME: "x-amz-signature",
+            CASE_SENSITIVE_PARAM_NAMES: [ "Cache-Control", "Content-Disposition", "Content-Encoding", "Content-MD5" ],
+            UNSIGNABLE_REST_HEADER_NAMES: [ "Cache-Control", "Content-Disposition", "Content-Encoding", "Content-MD5" ],
+            UNPREFIXED_PARAM_NAMES: [ "Cache-Control", "Content-Disposition", "Content-Encoding", "Content-MD5", "x-amz-server-side-encryption-customer-algorithm", "x-amz-server-side-encryption-customer-key", "x-amz-server-side-encryption-customer-key-MD5" ],
+            getBucket: function(endpoint) {
+                var patterns = [ /^(?:https?:\/\/)?([a-z0-9.\-_]+)\.s3(?:-[a-z0-9\-]+)?\.amazonaws\.com/i, /^(?:https?:\/\/)?s3(?:-[a-z0-9\-]+)?\.amazonaws\.com\/([a-z0-9.\-_]+)/i, /^(?:https?:\/\/)?([a-z0-9.\-_]+)/i ], bucket;
+                qq.each(patterns, function(idx, pattern) {
+                    var match = pattern.exec(endpoint);
+                    if (match) {
+                        bucket = match[1];
+                        return false;
                     }
                 });
+                return bucket;
             },
-            _bindFileButtonsClickEvent: function() {
-                var self = this;
-                return new qq.FileButtonsClickHandler({
-                    templating: this._templating,
-                    log: function(message, lvl) {
-                        self.log(message, lvl);
-                    },
-                    onDeleteFile: function(fileId) {
-                        self.deleteFile(fileId);
-                    },
-                    onCancel: function(fileId) {
-                        self.cancel(fileId);
-                    },
-                    onRetry: function(fileId) {
-                        self.retry(fileId);
-                    },
-                    onPause: function(fileId) {
-                        self.pauseUpload(fileId);
-                    },
-                    onContinue: function(fileId) {
-                        self.continueUpload(fileId);
-                    },
-                    onGetName: function(fileId) {
-                        return self.getName(fileId);
-                    }
+            _getPrefixedParamName: function(name) {
+                if (qq.indexOf(qq.s3.util.UNPREFIXED_PARAM_NAMES, name) >= 0) {
+                    return name;
+                }
+                return qq.s3.util.AWS_PARAM_PREFIX + name;
+            },
+            getPolicy: function(spec) {
+                var policy = {}, conditions = [], bucket = spec.bucket, date = spec.date, drift = spec.clockDrift, key = spec.key, accessKey = spec.accessKey, acl = spec.acl, type = spec.type, expectedStatus = spec.expectedStatus, sessionToken = spec.sessionToken, params = spec.params, successRedirectUrl = qq.s3.util.getSuccessRedirectAbsoluteUrl(spec.successRedirectUrl), minFileSize = spec.minFileSize, maxFileSize = spec.maxFileSize, reducedRedundancy = spec.reducedRedundancy, region = spec.region, serverSideEncryption = spec.serverSideEncryption, signatureVersion = spec.signatureVersion;
+                policy.expiration = qq.s3.util.getPolicyExpirationDate(date, drift);
+                conditions.push({
+                    acl: acl
                 });
-            },
-            _isEditFilenameEnabled: function() {
-                return this._templating.isEditFilenamePossible() && !this._options.autoUpload && qq.FilenameClickHandler && qq.FilenameInputFocusHandler && qq.FilenameInputFocusHandler;
-            },
-            _filenameEditHandler: function() {
-                var self = this, templating = this._templating;
-                return {
-                    templating: templating,
-                    log: function(message, lvl) {
-                        self.log(message, lvl);
-                    },
-                    onGetUploadStatus: function(fileId) {
-                        return self.getUploads({
-                            id: fileId
-                        }).status;
-                    },
-                    onGetName: function(fileId) {
-                        return self.getName(fileId);
-                    },
-                    onSetName: function(id, newName) {
-                        self.setName(id, newName);
-                    },
-                    onEditingStatusChange: function(id, isEditing) {
-                        var qqInput = qq(templating.getEditInput(id)), qqFileContainer = qq(templating.getFileContainer(id));
-                        if (isEditing) {
-                            qqInput.addClass("qq-editing");
-                            templating.hideFilename(id);
-                            templating.hideEditIcon(id);
-                        } else {
-                            qqInput.removeClass("qq-editing");
-                            templating.showFilename(id);
-                            templating.showEditIcon(id);
-                        }
-                        qqFileContainer.addClass("qq-temp").removeClass("qq-temp");
-                    }
-                };
-            },
-            _onUploadStatusChange: function(id, oldStatus, newStatus) {
-                this._parent.prototype._onUploadStatusChange.apply(this, arguments);
-                if (this._isEditFilenameEnabled()) {
-                    if (this._templating.getFileContainer(id) && newStatus !== qq.status.SUBMITTED) {
-                        this._templating.markFilenameEditable(id);
-                        this._templating.hideEditIcon(id);
-                    }
-                }
-                if (newStatus === qq.status.UPLOAD_RETRYING) {
-                    this._templating.hideRetry(id);
-                    this._templating.setStatusText(id);
-                    qq(this._templating.getFileContainer(id)).removeClass(this._classes.retrying);
-                } else if (newStatus === qq.status.UPLOAD_FAILED) {
-                    this._templating.hidePause(id);
-                }
-            },
-            _bindFilenameInputFocusInEvent: function() {
-                var spec = qq.extend({}, this._filenameEditHandler());
-                return new qq.FilenameInputFocusInHandler(spec);
-            },
-            _bindFilenameInputFocusEvent: function() {
-                var spec = qq.extend({}, this._filenameEditHandler());
-                return new qq.FilenameInputFocusHandler(spec);
-            },
-            _bindFilenameClickEvent: function() {
-                var spec = qq.extend({}, this._filenameEditHandler());
-                return new qq.FilenameClickHandler(spec);
-            },
-            _storeForLater: function(id) {
-                this._parent.prototype._storeForLater.apply(this, arguments);
-                this._templating.hideSpinner(id);
-            },
-            _onAllComplete: function(successful, failed) {
-                this._parent.prototype._onAllComplete.apply(this, arguments);
-                this._templating.resetTotalProgress();
-            },
-            _onSubmit: function(id, name) {
-                var file = this.getFile(id);
-                if (file && file.qqPath && this._options.dragAndDrop.reportDirectoryPaths) {
-                    this._paramsStore.addReadOnly(id, {
-                        qqpath: file.qqPath
+                conditions.push({
+                    bucket: bucket
+                });
+                if (type) {
+                    conditions.push({
+                        "Content-Type": type
                     });
                 }
-                this._parent.prototype._onSubmit.apply(this, arguments);
-                this._addToList(id, name);
-            },
-            _onSubmitted: function(id) {
-                if (this._isEditFilenameEnabled()) {
-                    this._templating.markFilenameEditable(id);
-                    this._templating.showEditIcon(id);
-                    if (!this._focusinEventSupported) {
-                        this._filenameInputFocusHandler.addHandler(this._templating.getEditInput(id));
-                    }
+                if (expectedStatus) {
+                    conditions.push({
+                        success_action_status: expectedStatus.toString()
+                    });
                 }
-            },
-            _onProgress: function(id, name, loaded, total) {
-                this._parent.prototype._onProgress.apply(this, arguments);
-                this._templating.updateProgress(id, loaded, total);
-                if (Math.round(loaded / total * 100) === 100) {
-                    this._templating.hideCancel(id);
-                    this._templating.hidePause(id);
-                    this._templating.hideProgress(id);
-                    this._templating.setStatusText(id, this._options.text.waitingForResponse);
-                    this._displayFileSize(id);
-                } else {
-                    this._displayFileSize(id, loaded, total);
+                if (successRedirectUrl) {
+                    conditions.push({
+                        success_action_redirect: successRedirectUrl
+                    });
                 }
-            },
-            _onTotalProgress: function(loaded, total) {
-                this._parent.prototype._onTotalProgress.apply(this, arguments);
-                this._templating.updateTotalProgress(loaded, total);
-            },
-            _onComplete: function(id, name, result, xhr) {
-                var parentRetVal = this._parent.prototype._onComplete.apply(this, arguments), templating = this._templating, fileContainer = templating.getFileContainer(id), self = this;
-                function completeUpload(result) {
-                    if (!fileContainer) {
-                        return;
-                    }
-                    templating.setStatusText(id);
-                    qq(fileContainer).removeClass(self._classes.retrying);
-                    templating.hideProgress(id);
-                    if (self.getUploads({
-                        id: id
-                    }).status !== qq.status.UPLOAD_FAILED) {
-                        templating.hideCancel(id);
-                    }
-                    templating.hideSpinner(id);
-                    if (result.success) {
-                        self._markFileAsSuccessful(id);
+                if (reducedRedundancy) {
+                    conditions.push({});
+                    conditions[conditions.length - 1][qq.s3.util.REDUCED_REDUNDANCY_PARAM_NAME] = qq.s3.util.REDUCED_REDUNDANCY_PARAM_VALUE;
+                }
+                if (sessionToken) {
+                    conditions.push({});
+                    conditions[conditions.length - 1][qq.s3.util.SESSION_TOKEN_PARAM_NAME] = sessionToken;
+                }
+                if (serverSideEncryption) {
+                    conditions.push({});
+                    conditions[conditions.length - 1][qq.s3.util.SERVER_SIDE_ENCRYPTION_PARAM_NAME] = qq.s3.util.SERVER_SIDE_ENCRYPTION_PARAM_VALUE;
+                }
+                if (signatureVersion === 2) {
+                    conditions.push({
+                        key: key
+                    });
+                } else if (signatureVersion === 4) {
+                    conditions.push({});
+                    conditions[conditions.length - 1][qq.s3.util.ALGORITHM_PARAM_NAME] = qq.s3.util.V4_ALGORITHM_PARAM_VALUE;
+                    conditions.push({});
+                    conditions[conditions.length - 1].key = key;
+                    conditions.push({});
+                    conditions[conditions.length - 1][qq.s3.util.CREDENTIAL_PARAM_NAME] = qq.s3.util.getV4CredentialsString({
+                        date: date,
+                        key: accessKey,
+                        region: region
+                    });
+                    conditions.push({});
+                    conditions[conditions.length - 1][qq.s3.util.DATE_PARAM_NAME] = qq.s3.util.getV4PolicyDate(date, drift);
+                }
+                qq.each(params, function(name, val) {
+                    var awsParamName = qq.s3.util._getPrefixedParamName(name), param = {};
+                    if (qq.indexOf(qq.s3.util.UNPREFIXED_PARAM_NAMES, awsParamName) >= 0) {
+                        param[awsParamName] = val;
                     } else {
-                        qq(fileContainer).addClass(self._classes.fail);
-                        templating.showCancel(id);
-                        if (templating.isRetryPossible() && !self._preventRetries[id]) {
-                            qq(fileContainer).addClass(self._classes.retryable);
-                            templating.showRetry(id);
+                        param[awsParamName] = encodeURIComponent(val);
+                    }
+                    conditions.push(param);
+                });
+                policy.conditions = conditions;
+                qq.s3.util.enforceSizeLimits(policy, minFileSize, maxFileSize);
+                return policy;
+            },
+            refreshPolicyCredentials: function(policy, newSessionToken) {
+                var sessionTokenFound = false;
+                qq.each(policy.conditions, function(oldCondIdx, oldCondObj) {
+                    qq.each(oldCondObj, function(oldCondName, oldCondVal) {
+                        if (oldCondName === qq.s3.util.SESSION_TOKEN_PARAM_NAME) {
+                            oldCondObj[oldCondName] = newSessionToken;
+                            sessionTokenFound = true;
                         }
-                        self._controlFailureTextDisplay(id, result);
-                    }
-                }
-                if (parentRetVal instanceof qq.Promise) {
-                    parentRetVal.done(function(newResult) {
-                        completeUpload(newResult);
                     });
-                } else {
-                    completeUpload(result);
-                }
-                return parentRetVal;
-            },
-            _markFileAsSuccessful: function(id) {
-                var templating = this._templating;
-                if (this._isDeletePossible()) {
-                    templating.showDeleteButton(id);
-                }
-                qq(templating.getFileContainer(id)).addClass(this._classes.success);
-                this._maybeUpdateThumbnail(id);
-            },
-            _onUploadPrep: function(id) {
-                this._parent.prototype._onUploadPrep.apply(this, arguments);
-                this._templating.showSpinner(id);
-            },
-            _onUpload: function(id, name) {
-                var parentRetVal = this._parent.prototype._onUpload.apply(this, arguments);
-                this._templating.showSpinner(id);
-                return parentRetVal;
-            },
-            _onUploadChunk: function(id, chunkData) {
-                this._parent.prototype._onUploadChunk.apply(this, arguments);
-                if (chunkData.partIndex > 0 && this._handler.isResumable(id)) {
-                    this._templating.allowPause(id);
+                });
+                if (!sessionTokenFound) {
+                    policy.conditions.push({});
+                    policy.conditions[policy.conditions.length - 1][qq.s3.util.SESSION_TOKEN_PARAM_NAME] = newSessionToken;
                 }
             },
-            _onCancel: function(id, name) {
-                this._parent.prototype._onCancel.apply(this, arguments);
-                this._removeFileItem(id);
-                if (this._getNotFinished() === 0) {
-                    this._templating.resetTotalProgress();
+            generateAwsParams: function(spec, signPolicyCallback) {
+                var awsParams = {}, customParams = spec.params, promise = new qq.Promise(), sessionToken = spec.sessionToken, drift = spec.clockDrift, type = spec.type, key = spec.key, accessKey = spec.accessKey, acl = spec.acl, expectedStatus = spec.expectedStatus, successRedirectUrl = qq.s3.util.getSuccessRedirectAbsoluteUrl(spec.successRedirectUrl), reducedRedundancy = spec.reducedRedundancy, region = spec.region, serverSideEncryption = spec.serverSideEncryption, signatureVersion = spec.signatureVersion, now = new Date(), log = spec.log, policyJson;
+                spec.date = now;
+                policyJson = qq.s3.util.getPolicy(spec);
+                awsParams.key = key;
+                if (type) {
+                    awsParams["Content-Type"] = type;
                 }
-            },
-            _onBeforeAutoRetry: function(id) {
-                var retryNumForDisplay, maxAuto, retryNote;
-                this._parent.prototype._onBeforeAutoRetry.apply(this, arguments);
-                this._showCancelLink(id);
-                if (this._options.retry.showAutoRetryNote) {
-                    retryNumForDisplay = this._autoRetries[id];
-                    maxAuto = this._options.retry.maxAutoAttempts;
-                    retryNote = this._options.retry.autoRetryNote.replace(/\{retryNum\}/g, retryNumForDisplay);
-                    retryNote = retryNote.replace(/\{maxAuto\}/g, maxAuto);
-                    this._templating.setStatusText(id, retryNote);
-                    qq(this._templating.getFileContainer(id)).addClass(this._classes.retrying);
+                if (expectedStatus) {
+                    awsParams.success_action_status = expectedStatus;
                 }
-            },
-            _onBeforeManualRetry: function(id) {
-                if (this._parent.prototype._onBeforeManualRetry.apply(this, arguments)) {
-                    this._templating.resetProgress(id);
-                    qq(this._templating.getFileContainer(id)).removeClass(this._classes.fail);
-                    this._templating.setStatusText(id);
-                    this._templating.showSpinner(id);
-                    this._showCancelLink(id);
-                    return true;
-                } else {
-                    qq(this._templating.getFileContainer(id)).addClass(this._classes.retryable);
-                    this._templating.showRetry(id);
-                    return false;
+                if (successRedirectUrl) {
+                    awsParams.success_action_redirect = successRedirectUrl;
                 }
-            },
-            _onSubmitDelete: function(id) {
-                var onSuccessCallback = qq.bind(this._onSubmitDeleteSuccess, this);
-                this._parent.prototype._onSubmitDelete.call(this, id, onSuccessCallback);
-            },
-            _onSubmitDeleteSuccess: function(id, uuid, additionalMandatedParams) {
-                if (this._options.deleteFile.forceConfirm) {
-                    this._showDeleteConfirm.apply(this, arguments);
-                } else {
-                    this._sendDeleteRequest.apply(this, arguments);
+                if (reducedRedundancy) {
+                    awsParams[qq.s3.util.REDUCED_REDUNDANCY_PARAM_NAME] = qq.s3.util.REDUCED_REDUNDANCY_PARAM_VALUE;
                 }
-            },
-            _onDeleteComplete: function(id, xhr, isError) {
-                this._parent.prototype._onDeleteComplete.apply(this, arguments);
-                this._templating.hideSpinner(id);
-                if (isError) {
-                    this._templating.setStatusText(id, this._options.deleteFile.deletingFailedText);
-                    this._templating.showDeleteButton(id);
-                } else {
-                    this._removeFileItem(id);
+                if (serverSideEncryption) {
+                    awsParams[qq.s3.util.SERVER_SIDE_ENCRYPTION_PARAM_NAME] = qq.s3.util.SERVER_SIDE_ENCRYPTION_PARAM_VALUE;
                 }
-            },
-            _sendDeleteRequest: function(id, uuid, additionalMandatedParams) {
-                this._templating.hideDeleteButton(id);
-                this._templating.showSpinner(id);
-                this._templating.setStatusText(id, this._options.deleteFile.deletingStatusText);
-                this._deleteHandler.sendDelete.apply(this, arguments);
-            },
-            _showDeleteConfirm: function(id, uuid, mandatedParams) {
-                var fileName = this.getName(id), confirmMessage = this._options.deleteFile.confirmMessage.replace(/\{filename\}/g, fileName), uuid = this.getUuid(id), deleteRequestArgs = arguments, self = this, retVal;
-                retVal = this._options.showConfirm(confirmMessage);
-                if (qq.isGenericPromise(retVal)) {
-                    retVal.then(function() {
-                        self._sendDeleteRequest.apply(self, deleteRequestArgs);
-                    });
-                } else if (retVal !== false) {
-                    self._sendDeleteRequest.apply(self, deleteRequestArgs);
+                if (sessionToken) {
+                    awsParams[qq.s3.util.SESSION_TOKEN_PARAM_NAME] = sessionToken;
                 }
-            },
-            _addToList: function(id, name, canned) {
-                var prependData, prependIndex = 0, dontDisplay = this._handler.isProxied(id) && this._options.scaling.hideScaled, record;
-                if (this._options.display.prependFiles) {
-                    if (this._totalFilesInBatch > 1 && this._filesInBatchAddedToUi > 0) {
-                        prependIndex = this._filesInBatchAddedToUi - 1;
+                awsParams.acl = acl;
+                qq.each(customParams, function(name, val) {
+                    var awsParamName = qq.s3.util._getPrefixedParamName(name);
+                    if (qq.indexOf(qq.s3.util.UNPREFIXED_PARAM_NAMES, awsParamName) >= 0) {
+                        awsParams[awsParamName] = val;
+                    } else {
+                        awsParams[awsParamName] = encodeURIComponent(val);
                     }
-                    prependData = {
-                        index: prependIndex
+                });
+                if (signatureVersion === 2) {
+                    awsParams.AWSAccessKeyId = accessKey;
+                } else if (signatureVersion === 4) {
+                    awsParams[qq.s3.util.ALGORITHM_PARAM_NAME] = qq.s3.util.V4_ALGORITHM_PARAM_VALUE;
+                    awsParams[qq.s3.util.CREDENTIAL_PARAM_NAME] = qq.s3.util.getV4CredentialsString({
+                        date: now,
+                        key: accessKey,
+                        region: region
+                    });
+                    awsParams[qq.s3.util.DATE_PARAM_NAME] = qq.s3.util.getV4PolicyDate(now, drift);
+                }
+                signPolicyCallback(policyJson).then(function(policyAndSignature, updatedAccessKey, updatedSessionToken) {
+                    awsParams.policy = policyAndSignature.policy;
+                    if (spec.signatureVersion === 2) {
+                        awsParams.signature = policyAndSignature.signature;
+                        if (updatedAccessKey) {
+                            awsParams.AWSAccessKeyId = updatedAccessKey;
+                        }
+                    } else if (spec.signatureVersion === 4) {
+                        awsParams[qq.s3.util.V4_SIGNATURE_PARAM_NAME] = policyAndSignature.signature;
+                    }
+                    if (updatedSessionToken) {
+                        awsParams[qq.s3.util.SESSION_TOKEN_PARAM_NAME] = updatedSessionToken;
+                    }
+                    promise.success(awsParams);
+                }, function(errorMessage) {
+                    errorMessage = errorMessage || "Can't continue further with request to S3 as we did not receive " + "a valid signature and policy from the server.";
+                    log("Policy signing failed.  " + errorMessage, "error");
+                    promise.failure(errorMessage);
+                });
+                return promise;
+            },
+            enforceSizeLimits: function(policy, minSize, maxSize) {
+                var adjustedMinSize = minSize < 0 ? 0 : minSize, adjustedMaxSize = maxSize <= 0 ? 9007199254740992 : maxSize;
+                if (minSize > 0 || maxSize > 0) {
+                    policy.conditions.push([ "content-length-range", adjustedMinSize.toString(), adjustedMaxSize.toString() ]);
+                }
+            },
+            getPolicyExpirationDate: function(date, drift) {
+                var adjustedDate = new Date(date.getTime() + drift);
+                return qq.s3.util.getPolicyDate(adjustedDate, 5);
+            },
+            getCredentialsDate: function(date) {
+                return date.getUTCFullYear() + "" + ("0" + (date.getUTCMonth() + 1)).slice(-2) + ("0" + date.getUTCDate()).slice(-2);
+            },
+            getPolicyDate: function(date, _minutesToAdd_) {
+                var minutesToAdd = _minutesToAdd_ || 0, pad, r;
+                date.setMinutes(date.getMinutes() + (minutesToAdd || 0));
+                if (Date.prototype.toISOString) {
+                    return date.toISOString();
+                } else {
+                    pad = function(number) {
+                        r = String(number);
+                        if (r.length === 1) {
+                            r = "0" + r;
+                        }
+                        return r;
+                    };
+                    return date.getUTCFullYear() + "-" + pad(date.getUTCMonth() + 1) + "-" + pad(date.getUTCDate()) + "T" + pad(date.getUTCHours()) + ":" + pad(date.getUTCMinutes()) + ":" + pad(date.getUTCSeconds()) + "." + String((date.getUTCMilliseconds() / 1e3).toFixed(3)).slice(2, 5) + "Z";
+                }
+            },
+            parseIframeResponse: function(iframe) {
+                var doc = iframe.contentDocument || iframe.contentWindow.document, queryString = doc.location.search, match = /bucket=(.+)&key=(.+)&etag=(.+)/.exec(queryString);
+                if (match) {
+                    return {
+                        bucket: match[1],
+                        key: match[2],
+                        etag: match[3].replace(/%22/g, "")
                     };
                 }
-                if (!canned) {
-                    if (this._options.disableCancelForFormUploads && !qq.supportedFeatures.ajaxUploading) {
-                        this._templating.disableCancel();
+            },
+            getSuccessRedirectAbsoluteUrl: function(successRedirectUrl) {
+                if (successRedirectUrl) {
+                    var targetAnchorContainer = document.createElement("div"), targetAnchor;
+                    if (qq.ie7()) {
+                        targetAnchorContainer.innerHTML = "<a href='" + successRedirectUrl + "'></a>";
+                        targetAnchor = targetAnchorContainer.firstChild;
+                        return targetAnchor.href;
+                    } else {
+                        targetAnchor = document.createElement("a");
+                        targetAnchor.href = successRedirectUrl;
+                        targetAnchor.href = targetAnchor.href;
+                        return targetAnchor.href;
                     }
-                    if (!this._options.multiple) {
-                        record = this.getUploads({
-                            id: id
-                        });
-                        this._handledProxyGroup = this._handledProxyGroup || record.proxyGroupId;
-                        if (record.proxyGroupId !== this._handledProxyGroup || !record.proxyGroupId) {
-                            this._handler.cancelAll();
-                            this._clearList();
-                            this._handledProxyGroup = null;
-                        }
+                }
+            },
+            getV4CredentialsString: function(spec) {
+                return spec.key + "/" + qq.s3.util.getCredentialsDate(spec.date) + "/" + spec.region + "/s3/aws4_request";
+            },
+            getV4PolicyDate: function(date, drift) {
+                var adjustedDate = new Date(date.getTime() + drift);
+                return qq.s3.util.getCredentialsDate(adjustedDate) + "T" + ("0" + adjustedDate.getUTCHours()).slice(-2) + ("0" + adjustedDate.getUTCMinutes()).slice(-2) + ("0" + adjustedDate.getUTCSeconds()).slice(-2) + "Z";
+            },
+            encodeQueryStringParam: function(param) {
+                var percentEncoded = encodeURIComponent(param);
+                percentEncoded = percentEncoded.replace(/[!'()]/g, escape);
+                percentEncoded = percentEncoded.replace(/\*/g, "%2A");
+                return percentEncoded.replace(/%20/g, "+");
+            }
+        };
+    }();
+    (function() {
+        "use strict";
+        qq.nonTraditionalBasePublicApi = {
+            setUploadSuccessParams: function(params, id) {
+                this._uploadSuccessParamsStore.set(params, id);
+            },
+            setUploadSuccessEndpoint: function(endpoint, id) {
+                this._uploadSuccessEndpointStore.set(endpoint, id);
+            }
+        };
+        qq.nonTraditionalBasePrivateApi = {
+            _onComplete: function(id, name, result, xhr) {
+                var success = result.success ? true : false, self = this, onCompleteArgs = arguments, successEndpoint = this._uploadSuccessEndpointStore.get(id), successCustomHeaders = this._options.uploadSuccess.customHeaders, successMethod = this._options.uploadSuccess.method, cors = this._options.cors, promise = new qq.Promise(), uploadSuccessParams = this._uploadSuccessParamsStore.get(id), fileParams = this._paramsStore.get(id), onSuccessFromServer = function(successRequestResult) {
+                    delete self._failedSuccessRequestCallbacks[id];
+                    qq.extend(result, successRequestResult);
+                    qq.FineUploaderBasic.prototype._onComplete.apply(self, onCompleteArgs);
+                    promise.success(successRequestResult);
+                }, onFailureFromServer = function(successRequestResult) {
+                    var callback = submitSuccessRequest;
+                    qq.extend(result, successRequestResult);
+                    if (result && result.reset) {
+                        callback = null;
                     }
-                }
-                if (canned) {
-                    this._templating.addFileToCache(id, this._options.formatFileName(name), prependData, dontDisplay);
-                    this._templating.updateThumbnail(id, this._thumbnailUrls[id], true, this._options.thumbnails.customResizer);
-                } else {
-                    this._templating.addFile(id, this._options.formatFileName(name), prependData, dontDisplay);
-                    this._templating.generatePreview(id, this.getFile(id), this._options.thumbnails.customResizer);
-                }
-                this._filesInBatchAddedToUi += 1;
-                if (canned || this._options.display.fileSizeOnSubmit && qq.supportedFeatures.ajaxUploading) {
-                    this._displayFileSize(id);
-                }
-            },
-            _clearList: function() {
-                this._templating.clearFiles();
-                this.clearStoredFiles();
-            },
-            _displayFileSize: function(id, loadedSize, totalSize) {
-                var size = this.getSize(id), sizeForDisplay = this._formatSize(size);
-                if (size >= 0) {
-                    if (loadedSize !== undefined && totalSize !== undefined) {
-                        sizeForDisplay = this._formatProgress(loadedSize, totalSize);
+                    if (!callback) {
+                        delete self._failedSuccessRequestCallbacks[id];
+                    } else {
+                        self._failedSuccessRequestCallbacks[id] = callback;
                     }
-                    this._templating.updateSize(id, sizeForDisplay);
-                }
-            },
-            _formatProgress: function(uploadedSize, totalSize) {
-                var message = this._options.text.formatProgress;
-                function r(name, replacement) {
-                    message = message.replace(name, replacement);
-                }
-                r("{percent}", Math.round(uploadedSize / totalSize * 100));
-                r("{total_size}", this._formatSize(totalSize));
-                return message;
-            },
-            _controlFailureTextDisplay: function(id, response) {
-                var mode, responseProperty, failureReason;
-                mode = this._options.failedUploadTextDisplay.mode;
-                responseProperty = this._options.failedUploadTextDisplay.responseProperty;
-                if (mode === "custom") {
-                    failureReason = response[responseProperty];
-                    if (!failureReason) {
-                        failureReason = this._options.text.failUpload;
+                    if (!self._onAutoRetry(id, name, result, xhr, callback)) {
+                        qq.FineUploaderBasic.prototype._onComplete.apply(self, onCompleteArgs);
+                        promise.failure(successRequestResult);
                     }
-                    this._templating.setStatusText(id, failureReason);
-                    if (this._options.failedUploadTextDisplay.enableTooltip) {
-                        this._showTooltip(id, failureReason);
-                    }
-                } else if (mode === "default") {
-                    this._templating.setStatusText(id, this._options.text.failUpload);
-                } else if (mode !== "none") {
-                    this.log("failedUploadTextDisplay.mode value of '" + mode + "' is not valid", "warn");
+                }, submitSuccessRequest, successAjaxRequester;
+                if (success && successEndpoint) {
+                    successAjaxRequester = new qq.UploadSuccessAjaxRequester({
+                        endpoint: successEndpoint,
+                        method: successMethod,
+                        customHeaders: successCustomHeaders,
+                        cors: cors,
+                        log: qq.bind(this.log, this)
+                    });
+                    qq.extend(uploadSuccessParams, self._getEndpointSpecificParams(id, result, xhr), true);
+                    fileParams && qq.extend(uploadSuccessParams, fileParams, true);
+                    submitSuccessRequest = qq.bind(function() {
+                        successAjaxRequester.sendSuccessRequest(id, uploadSuccessParams).then(onSuccessFromServer, onFailureFromServer);
+                    }, self);
+                    submitSuccessRequest();
+                    return promise;
                 }
+                return qq.FineUploaderBasic.prototype._onComplete.apply(this, arguments);
             },
-            _showTooltip: function(id, text) {
-                this._templating.getFileContainer(id).title = text;
-            },
-            _showCancelLink: function(id) {
-                if (!this._options.disableCancelForFormUploads || qq.supportedFeatures.ajaxUploading) {
-                    this._templating.showCancel(id);
-                }
-            },
-            _itemError: function(code, name, item) {
-                var message = this._parent.prototype._itemError.apply(this, arguments);
-                this._options.showMessage(message);
-            },
-            _batchError: function(message) {
-                this._parent.prototype._batchError.apply(this, arguments);
-                this._options.showMessage(message);
-            },
-            _setupPastePrompt: function() {
-                var self = this;
-                this._options.callbacks.onPasteReceived = function() {
-                    var message = self._options.paste.namePromptMessage, defaultVal = self._options.paste.defaultName;
-                    return self._options.showPrompt(message, defaultVal);
-                };
-            },
-            _fileOrBlobRejected: function(id, name) {
-                this._totalFilesInBatch -= 1;
-                this._parent.prototype._fileOrBlobRejected.apply(this, arguments);
-            },
-            _prepareItemsForUpload: function(items, params, endpoint) {
-                this._totalFilesInBatch = items.length;
-                this._filesInBatchAddedToUi = 0;
-                this._parent.prototype._prepareItemsForUpload.apply(this, arguments);
-            },
-            _maybeUpdateThumbnail: function(fileId) {
-                var thumbnailUrl = this._thumbnailUrls[fileId], fileStatus = this.getUploads({
-                    id: fileId
-                }).status;
-                if (fileStatus !== qq.status.DELETED && (thumbnailUrl || this._options.thumbnails.placeholders.waitUntilResponse || !qq.supportedFeatures.imagePreviews)) {
-                    this._templating.updateThumbnail(fileId, thumbnailUrl, this._options.thumbnails.customResizer);
-                }
-            },
-            _addCannedFile: function(sessionData) {
-                var id = this._parent.prototype._addCannedFile.apply(this, arguments);
-                this._addToList(id, this.getName(id), true);
-                this._templating.hideSpinner(id);
-                this._templating.hideCancel(id);
-                this._markFileAsSuccessful(id);
-                return id;
-            },
-            _setSize: function(id, newSize) {
-                this._parent.prototype._setSize.apply(this, arguments);
-                this._templating.updateSize(id, this._formatSize(newSize));
-            },
-            _sessionRequestComplete: function() {
-                this._templating.addCacheToDom();
-                this._parent.prototype._sessionRequestComplete.apply(this, arguments);
+            _manualRetry: function(id) {
+                var successRequestCallback = this._failedSuccessRequestCallbacks[id];
+                return qq.FineUploaderBasic.prototype._manualRetry.call(this, id, successRequestCallback);
             }
         };
     })();
-    qq.FineUploader = function(o, namespace) {
+    (function() {
         "use strict";
-        var self = this;
-        this._parent = namespace ? qq[namespace].FineUploaderBasic : qq.FineUploaderBasic;
-        this._parent.apply(this, arguments);
-        qq.extend(this._options, {
-            element: null,
-            button: null,
-            listElement: null,
-            dragAndDrop: {
-                extraDropzones: [],
-                reportDirectoryPaths: false
-            },
-            text: {
-                formatProgress: "{percent}% of {total_size}",
-                failUpload: "Upload failed",
-                waitingForResponse: "Processing...",
-                paused: "Paused"
-            },
-            template: "qq-template",
-            classes: {
-                retrying: "qq-upload-retrying",
-                retryable: "qq-upload-retryable",
-                success: "qq-upload-success",
-                fail: "qq-upload-fail",
-                editable: "qq-editable",
-                hide: "qq-hide",
-                dropActive: "qq-upload-drop-area-active"
-            },
-            failedUploadTextDisplay: {
-                mode: "default",
-                responseProperty: "error",
-                enableTooltip: true
-            },
-            messages: {
-                tooManyFilesError: "You may only drop one file",
-                unsupportedBrowser: "Unrecoverable error - this browser does not permit file uploading of any kind."
-            },
-            retry: {
-                showAutoRetryNote: true,
-                autoRetryNote: "Retrying {retryNum}/{maxAuto}..."
-            },
-            deleteFile: {
-                forceConfirm: false,
-                confirmMessage: "Are you sure you want to delete {filename}?",
-                deletingStatusText: "Deleting...",
-                deletingFailedText: "Delete failed"
-            },
-            display: {
-                fileSizeOnSubmit: false,
-                prependFiles: false
-            },
-            paste: {
-                promptForName: false,
-                namePromptMessage: "Please name this image"
-            },
-            thumbnails: {
-                customResizer: null,
-                maxCount: 0,
-                placeholders: {
-                    waitUntilResponse: false,
-                    notAvailablePath: null,
-                    waitingPath: null
+        qq.s3.FineUploaderBasic = function(o) {
+            var options = {
+                request: {
+                    accessKey: null,
+                    clockDrift: 0
                 },
-                timeBetweenThumbs: 750
-            },
-            scaling: {
-                hideScaled: false
-            },
-            showMessage: function(message) {
-                if (self._templating.hasDialog("alert")) {
-                    return self._templating.showDialog("alert", message);
-                } else {
-                    setTimeout(function() {
-                        window.alert(message);
-                    }, 0);
+                objectProperties: {
+                    acl: "private",
+                    bucket: qq.bind(function(id) {
+                        return qq.s3.util.getBucket(this.getEndpoint(id));
+                    }, this),
+                    host: qq.bind(function(id) {
+                        return /(?:http|https):\/\/(.+)(?:\/.+)?/.exec(this._endpointStore.get(id))[1];
+                    }, this),
+                    key: "uuid",
+                    reducedRedundancy: false,
+                    region: "us-east-1",
+                    serverSideEncryption: false
+                },
+                credentials: {
+                    accessKey: null,
+                    secretKey: null,
+                    expiration: null,
+                    sessionToken: null
+                },
+                signature: {
+                    customHeaders: {},
+                    endpoint: null,
+                    version: 2
+                },
+                uploadSuccess: {
+                    endpoint: null,
+                    method: "POST",
+                    params: {},
+                    customHeaders: {}
+                },
+                iframeSupport: {
+                    localBlankPagePath: null
+                },
+                chunking: {
+                    partSize: 5242880
+                },
+                cors: {
+                    allowXdr: true
+                },
+                callbacks: {
+                    onCredentialsExpired: function() {}
                 }
-            },
-            showConfirm: function(message) {
-                if (self._templating.hasDialog("confirm")) {
-                    return self._templating.showDialog("confirm", message);
-                } else {
-                    return window.confirm(message);
-                }
-            },
-            showPrompt: function(message, defaultValue) {
-                if (self._templating.hasDialog("prompt")) {
-                    return self._templating.showDialog("prompt", message, defaultValue);
-                } else {
-                    return window.prompt(message, defaultValue);
-                }
-            }
-        }, true);
-        qq.extend(this._options, o, true);
-        this._templating = new qq.Templating({
-            log: qq.bind(this.log, this),
-            templateIdOrEl: this._options.template,
-            containerEl: this._options.element,
-            fileContainerEl: this._options.listElement,
-            button: this._options.button,
-            imageGenerator: this._imageGenerator,
-            classes: {
-                hide: this._options.classes.hide,
-                editable: this._options.classes.editable
-            },
-            limits: {
-                maxThumbs: this._options.thumbnails.maxCount,
-                timeBetweenThumbs: this._options.thumbnails.timeBetweenThumbs
-            },
-            placeholders: {
-                waitUntilUpdate: this._options.thumbnails.placeholders.waitUntilResponse,
-                thumbnailNotAvailable: this._options.thumbnails.placeholders.notAvailablePath,
-                waitingForThumbnail: this._options.thumbnails.placeholders.waitingPath
-            },
-            text: this._options.text
-        });
-        if (this._options.workarounds.ios8SafariUploads && qq.ios800() && qq.iosSafari()) {
-            this._templating.renderFailure(this._options.messages.unsupportedBrowserIos8Safari);
-        } else if (!qq.supportedFeatures.uploading || this._options.cors.expected && !qq.supportedFeatures.uploadCors) {
-            this._templating.renderFailure(this._options.messages.unsupportedBrowser);
-        } else {
-            this._wrapCallbacks();
-            this._templating.render();
-            this._classes = this._options.classes;
-            if (!this._options.button && this._templating.getButton()) {
-                this._defaultButtonId = this._createUploadButton({
-                    element: this._templating.getButton(),
-                    title: this._options.text.fileInputTitle
-                }).getButtonId();
-            }
-            this._setupClickAndEditEventHandlers();
-            if (qq.DragAndDrop && qq.supportedFeatures.fileDrop) {
-                this._dnd = this._setupDragAndDrop();
-            }
-            if (this._options.paste.targetElement && this._options.paste.promptForName) {
-                if (qq.PasteSupport) {
-                    this._setupPastePrompt();
-                } else {
-                    this.log("Paste support module not found.", "error");
-                }
-            }
-            this._totalFilesInBatch = 0;
-            this._filesInBatchAddedToUi = 0;
-        }
-    };
-    qq.extend(qq.FineUploader.prototype, qq.basePublicApi);
-    qq.extend(qq.FineUploader.prototype, qq.basePrivateApi);
-    qq.extend(qq.FineUploader.prototype, qq.uiPublicApi);
-    qq.extend(qq.FineUploader.prototype, qq.uiPrivateApi);
-    qq.Templating = function(spec) {
-        "use strict";
-        var FILE_ID_ATTR = "qq-file-id", FILE_CLASS_PREFIX = "qq-file-id-", THUMBNAIL_MAX_SIZE_ATTR = "qq-max-size", THUMBNAIL_SERVER_SCALE_ATTR = "qq-server-scale", HIDE_DROPZONE_ATTR = "qq-hide-dropzone", DROPZPONE_TEXT_ATTR = "qq-drop-area-text", IN_PROGRESS_CLASS = "qq-in-progress", HIDDEN_FOREVER_CLASS = "qq-hidden-forever", fileBatch = {
-            content: document.createDocumentFragment(),
-            map: {}
-        }, isCancelDisabled = false, generatedThumbnails = 0, thumbnailQueueMonitorRunning = false, thumbGenerationQueue = [], thumbnailMaxSize = -1, options = {
-            log: null,
-            limits: {
-                maxThumbs: 0,
-                timeBetweenThumbs: 750
-            },
-            templateIdOrEl: "qq-template",
-            containerEl: null,
-            fileContainerEl: null,
-            button: null,
-            imageGenerator: null,
-            classes: {
-                hide: "qq-hide",
-                editable: "qq-editable"
-            },
-            placeholders: {
-                waitUntilUpdate: false,
-                thumbnailNotAvailable: null,
-                waitingForThumbnail: null
-            },
-            text: {
-                paused: "Paused"
-            }
-        }, selectorClasses = {
-            button: "qq-upload-button-selector",
-            alertDialog: "qq-alert-dialog-selector",
-            dialogCancelButton: "qq-cancel-button-selector",
-            confirmDialog: "qq-confirm-dialog-selector",
-            dialogMessage: "qq-dialog-message-selector",
-            dialogOkButton: "qq-ok-button-selector",
-            promptDialog: "qq-prompt-dialog-selector",
-            uploader: "qq-uploader-selector",
-            drop: "qq-upload-drop-area-selector",
-            list: "qq-upload-list-selector",
-            progressBarContainer: "qq-progress-bar-container-selector",
-            progressBar: "qq-progress-bar-selector",
-            totalProgressBarContainer: "qq-total-progress-bar-container-selector",
-            totalProgressBar: "qq-total-progress-bar-selector",
-            file: "qq-upload-file-selector",
-            spinner: "qq-upload-spinner-selector",
-            size: "qq-upload-size-selector",
-            cancel: "qq-upload-cancel-selector",
-            pause: "qq-upload-pause-selector",
-            continueButton: "qq-upload-continue-selector",
-            deleteButton: "qq-upload-delete-selector",
-            retry: "qq-upload-retry-selector",
-            statusText: "qq-upload-status-text-selector",
-            editFilenameInput: "qq-edit-filename-selector",
-            editNameIcon: "qq-edit-filename-icon-selector",
-            dropText: "qq-upload-drop-area-text-selector",
-            dropProcessing: "qq-drop-processing-selector",
-            dropProcessingSpinner: "qq-drop-processing-spinner-selector",
-            thumbnail: "qq-thumbnail-selector"
-        }, previewGeneration = {}, cachedThumbnailNotAvailableImg = new qq.Promise(), cachedWaitingForThumbnailImg = new qq.Promise(), log, isEditElementsExist, isRetryElementExist, templateHtml, container, fileList, showThumbnails, serverScale, cacheThumbnailPlaceholders = function() {
-            var notAvailableUrl = options.placeholders.thumbnailNotAvailable, waitingUrl = options.placeholders.waitingForThumbnail, spec = {
-                maxSize: thumbnailMaxSize,
-                scale: serverScale
             };
-            if (showThumbnails) {
-                if (notAvailableUrl) {
-                    options.imageGenerator.generate(notAvailableUrl, new Image(), spec).then(function(updatedImg) {
-                        cachedThumbnailNotAvailableImg.success(updatedImg);
-                    }, function() {
-                        cachedThumbnailNotAvailableImg.failure();
-                        log("Problem loading 'not available' placeholder image at " + notAvailableUrl, "error");
-                    });
-                } else {
-                    cachedThumbnailNotAvailableImg.failure();
-                }
-                if (waitingUrl) {
-                    options.imageGenerator.generate(waitingUrl, new Image(), spec).then(function(updatedImg) {
-                        cachedWaitingForThumbnailImg.success(updatedImg);
-                    }, function() {
-                        cachedWaitingForThumbnailImg.failure();
-                        log("Problem loading 'waiting for thumbnail' placeholder image at " + waitingUrl, "error");
-                    });
-                } else {
-                    cachedWaitingForThumbnailImg.failure();
-                }
+            qq.extend(options, o, true);
+            if (!this.setCredentials(options.credentials, true)) {
+                this._currentCredentials.accessKey = options.request.accessKey;
             }
-        }, displayWaitingImg = function(thumbnail) {
-            var waitingImgPlacement = new qq.Promise();
-            cachedWaitingForThumbnailImg.then(function(img) {
-                maybeScalePlaceholderViaCss(img, thumbnail);
-                if (!thumbnail.src) {
-                    thumbnail.src = img.src;
-                    thumbnail.onload = function() {
-                        thumbnail.onload = null;
-                        show(thumbnail);
-                        waitingImgPlacement.success();
-                    };
-                } else {
-                    waitingImgPlacement.success();
-                }
-            }, function() {
-                hide(thumbnail);
-                waitingImgPlacement.success();
-            });
-            return waitingImgPlacement;
-        }, generateNewPreview = function(id, blob, spec) {
-            var thumbnail = getThumbnail(id);
-            log("Generating new thumbnail for " + id);
-            blob.qqThumbnailId = id;
-            return options.imageGenerator.generate(blob, thumbnail, spec).then(function() {
-                generatedThumbnails++;
-                show(thumbnail);
-                previewGeneration[id].success();
-            }, function() {
-                previewGeneration[id].failure();
-                if (!options.placeholders.waitUntilUpdate) {
-                    maybeSetDisplayNotAvailableImg(id, thumbnail);
-                }
-            });
-        }, generateNextQueuedPreview = function() {
-            if (thumbGenerationQueue.length) {
-                thumbnailQueueMonitorRunning = true;
-                var queuedThumbRequest = thumbGenerationQueue.shift();
-                if (queuedThumbRequest.update) {
-                    processUpdateQueuedPreviewRequest(queuedThumbRequest);
-                } else {
-                    processNewQueuedPreviewRequest(queuedThumbRequest);
-                }
-            } else {
-                thumbnailQueueMonitorRunning = false;
-            }
-        }, getCancel = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.cancel);
-        }, getContinue = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.continueButton);
-        }, getDialog = function(type) {
-            return getTemplateEl(container, selectorClasses[type + "Dialog"]);
-        }, getDelete = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.deleteButton);
-        }, getDropProcessing = function() {
-            return getTemplateEl(container, selectorClasses.dropProcessing);
-        }, getEditIcon = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.editNameIcon);
-        }, getFile = function(id) {
-            return fileBatch.map[id] || qq(fileList).getFirstByClass(FILE_CLASS_PREFIX + id);
-        }, getFilename = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.file);
-        }, getPause = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.pause);
-        }, getProgress = function(id) {
-            if (id == null) {
-                return getTemplateEl(container, selectorClasses.totalProgressBarContainer) || getTemplateEl(container, selectorClasses.totalProgressBar);
-            }
-            return getTemplateEl(getFile(id), selectorClasses.progressBarContainer) || getTemplateEl(getFile(id), selectorClasses.progressBar);
-        }, getRetry = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.retry);
-        }, getSize = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.size);
-        }, getSpinner = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.spinner);
-        }, getTemplateEl = function(context, cssClass) {
-            return context && qq(context).getFirstByClass(cssClass);
-        }, getThumbnail = function(id) {
-            return showThumbnails && getTemplateEl(getFile(id), selectorClasses.thumbnail);
-        }, hide = function(el) {
-            el && qq(el).addClass(options.classes.hide);
-        }, maybeScalePlaceholderViaCss = function(placeholder, thumbnail) {
-            var maxWidth = placeholder.style.maxWidth, maxHeight = placeholder.style.maxHeight;
-            if (maxHeight && maxWidth && !thumbnail.style.maxWidth && !thumbnail.style.maxHeight) {
-                qq(thumbnail).css({
-                    maxWidth: maxWidth,
-                    maxHeight: maxHeight
-                });
-            }
-        }, maybeSetDisplayNotAvailableImg = function(id, thumbnail) {
-            var previewing = previewGeneration[id] || new qq.Promise().failure(), notAvailableImgPlacement = new qq.Promise();
-            cachedThumbnailNotAvailableImg.then(function(img) {
-                previewing.then(function() {
-                    notAvailableImgPlacement.success();
-                }, function() {
-                    maybeScalePlaceholderViaCss(img, thumbnail);
-                    thumbnail.onload = function() {
-                        thumbnail.onload = null;
-                        notAvailableImgPlacement.success();
-                    };
-                    thumbnail.src = img.src;
-                    show(thumbnail);
-                });
-            });
-            return notAvailableImgPlacement;
-        }, parseAndGetTemplate = function() {
-            var scriptEl, scriptHtml, fileListNode, tempTemplateEl, fileListHtml, defaultButton, dropArea, thumbnail, dropProcessing, dropTextEl, uploaderEl;
-            log("Parsing template");
-            if (options.templateIdOrEl == null) {
-                throw new Error("You MUST specify either a template element or ID!");
-            }
-            if (qq.isString(options.templateIdOrEl)) {
-                scriptEl = document.getElementById(options.templateIdOrEl);
-                if (scriptEl === null) {
-                    throw new Error(qq.format("Cannot find template script at ID '{}'!", options.templateIdOrEl));
-                }
-                scriptHtml = scriptEl.innerHTML;
-            } else {
-                if (options.templateIdOrEl.innerHTML === undefined) {
-                    throw new Error("You have specified an invalid value for the template option!  " + "It must be an ID or an Element.");
-                }
-                scriptHtml = options.templateIdOrEl.innerHTML;
-            }
-            scriptHtml = qq.trimStr(scriptHtml);
-            tempTemplateEl = document.createElement("div");
-            tempTemplateEl.appendChild(qq.toElement(scriptHtml));
-            uploaderEl = qq(tempTemplateEl).getFirstByClass(selectorClasses.uploader);
-            if (options.button) {
-                defaultButton = qq(tempTemplateEl).getFirstByClass(selectorClasses.button);
-                if (defaultButton) {
-                    qq(defaultButton).remove();
-                }
-            }
-            if (!qq.DragAndDrop || !qq.supportedFeatures.fileDrop) {
-                dropProcessing = qq(tempTemplateEl).getFirstByClass(selectorClasses.dropProcessing);
-                if (dropProcessing) {
-                    qq(dropProcessing).remove();
-                }
-            }
-            dropArea = qq(tempTemplateEl).getFirstByClass(selectorClasses.drop);
-            if (dropArea && !qq.DragAndDrop) {
-                log("DnD module unavailable.", "info");
-                qq(dropArea).remove();
-            }
-            if (!qq.supportedFeatures.fileDrop) {
-                uploaderEl.removeAttribute(DROPZPONE_TEXT_ATTR);
-                if (dropArea && qq(dropArea).hasAttribute(HIDE_DROPZONE_ATTR)) {
-                    qq(dropArea).css({
-                        display: "none"
-                    });
-                }
-            } else if (qq(uploaderEl).hasAttribute(DROPZPONE_TEXT_ATTR) && dropArea) {
-                dropTextEl = qq(dropArea).getFirstByClass(selectorClasses.dropText);
-                dropTextEl && qq(dropTextEl).remove();
-            }
-            thumbnail = qq(tempTemplateEl).getFirstByClass(selectorClasses.thumbnail);
-            if (!showThumbnails) {
-                thumbnail && qq(thumbnail).remove();
-            } else if (thumbnail) {
-                thumbnailMaxSize = parseInt(thumbnail.getAttribute(THUMBNAIL_MAX_SIZE_ATTR));
-                thumbnailMaxSize = thumbnailMaxSize > 0 ? thumbnailMaxSize : null;
-                serverScale = qq(thumbnail).hasAttribute(THUMBNAIL_SERVER_SCALE_ATTR);
-            }
-            showThumbnails = showThumbnails && thumbnail;
-            isEditElementsExist = qq(tempTemplateEl).getByClass(selectorClasses.editFilenameInput).length > 0;
-            isRetryElementExist = qq(tempTemplateEl).getByClass(selectorClasses.retry).length > 0;
-            fileListNode = qq(tempTemplateEl).getFirstByClass(selectorClasses.list);
-            if (fileListNode == null) {
-                throw new Error("Could not find the file list container in the template!");
-            }
-            fileListHtml = fileListNode.innerHTML;
-            fileListNode.innerHTML = "";
-            if (tempTemplateEl.getElementsByTagName("DIALOG").length) {
-                document.createElement("dialog");
-            }
-            log("Template parsing complete");
-            return {
-                template: qq.trimStr(tempTemplateEl.innerHTML),
-                fileTemplate: qq.trimStr(fileListHtml)
-            };
-        }, prependFile = function(el, index, fileList) {
-            var parentEl = fileList, beforeEl = parentEl.firstChild;
-            if (index > 0) {
-                beforeEl = qq(parentEl).children()[index].nextSibling;
-            }
-            parentEl.insertBefore(el, beforeEl);
-        }, processNewQueuedPreviewRequest = function(queuedThumbRequest) {
-            var id = queuedThumbRequest.id, optFileOrBlob = queuedThumbRequest.optFileOrBlob, relatedThumbnailId = optFileOrBlob && optFileOrBlob.qqThumbnailId, thumbnail = getThumbnail(id), spec = {
-                customResizeFunction: queuedThumbRequest.customResizeFunction,
-                maxSize: thumbnailMaxSize,
-                orient: true,
-                scale: true
-            };
-            if (qq.supportedFeatures.imagePreviews) {
-                if (thumbnail) {
-                    if (options.limits.maxThumbs && options.limits.maxThumbs <= generatedThumbnails) {
-                        maybeSetDisplayNotAvailableImg(id, thumbnail);
-                        generateNextQueuedPreview();
-                    } else {
-                        displayWaitingImg(thumbnail).done(function() {
-                            previewGeneration[id] = new qq.Promise();
-                            previewGeneration[id].done(function() {
-                                setTimeout(generateNextQueuedPreview, options.limits.timeBetweenThumbs);
-                            });
-                            if (relatedThumbnailId != null) {
-                                useCachedPreview(id, relatedThumbnailId);
-                            } else {
-                                generateNewPreview(id, optFileOrBlob, spec);
-                            }
-                        });
-                    }
-                } else {
-                    generateNextQueuedPreview();
-                }
-            } else if (thumbnail) {
-                displayWaitingImg(thumbnail);
-                generateNextQueuedPreview();
-            }
-        }, processUpdateQueuedPreviewRequest = function(queuedThumbRequest) {
-            var id = queuedThumbRequest.id, thumbnailUrl = queuedThumbRequest.thumbnailUrl, showWaitingImg = queuedThumbRequest.showWaitingImg, thumbnail = getThumbnail(id), spec = {
-                customResizeFunction: queuedThumbRequest.customResizeFunction,
-                scale: serverScale,
-                maxSize: thumbnailMaxSize
-            };
-            if (thumbnail) {
-                if (thumbnailUrl) {
-                    if (options.limits.maxThumbs && options.limits.maxThumbs <= generatedThumbnails) {
-                        maybeSetDisplayNotAvailableImg(id, thumbnail);
-                        generateNextQueuedPreview();
-                    } else {
-                        if (showWaitingImg) {
-                            displayWaitingImg(thumbnail);
-                        }
-                        return options.imageGenerator.generate(thumbnailUrl, thumbnail, spec).then(function() {
-                            show(thumbnail);
-                            generatedThumbnails++;
-                            setTimeout(generateNextQueuedPreview, options.limits.timeBetweenThumbs);
-                        }, function() {
-                            maybeSetDisplayNotAvailableImg(id, thumbnail);
-                            setTimeout(generateNextQueuedPreview, options.limits.timeBetweenThumbs);
-                        });
-                    }
-                } else {
-                    maybeSetDisplayNotAvailableImg(id, thumbnail);
-                    generateNextQueuedPreview();
-                }
-            }
-        }, setProgressBarWidth = function(id, percent) {
-            var bar = getProgress(id), progressBarSelector = id == null ? selectorClasses.totalProgressBar : selectorClasses.progressBar;
-            if (bar && !qq(bar).hasClass(progressBarSelector)) {
-                bar = qq(bar).getFirstByClass(progressBarSelector);
-            }
-            if (bar) {
-                qq(bar).css({
-                    width: percent + "%"
-                });
-                bar.setAttribute("aria-valuenow", percent);
-            }
-        }, show = function(el) {
-            el && qq(el).removeClass(options.classes.hide);
-        }, useCachedPreview = function(targetThumbnailId, cachedThumbnailId) {
-            var targetThumbnail = getThumbnail(targetThumbnailId), cachedThumbnail = getThumbnail(cachedThumbnailId);
-            log(qq.format("ID {} is the same file as ID {}.  Will use generated thumbnail from ID {} instead.", targetThumbnailId, cachedThumbnailId, cachedThumbnailId));
-            previewGeneration[cachedThumbnailId].then(function() {
-                generatedThumbnails++;
-                previewGeneration[targetThumbnailId].success();
-                log(qq.format("Now using previously generated thumbnail created for ID {} on ID {}.", cachedThumbnailId, targetThumbnailId));
-                targetThumbnail.src = cachedThumbnail.src;
-                show(targetThumbnail);
-            }, function() {
-                previewGeneration[targetThumbnailId].failure();
-                if (!options.placeholders.waitUntilUpdate) {
-                    maybeSetDisplayNotAvailableImg(targetThumbnailId, targetThumbnail);
-                }
-            });
+            this._aclStore = this._createStore(options.objectProperties.acl);
+            qq.FineUploaderBasic.call(this, options);
+            this._uploadSuccessParamsStore = this._createStore(this._options.uploadSuccess.params);
+            this._uploadSuccessEndpointStore = this._createStore(this._options.uploadSuccess.endpoint);
+            this._failedSuccessRequestCallbacks = {};
+            this._cannedKeys = {};
+            this._cannedBuckets = {};
+            this._buckets = {};
+            this._hosts = {};
         };
-        qq.extend(options, spec);
-        log = options.log;
-        if (!qq.supportedFeatures.imagePreviews) {
-            options.limits.timeBetweenThumbs = 0;
-            options.limits.maxThumbs = 0;
-        }
-        container = options.containerEl;
-        showThumbnails = options.imageGenerator !== undefined;
-        templateHtml = parseAndGetTemplate();
-        cacheThumbnailPlaceholders();
-        qq.extend(this, {
-            render: function() {
-                log("Rendering template in DOM.");
-                generatedThumbnails = 0;
-                container.innerHTML = templateHtml.template;
-                hide(getDropProcessing());
-                this.hideTotalProgress();
-                fileList = options.fileContainerEl || getTemplateEl(container, selectorClasses.list);
-                log("Template rendering complete");
+        qq.extend(qq.s3.FineUploaderBasic.prototype, qq.basePublicApi);
+        qq.extend(qq.s3.FineUploaderBasic.prototype, qq.basePrivateApi);
+        qq.extend(qq.s3.FineUploaderBasic.prototype, qq.nonTraditionalBasePublicApi);
+        qq.extend(qq.s3.FineUploaderBasic.prototype, qq.nonTraditionalBasePrivateApi);
+        qq.extend(qq.s3.FineUploaderBasic.prototype, {
+            getBucket: function(id) {
+                if (this._cannedBuckets[id] == null) {
+                    return this._buckets[id];
+                }
+                return this._cannedBuckets[id];
             },
-            renderFailure: function(message) {
-                var cantRenderEl = qq.toElement(message);
-                container.innerHTML = "";
-                container.appendChild(cantRenderEl);
+            getKey: function(id) {
+                if (this._cannedKeys[id] == null) {
+                    return this._handler.getThirdPartyFileId(id);
+                }
+                return this._cannedKeys[id];
             },
             reset: function() {
-                this.render();
+                qq.FineUploaderBasic.prototype.reset.call(this);
+                this._failedSuccessRequestCallbacks = [];
+                this._buckets = {};
+                this._hosts = {};
             },
-            clearFiles: function() {
-                fileList.innerHTML = "";
-            },
-            disableCancel: function() {
-                isCancelDisabled = true;
-            },
-            addFile: function(id, name, prependInfo, hideForever, batch) {
-                var fileEl = qq.toElement(templateHtml.fileTemplate), fileNameEl = getTemplateEl(fileEl, selectorClasses.file), uploaderEl = getTemplateEl(container, selectorClasses.uploader), fileContainer = batch ? fileBatch.content : fileList, thumb;
-                if (batch) {
-                    fileBatch.map[id] = fileEl;
-                }
-                qq(fileEl).addClass(FILE_CLASS_PREFIX + id);
-                uploaderEl.removeAttribute(DROPZPONE_TEXT_ATTR);
-                if (fileNameEl) {
-                    qq(fileNameEl).setText(name);
-                    fileNameEl.setAttribute("title", name);
-                }
-                fileEl.setAttribute(FILE_ID_ATTR, id);
-                if (prependInfo) {
-                    prependFile(fileEl, prependInfo.index, fileContainer);
-                } else {
-                    fileContainer.appendChild(fileEl);
-                }
-                if (hideForever) {
-                    fileEl.style.display = "none";
-                    qq(fileEl).addClass(HIDDEN_FOREVER_CLASS);
-                } else {
-                    hide(getProgress(id));
-                    hide(getSize(id));
-                    hide(getDelete(id));
-                    hide(getRetry(id));
-                    hide(getPause(id));
-                    hide(getContinue(id));
-                    if (isCancelDisabled) {
-                        this.hideCancel(id);
+            setCredentials: function(credentials, ignoreEmpty) {
+                if (credentials && credentials.secretKey) {
+                    if (!credentials.accessKey) {
+                        throw new qq.Error("Invalid credentials: no accessKey");
+                    } else if (!credentials.expiration) {
+                        throw new qq.Error("Invalid credentials: no expiration");
+                    } else {
+                        this._currentCredentials = qq.extend({}, credentials);
+                        if (qq.isString(credentials.expiration)) {
+                            this._currentCredentials.expiration = new Date(credentials.expiration);
+                        }
                     }
-                    thumb = getThumbnail(id);
-                    if (thumb && !thumb.src) {
-                        cachedWaitingForThumbnailImg.then(function(waitingImg) {
-                            thumb.src = waitingImg.src;
-                            if (waitingImg.style.maxHeight && waitingImg.style.maxWidth) {
-                                qq(thumb).css({
-                                    maxHeight: waitingImg.style.maxHeight,
-                                    maxWidth: waitingImg.style.maxWidth
-                                });
+                    return true;
+                } else if (!ignoreEmpty) {
+                    throw new qq.Error("Invalid credentials parameter!");
+                } else {
+                    this._currentCredentials = {};
+                }
+            },
+            setAcl: function(acl, id) {
+                this._aclStore.set(acl, id);
+            },
+            _createUploadHandler: function() {
+                var self = this, additionalOptions = {
+                    aclStore: this._aclStore,
+                    getBucket: qq.bind(this._determineBucket, this),
+                    getHost: qq.bind(this._determineHost, this),
+                    getKeyName: qq.bind(this._determineKeyName, this),
+                    iframeSupport: this._options.iframeSupport,
+                    objectProperties: this._options.objectProperties,
+                    signature: this._options.signature,
+                    clockDrift: this._options.request.clockDrift,
+                    validation: {
+                        minSizeLimit: this._options.validation.minSizeLimit,
+                        maxSizeLimit: this._options.validation.sizeLimit
+                    }
+                };
+                qq.override(this._endpointStore, function(super_) {
+                    return {
+                        get: function(id) {
+                            var endpoint = super_.get(id);
+                            if (endpoint.indexOf("http") < 0) {
+                                return "http://" + endpoint;
                             }
-                            show(thumb);
+                            return endpoint;
+                        }
+                    };
+                });
+                qq.override(this._paramsStore, function(super_) {
+                    return {
+                        get: function(id) {
+                            var oldParams = super_.get(id), modifiedParams = {};
+                            qq.each(oldParams, function(name, val) {
+                                var paramName = name;
+                                if (qq.indexOf(qq.s3.util.CASE_SENSITIVE_PARAM_NAMES, paramName) < 0) {
+                                    paramName = paramName.toLowerCase();
+                                }
+                                modifiedParams[paramName] = qq.isFunction(val) ? val() : val;
+                            });
+                            return modifiedParams;
+                        }
+                    };
+                });
+                additionalOptions.signature.credentialsProvider = {
+                    get: function() {
+                        return self._currentCredentials;
+                    },
+                    onExpired: function() {
+                        var updateCredentials = new qq.Promise(), callbackRetVal = self._options.callbacks.onCredentialsExpired();
+                        if (qq.isGenericPromise(callbackRetVal)) {
+                            callbackRetVal.then(function(credentials) {
+                                try {
+                                    self.setCredentials(credentials);
+                                    updateCredentials.success();
+                                } catch (error) {
+                                    self.log("Invalid credentials returned from onCredentialsExpired callback! (" + error.message + ")", "error");
+                                    updateCredentials.failure("onCredentialsExpired did not return valid credentials.");
+                                }
+                            }, function(errorMsg) {
+                                self.log("onCredentialsExpired callback indicated failure! (" + errorMsg + ")", "error");
+                                updateCredentials.failure("onCredentialsExpired callback failed.");
+                            });
+                        } else {
+                            self.log("onCredentialsExpired callback did not return a promise!", "error");
+                            updateCredentials.failure("Unexpected return value for onCredentialsExpired.");
+                        }
+                        return updateCredentials;
+                    }
+                };
+                return qq.FineUploaderBasic.prototype._createUploadHandler.call(this, additionalOptions, "s3");
+            },
+            _determineObjectPropertyValue: function(id, property) {
+                var maybe = this._options.objectProperties[property], promise = new qq.Promise(), self = this;
+                if (qq.isFunction(maybe)) {
+                    maybe = maybe(id);
+                    if (qq.isGenericPromise(maybe)) {
+                        promise = maybe;
+                    } else {
+                        promise.success(maybe);
+                    }
+                } else if (qq.isString(maybe)) {
+                    promise.success(maybe);
+                }
+                promise.then(function success(value) {
+                    self["_" + property + "s"][id] = value;
+                }, function failure(errorMsg) {
+                    qq.log("Problem determining " + property + " for ID " + id + " (" + errorMsg + ")", "error");
+                });
+                return promise;
+            },
+            _determineBucket: function(id) {
+                return this._determineObjectPropertyValue(id, "bucket");
+            },
+            _determineHost: function(id) {
+                return this._determineObjectPropertyValue(id, "host");
+            },
+            _determineKeyName: function(id, filename) {
+                var promise = new qq.Promise(), keynameLogic = this._options.objectProperties.key, extension = qq.getExtension(filename), onGetKeynameFailure = promise.failure, onGetKeynameSuccess = function(keyname, extension) {
+                    var keynameToUse = keyname;
+                    if (extension !== undefined) {
+                        keynameToUse += "." + extension;
+                    }
+                    promise.success(keynameToUse);
+                };
+                switch (keynameLogic) {
+                  case "uuid":
+                    onGetKeynameSuccess(this.getUuid(id), extension);
+                    break;
+
+                  case "filename":
+                    onGetKeynameSuccess(filename);
+                    break;
+
+                  default:
+                    if (qq.isFunction(keynameLogic)) {
+                        this._handleKeynameFunction(keynameLogic, id, onGetKeynameSuccess, onGetKeynameFailure);
+                    } else {
+                        this.log(keynameLogic + " is not a valid value for the s3.keyname option!", "error");
+                        onGetKeynameFailure();
+                    }
+                }
+                return promise;
+            },
+            _handleKeynameFunction: function(keynameFunc, id, successCallback, failureCallback) {
+                var self = this, onSuccess = function(keyname) {
+                    successCallback(keyname);
+                }, onFailure = function(reason) {
+                    self.log(qq.format("Failed to retrieve key name for {}.  Reason: {}", id, reason || "null"), "error");
+                    failureCallback(reason);
+                }, keyname = keynameFunc.call(this, id);
+                if (qq.isGenericPromise(keyname)) {
+                    keyname.then(onSuccess, onFailure);
+                } else if (keyname == null) {
+                    onFailure();
+                } else {
+                    onSuccess(keyname);
+                }
+            },
+            _getEndpointSpecificParams: function(id, response, maybeXhr) {
+                var params = {
+                    key: this.getKey(id),
+                    uuid: this.getUuid(id),
+                    name: this.getName(id),
+                    bucket: this.getBucket(id)
+                };
+                if (maybeXhr && maybeXhr.getResponseHeader("ETag")) {
+                    params.etag = maybeXhr.getResponseHeader("ETag");
+                } else if (response.etag) {
+                    params.etag = response.etag;
+                }
+                return params;
+            },
+            _onSubmitDelete: function(id, onSuccessCallback) {
+                var additionalMandatedParams = {
+                    key: this.getKey(id),
+                    bucket: this.getBucket(id)
+                };
+                return qq.FineUploaderBasic.prototype._onSubmitDelete.call(this, id, onSuccessCallback, additionalMandatedParams);
+            },
+            _addCannedFile: function(sessionData) {
+                var id;
+                if (sessionData.s3Key == null) {
+                    throw new qq.Error("Did not find s3Key property in server session response.  This is required!");
+                } else {
+                    id = qq.FineUploaderBasic.prototype._addCannedFile.apply(this, arguments);
+                    this._cannedKeys[id] = sessionData.s3Key;
+                    this._cannedBuckets[id] = sessionData.s3Bucket;
+                }
+                return id;
+            }
+        });
+    })();
+    if (!window.Uint8ClampedArray) {
+        window.Uint8ClampedArray = function() {};
+    }
+    qq.s3.RequestSigner = function(o) {
+        "use strict";
+        var requester, thisSignatureRequester = this, pendingSignatures = {}, options = {
+            expectingPolicy: false,
+            method: "POST",
+            signatureSpec: {
+                drift: 0,
+                credentialsProvider: {},
+                endpoint: null,
+                customHeaders: {},
+                version: 2
+            },
+            maxConnections: 3,
+            endpointStore: {},
+            paramsStore: {},
+            cors: {
+                expected: false,
+                sendCredentials: false
+            },
+            log: function(str, level) {}
+        }, credentialsProvider, generateHeaders = function(signatureConstructor, signature, promise) {
+            var headers = signatureConstructor.getHeaders();
+            if (options.signatureSpec.version === 4) {
+                headers.Authorization = qq.s3.util.V4_ALGORITHM_PARAM_VALUE + " Credential=" + options.signatureSpec.credentialsProvider.get().accessKey + "/" + qq.s3.util.getCredentialsDate(signatureConstructor.getRequestDate()) + "/" + options.signatureSpec.region + "/" + "s3/aws4_request," + "SignedHeaders=" + signatureConstructor.getSignedHeaders() + "," + "Signature=" + signature;
+            } else {
+                headers.Authorization = "AWS " + options.signatureSpec.credentialsProvider.get().accessKey + ":" + signature;
+            }
+            promise.success(headers, signatureConstructor.getEndOfUrl());
+        }, v2 = {
+            getStringToSign: function(signatureSpec) {
+                return qq.format("{}\n{}\n{}\n\n{}/{}/{}", signatureSpec.method, signatureSpec.contentMd5 || "", signatureSpec.contentType || "", signatureSpec.headersStr || "\n", signatureSpec.bucket, signatureSpec.endOfUrl);
+            },
+            signApiRequest: function(signatureConstructor, headersStr, signatureEffort) {
+                var headersWordArray = qq.CryptoJS.enc.Utf8.parse(headersStr), headersHmacSha1 = qq.CryptoJS.HmacSHA1(headersWordArray, credentialsProvider.get().secretKey), headersHmacSha1Base64 = qq.CryptoJS.enc.Base64.stringify(headersHmacSha1);
+                generateHeaders(signatureConstructor, headersHmacSha1Base64, signatureEffort);
+            },
+            signPolicy: function(policy, signatureEffort, updatedAccessKey, updatedSessionToken) {
+                var policyStr = JSON.stringify(policy), policyWordArray = qq.CryptoJS.enc.Utf8.parse(policyStr), base64Policy = qq.CryptoJS.enc.Base64.stringify(policyWordArray), policyHmacSha1 = qq.CryptoJS.HmacSHA1(base64Policy, credentialsProvider.get().secretKey), policyHmacSha1Base64 = qq.CryptoJS.enc.Base64.stringify(policyHmacSha1);
+                signatureEffort.success({
+                    policy: base64Policy,
+                    signature: policyHmacSha1Base64
+                }, updatedAccessKey, updatedSessionToken);
+            }
+        }, v4 = {
+            getCanonicalQueryString: function(endOfUri) {
+                var queryParamIdx = endOfUri.indexOf("?"), canonicalQueryString = "", encodedQueryParams, encodedQueryParamNames, queryStrings;
+                if (queryParamIdx >= 0) {
+                    encodedQueryParams = {};
+                    queryStrings = endOfUri.substr(queryParamIdx + 1).split("&");
+                    qq.each(queryStrings, function(idx, queryString) {
+                        var nameAndVal = queryString.split("="), paramVal = nameAndVal[1];
+                        if (paramVal == null) {
+                            paramVal = "";
+                        }
+                        encodedQueryParams[encodeURIComponent(nameAndVal[0])] = encodeURIComponent(paramVal);
+                    });
+                    encodedQueryParamNames = Object.keys(encodedQueryParams).sort();
+                    encodedQueryParamNames.forEach(function(encodedQueryParamName, idx) {
+                        canonicalQueryString += encodedQueryParamName + "=" + encodedQueryParams[encodedQueryParamName];
+                        if (idx < encodedQueryParamNames.length - 1) {
+                            canonicalQueryString += "&";
+                        }
+                    });
+                }
+                return canonicalQueryString;
+            },
+            getCanonicalRequest: function(signatureSpec) {
+                return qq.format("{}\n{}\n{}\n{}\n{}\n{}", signatureSpec.method, v4.getCanonicalUri(signatureSpec.endOfUrl), v4.getCanonicalQueryString(signatureSpec.endOfUrl), signatureSpec.headersStr || "\n", v4.getSignedHeaders(signatureSpec.headerNames), signatureSpec.hashedContent);
+            },
+            getCanonicalUri: function(endOfUri) {
+                var path = endOfUri, queryParamIdx = endOfUri.indexOf("?");
+                if (queryParamIdx > 0) {
+                    path = endOfUri.substr(0, queryParamIdx);
+                }
+                return escape("/" + decodeURIComponent(path));
+            },
+            getEncodedHashedPayload: function(body) {
+                var promise = new qq.Promise(), reader;
+                if (qq.isBlob(body)) {
+                    reader = new FileReader();
+                    reader.onloadend = function(e) {
+                        if (e.target.readyState === FileReader.DONE) {
+                            if (e.target.error) {
+                                promise.failure(e.target.error);
+                            } else {
+                                var wordArray = qq.CryptoJS.lib.WordArray.create(e.target.result);
+                                promise.success(qq.CryptoJS.SHA256(wordArray).toString());
+                            }
+                        }
+                    };
+                    reader.readAsArrayBuffer(body);
+                } else {
+                    body = body || "";
+                    promise.success(qq.CryptoJS.SHA256(body).toString());
+                }
+                return promise;
+            },
+            getScope: function(date, region) {
+                return qq.s3.util.getCredentialsDate(date) + "/" + region + "/s3/aws4_request";
+            },
+            getStringToSign: function(signatureSpec) {
+                var canonicalRequest = v4.getCanonicalRequest(signatureSpec), date = qq.s3.util.getV4PolicyDate(signatureSpec.date, signatureSpec.drift), hashedRequest = qq.CryptoJS.SHA256(canonicalRequest).toString(), scope = v4.getScope(signatureSpec.date, options.signatureSpec.region), stringToSignTemplate = "AWS4-HMAC-SHA256\n{}\n{}\n{}";
+                return {
+                    hashed: qq.format(stringToSignTemplate, date, scope, hashedRequest),
+                    raw: qq.format(stringToSignTemplate, date, scope, canonicalRequest)
+                };
+            },
+            getSignedHeaders: function(headerNames) {
+                var signedHeaders = "";
+                headerNames.forEach(function(headerName, idx) {
+                    signedHeaders += headerName.toLowerCase();
+                    if (idx < headerNames.length - 1) {
+                        signedHeaders += ";";
+                    }
+                });
+                return signedHeaders;
+            },
+            signApiRequest: function(signatureConstructor, headersStr, signatureEffort) {
+                var secretKey = credentialsProvider.get().secretKey, headersPattern = /.+\n.+\n(\d+)\/(.+)\/s3\/.+\n(.+)/, matches = headersPattern.exec(headersStr), dateKey, dateRegionKey, dateRegionServiceKey, signingKey;
+                dateKey = qq.CryptoJS.HmacSHA256(matches[1], "AWS4" + secretKey);
+                dateRegionKey = qq.CryptoJS.HmacSHA256(matches[2], dateKey);
+                dateRegionServiceKey = qq.CryptoJS.HmacSHA256("s3", dateRegionKey);
+                signingKey = qq.CryptoJS.HmacSHA256("aws4_request", dateRegionServiceKey);
+                generateHeaders(signatureConstructor, qq.CryptoJS.HmacSHA256(headersStr, signingKey), signatureEffort);
+            },
+            signPolicy: function(policy, signatureEffort, updatedAccessKey, updatedSessionToken) {
+                var policyStr = JSON.stringify(policy), policyWordArray = qq.CryptoJS.enc.Utf8.parse(policyStr), base64Policy = qq.CryptoJS.enc.Base64.stringify(policyWordArray), secretKey = credentialsProvider.get().secretKey, credentialPattern = /.+\/(.+)\/(.+)\/s3\/aws4_request/, credentialCondition = function() {
+                    var credential = null;
+                    qq.each(policy.conditions, function(key, condition) {
+                        var val = condition["x-amz-credential"];
+                        if (val) {
+                            credential = val;
+                            return false;
+                        }
+                    });
+                    return credential;
+                }(), matches, dateKey, dateRegionKey, dateRegionServiceKey, signingKey;
+                matches = credentialPattern.exec(credentialCondition);
+                dateKey = qq.CryptoJS.HmacSHA256(matches[1], "AWS4" + secretKey);
+                dateRegionKey = qq.CryptoJS.HmacSHA256(matches[2], dateKey);
+                dateRegionServiceKey = qq.CryptoJS.HmacSHA256("s3", dateRegionKey);
+                signingKey = qq.CryptoJS.HmacSHA256("aws4_request", dateRegionServiceKey);
+                signatureEffort.success({
+                    policy: base64Policy,
+                    signature: qq.CryptoJS.HmacSHA256(base64Policy, signingKey).toString()
+                }, updatedAccessKey, updatedSessionToken);
+            }
+        };
+        qq.extend(options, o, true);
+        credentialsProvider = options.signatureSpec.credentialsProvider;
+        function handleSignatureReceived(id, xhrOrXdr, isError) {
+            var responseJson = xhrOrXdr.responseText, pendingSignatureData = pendingSignatures[id], promise = pendingSignatureData.promise, signatureConstructor = pendingSignatureData.signatureConstructor, errorMessage, response;
+            delete pendingSignatures[id];
+            if (responseJson) {
+                try {
+                    response = qq.parseJson(responseJson);
+                } catch (error) {
+                    options.log("Error attempting to parse signature response: " + error, "error");
+                }
+            }
+            if (response && response.invalid) {
+                isError = true;
+                errorMessage = "Invalid policy document or request headers!";
+            } else if (response) {
+                if (options.expectingPolicy && !response.policy) {
+                    isError = true;
+                    errorMessage = "Response does not include the base64 encoded policy!";
+                } else if (!response.signature) {
+                    isError = true;
+                    errorMessage = "Response does not include the signature!";
+                }
+            } else {
+                isError = true;
+                errorMessage = "Received an empty or invalid response from the server!";
+            }
+            if (isError) {
+                if (errorMessage) {
+                    options.log(errorMessage, "error");
+                }
+                promise.failure(errorMessage);
+            } else if (signatureConstructor) {
+                generateHeaders(signatureConstructor, response.signature, promise);
+            } else {
+                promise.success(response);
+            }
+        }
+        function getStringToSignArtifacts(id, version, requestInfo) {
+            var promise = new qq.Promise(), method = "POST", headerNames = [], headersStr = "", now = new Date(), endOfUrl, signatureSpec, toSign, generateStringToSign = function(requestInfo) {
+                var contentMd5, headerIndexesToRemove = [];
+                qq.each(requestInfo.headers, function(name) {
+                    headerNames.push(name);
+                });
+                headerNames.sort();
+                qq.each(headerNames, function(idx, headerName) {
+                    if (qq.indexOf(qq.s3.util.UNSIGNABLE_REST_HEADER_NAMES, headerName) < 0) {
+                        headersStr += headerName.toLowerCase() + ":" + requestInfo.headers[headerName].trim() + "\n";
+                    } else if (headerName === "Content-MD5") {
+                        contentMd5 = requestInfo.headers[headerName];
+                    } else {
+                        headerIndexesToRemove.unshift(idx);
+                    }
+                });
+                qq.each(headerIndexesToRemove, function(idx, headerIdx) {
+                    headerNames.splice(headerIdx, 1);
+                });
+                signatureSpec = {
+                    bucket: requestInfo.bucket,
+                    contentMd5: contentMd5,
+                    contentType: requestInfo.contentType,
+                    date: now,
+                    drift: options.signatureSpec.drift,
+                    endOfUrl: endOfUrl,
+                    hashedContent: requestInfo.hashedContent,
+                    headerNames: headerNames,
+                    headersStr: headersStr,
+                    method: method
+                };
+                toSign = version === 2 ? v2.getStringToSign(signatureSpec) : v4.getStringToSign(signatureSpec);
+                return {
+                    date: now,
+                    endOfUrl: endOfUrl,
+                    signedHeaders: version === 4 ? v4.getSignedHeaders(signatureSpec.headerNames) : null,
+                    toSign: version === 4 ? toSign.hashed : toSign,
+                    toSignRaw: version === 4 ? toSign.raw : toSign
+                };
+            };
+            switch (requestInfo.type) {
+              case thisSignatureRequester.REQUEST_TYPE.MULTIPART_ABORT:
+                method = "DELETE";
+                endOfUrl = qq.format("uploadId={}", requestInfo.uploadId);
+                break;
+
+              case thisSignatureRequester.REQUEST_TYPE.MULTIPART_INITIATE:
+                endOfUrl = "uploads";
+                break;
+
+              case thisSignatureRequester.REQUEST_TYPE.MULTIPART_COMPLETE:
+                endOfUrl = qq.format("uploadId={}", requestInfo.uploadId);
+                break;
+
+              case thisSignatureRequester.REQUEST_TYPE.MULTIPART_UPLOAD:
+                method = "PUT";
+                endOfUrl = qq.format("partNumber={}&uploadId={}", requestInfo.partNum, requestInfo.uploadId);
+                break;
+            }
+            endOfUrl = requestInfo.key + "?" + endOfUrl;
+            if (version === 4) {
+                v4.getEncodedHashedPayload(requestInfo.content).then(function(hashedContent) {
+                    requestInfo.headers["x-amz-content-sha256"] = hashedContent;
+                    requestInfo.headers.Host = requestInfo.host;
+                    requestInfo.headers["x-amz-date"] = qq.s3.util.getV4PolicyDate(now, options.signatureSpec.drift);
+                    requestInfo.hashedContent = hashedContent;
+                    promise.success(generateStringToSign(requestInfo));
+                });
+            } else {
+                promise.success(generateStringToSign(requestInfo));
+            }
+            return promise;
+        }
+        function determineSignatureClientSide(id, toBeSigned, signatureEffort, updatedAccessKey, updatedSessionToken) {
+            var updatedHeaders;
+            if (toBeSigned.signatureConstructor) {
+                if (updatedSessionToken) {
+                    updatedHeaders = toBeSigned.signatureConstructor.getHeaders();
+                    updatedHeaders[qq.s3.util.SESSION_TOKEN_PARAM_NAME] = updatedSessionToken;
+                    toBeSigned.signatureConstructor.withHeaders(updatedHeaders);
+                }
+                toBeSigned.signatureConstructor.getToSign(id).then(function(signatureArtifacts) {
+                    signApiRequest(toBeSigned.signatureConstructor, signatureArtifacts.stringToSign, signatureEffort);
+                });
+            } else {
+                updatedSessionToken && qq.s3.util.refreshPolicyCredentials(toBeSigned, updatedSessionToken);
+                signPolicy(toBeSigned, signatureEffort, updatedAccessKey, updatedSessionToken);
+            }
+        }
+        function signPolicy(policy, signatureEffort, updatedAccessKey, updatedSessionToken) {
+            if (options.signatureSpec.version === 4) {
+                v4.signPolicy(policy, signatureEffort, updatedAccessKey, updatedSessionToken);
+            } else {
+                v2.signPolicy(policy, signatureEffort, updatedAccessKey, updatedSessionToken);
+            }
+        }
+        function signApiRequest(signatureConstructor, headersStr, signatureEffort) {
+            if (options.signatureSpec.version === 4) {
+                v4.signApiRequest(signatureConstructor, headersStr, signatureEffort);
+            } else {
+                v2.signApiRequest(signatureConstructor, headersStr, signatureEffort);
+            }
+        }
+        requester = qq.extend(this, new qq.AjaxRequester({
+            acceptHeader: "application/json",
+            method: options.method,
+            contentType: "application/json; charset=utf-8",
+            endpointStore: {
+                get: function() {
+                    return options.signatureSpec.endpoint;
+                }
+            },
+            paramsStore: options.paramsStore,
+            maxConnections: options.maxConnections,
+            customHeaders: options.signatureSpec.customHeaders,
+            log: options.log,
+            onComplete: handleSignatureReceived,
+            cors: options.cors
+        }));
+        qq.extend(this, {
+            getSignature: function(id, toBeSigned) {
+                var params = toBeSigned, signatureConstructor = toBeSigned.signatureConstructor, signatureEffort = new qq.Promise(), queryParams;
+                if (options.signatureSpec.version === 4) {
+                    queryParams = {
+                        v4: true
+                    };
+                }
+                if (credentialsProvider.get().secretKey && qq.CryptoJS) {
+                    if (credentialsProvider.get().expiration.getTime() > Date.now()) {
+                        determineSignatureClientSide(id, toBeSigned, signatureEffort);
+                    } else {
+                        credentialsProvider.onExpired().then(function() {
+                            determineSignatureClientSide(id, toBeSigned, signatureEffort, credentialsProvider.get().accessKey, credentialsProvider.get().sessionToken);
+                        }, function(errorMsg) {
+                            options.log("Attempt to update expired credentials apparently failed! Unable to sign request.  ", "error");
+                            signatureEffort.failure("Unable to sign request - expired credentials.");
                         });
                     }
-                }
-            },
-            addFileToCache: function(id, name, prependInfo, hideForever) {
-                this.addFile(id, name, prependInfo, hideForever, true);
-            },
-            addCacheToDom: function() {
-                fileList.appendChild(fileBatch.content);
-                fileBatch.content = document.createDocumentFragment();
-                fileBatch.map = {};
-            },
-            removeFile: function(id) {
-                qq(getFile(id)).remove();
-            },
-            getFileId: function(el) {
-                var currentNode = el;
-                if (currentNode) {
-                    while (currentNode.getAttribute(FILE_ID_ATTR) == null) {
-                        currentNode = currentNode.parentNode;
-                    }
-                    return parseInt(currentNode.getAttribute(FILE_ID_ATTR));
-                }
-            },
-            getFileList: function() {
-                return fileList;
-            },
-            markFilenameEditable: function(id) {
-                var filename = getFilename(id);
-                filename && qq(filename).addClass(options.classes.editable);
-            },
-            updateFilename: function(id, name) {
-                var filenameEl = getFilename(id);
-                if (filenameEl) {
-                    qq(filenameEl).setText(name);
-                    filenameEl.setAttribute("title", name);
-                }
-            },
-            hideFilename: function(id) {
-                hide(getFilename(id));
-            },
-            showFilename: function(id) {
-                show(getFilename(id));
-            },
-            isFileName: function(el) {
-                return qq(el).hasClass(selectorClasses.file);
-            },
-            getButton: function() {
-                return options.button || getTemplateEl(container, selectorClasses.button);
-            },
-            hideDropProcessing: function() {
-                hide(getDropProcessing());
-            },
-            showDropProcessing: function() {
-                show(getDropProcessing());
-            },
-            getDropZone: function() {
-                return getTemplateEl(container, selectorClasses.drop);
-            },
-            isEditFilenamePossible: function() {
-                return isEditElementsExist;
-            },
-            hideRetry: function(id) {
-                hide(getRetry(id));
-            },
-            isRetryPossible: function() {
-                return isRetryElementExist;
-            },
-            showRetry: function(id) {
-                show(getRetry(id));
-            },
-            getFileContainer: function(id) {
-                return getFile(id);
-            },
-            showEditIcon: function(id) {
-                var icon = getEditIcon(id);
-                icon && qq(icon).addClass(options.classes.editable);
-            },
-            isHiddenForever: function(id) {
-                return qq(getFile(id)).hasClass(HIDDEN_FOREVER_CLASS);
-            },
-            hideEditIcon: function(id) {
-                var icon = getEditIcon(id);
-                icon && qq(icon).removeClass(options.classes.editable);
-            },
-            isEditIcon: function(el) {
-                return qq(el).hasClass(selectorClasses.editNameIcon, true);
-            },
-            getEditInput: function(id) {
-                return getTemplateEl(getFile(id), selectorClasses.editFilenameInput);
-            },
-            isEditInput: function(el) {
-                return qq(el).hasClass(selectorClasses.editFilenameInput, true);
-            },
-            updateProgress: function(id, loaded, total) {
-                var bar = getProgress(id), percent;
-                if (bar && total > 0) {
-                    percent = Math.round(loaded / total * 100);
-                    if (percent === 100) {
-                        hide(bar);
+                } else {
+                    options.log("Submitting S3 signature request for " + id);
+                    if (signatureConstructor) {
+                        signatureConstructor.getToSign(id).then(function(signatureArtifacts) {
+                            params = {
+                                headers: signatureArtifacts.stringToSignRaw
+                            };
+                            requester.initTransport(id).withParams(params).withQueryParams(queryParams).send();
+                        });
                     } else {
-                        show(bar);
+                        requester.initTransport(id).withParams(params).withQueryParams(queryParams).send();
                     }
-                    setProgressBarWidth(id, percent);
+                    pendingSignatures[id] = {
+                        promise: signatureEffort,
+                        signatureConstructor: signatureConstructor
+                    };
                 }
+                return signatureEffort;
             },
-            updateTotalProgress: function(loaded, total) {
-                this.updateProgress(null, loaded, total);
-            },
-            hideProgress: function(id) {
-                var bar = getProgress(id);
-                bar && hide(bar);
-            },
-            hideTotalProgress: function() {
-                this.hideProgress();
-            },
-            resetProgress: function(id) {
-                setProgressBarWidth(id, 0);
-                this.hideTotalProgress(id);
-            },
-            resetTotalProgress: function() {
-                this.resetProgress();
-            },
-            showCancel: function(id) {
-                if (!isCancelDisabled) {
-                    var cancel = getCancel(id);
-                    cancel && qq(cancel).removeClass(options.classes.hide);
-                }
-            },
-            hideCancel: function(id) {
-                hide(getCancel(id));
-            },
-            isCancel: function(el) {
-                return qq(el).hasClass(selectorClasses.cancel, true);
-            },
-            allowPause: function(id) {
-                show(getPause(id));
-                hide(getContinue(id));
-            },
-            uploadPaused: function(id) {
-                this.setStatusText(id, options.text.paused);
-                this.allowContinueButton(id);
-                hide(getSpinner(id));
-            },
-            hidePause: function(id) {
-                hide(getPause(id));
-            },
-            isPause: function(el) {
-                return qq(el).hasClass(selectorClasses.pause, true);
-            },
-            isContinueButton: function(el) {
-                return qq(el).hasClass(selectorClasses.continueButton, true);
-            },
-            allowContinueButton: function(id) {
-                show(getContinue(id));
-                hide(getPause(id));
-            },
-            uploadContinued: function(id) {
-                this.setStatusText(id, "");
-                this.allowPause(id);
-                show(getSpinner(id));
-            },
-            showDeleteButton: function(id) {
-                show(getDelete(id));
-            },
-            hideDeleteButton: function(id) {
-                hide(getDelete(id));
-            },
-            isDeleteButton: function(el) {
-                return qq(el).hasClass(selectorClasses.deleteButton, true);
-            },
-            isRetry: function(el) {
-                return qq(el).hasClass(selectorClasses.retry, true);
-            },
-            updateSize: function(id, text) {
-                var size = getSize(id);
-                if (size) {
-                    show(size);
-                    qq(size).setText(text);
-                }
-            },
-            setStatusText: function(id, text) {
-                var textEl = getTemplateEl(getFile(id), selectorClasses.statusText);
-                if (textEl) {
-                    if (text == null) {
-                        qq(textEl).clearText();
-                    } else {
-                        qq(textEl).setText(text);
+            constructStringToSign: function(type, bucket, host, key) {
+                var headers = {}, uploadId, content, contentType, partNum, artifacts;
+                return {
+                    withHeaders: function(theHeaders) {
+                        headers = theHeaders;
+                        return this;
+                    },
+                    withUploadId: function(theUploadId) {
+                        uploadId = theUploadId;
+                        return this;
+                    },
+                    withContent: function(theContent) {
+                        content = theContent;
+                        return this;
+                    },
+                    withContentType: function(theContentType) {
+                        contentType = theContentType;
+                        return this;
+                    },
+                    withPartNum: function(thePartNum) {
+                        partNum = thePartNum;
+                        return this;
+                    },
+                    getToSign: function(id) {
+                        var sessionToken = credentialsProvider.get().sessionToken, promise = new qq.Promise(), adjustedDate = new Date(Date.now() + options.signatureSpec.drift);
+                        headers["x-amz-date"] = adjustedDate.toUTCString();
+                        if (sessionToken) {
+                            headers[qq.s3.util.SESSION_TOKEN_PARAM_NAME] = sessionToken;
+                        }
+                        getStringToSignArtifacts(id, options.signatureSpec.version, {
+                            bucket: bucket,
+                            content: content,
+                            contentType: contentType,
+                            headers: headers,
+                            host: host,
+                            key: key,
+                            partNum: partNum,
+                            type: type,
+                            uploadId: uploadId
+                        }).then(function(_artifacts_) {
+                            artifacts = _artifacts_;
+                            promise.success({
+                                headers: function() {
+                                    if (contentType) {
+                                        headers["Content-Type"] = contentType;
+                                    }
+                                    delete headers.Host;
+                                    return headers;
+                                }(),
+                                date: artifacts.date,
+                                endOfUrl: artifacts.endOfUrl,
+                                signedHeaders: artifacts.signedHeaders,
+                                stringToSign: artifacts.toSign,
+                                stringToSignRaw: artifacts.toSignRaw
+                            });
+                        });
+                        return promise;
+                    },
+                    getHeaders: function() {
+                        return qq.extend({}, headers);
+                    },
+                    getEndOfUrl: function() {
+                        return artifacts && artifacts.endOfUrl;
+                    },
+                    getRequestDate: function() {
+                        return artifacts && artifacts.date;
+                    },
+                    getSignedHeaders: function() {
+                        return artifacts && artifacts.signedHeaders;
                     }
-                }
-            },
-            hideSpinner: function(id) {
-                qq(getFile(id)).removeClass(IN_PROGRESS_CLASS);
-                hide(getSpinner(id));
-            },
-            showSpinner: function(id) {
-                qq(getFile(id)).addClass(IN_PROGRESS_CLASS);
-                show(getSpinner(id));
-            },
-            generatePreview: function(id, optFileOrBlob, customResizeFunction) {
-                if (!this.isHiddenForever(id)) {
-                    thumbGenerationQueue.push({
-                        id: id,
-                        customResizeFunction: customResizeFunction,
-                        optFileOrBlob: optFileOrBlob
-                    });
-                    !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
-                }
-            },
-            updateThumbnail: function(id, thumbnailUrl, showWaitingImg, customResizeFunction) {
-                if (!this.isHiddenForever(id)) {
-                    thumbGenerationQueue.push({
-                        customResizeFunction: customResizeFunction,
-                        update: true,
-                        id: id,
-                        thumbnailUrl: thumbnailUrl,
-                        showWaitingImg: showWaitingImg
-                    });
-                    !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
-                }
-            },
-            hasDialog: function(type) {
-                return qq.supportedFeatures.dialogElement && !!getDialog(type);
-            },
-            showDialog: function(type, message, defaultValue) {
-                var dialog = getDialog(type), messageEl = getTemplateEl(dialog, selectorClasses.dialogMessage), inputEl = dialog.getElementsByTagName("INPUT")[0], cancelBtn = getTemplateEl(dialog, selectorClasses.dialogCancelButton), okBtn = getTemplateEl(dialog, selectorClasses.dialogOkButton), promise = new qq.Promise(), closeHandler = function() {
-                    cancelBtn.removeEventListener("click", cancelClickHandler);
-                    okBtn && okBtn.removeEventListener("click", okClickHandler);
-                    promise.failure();
-                }, cancelClickHandler = function() {
-                    cancelBtn.removeEventListener("click", cancelClickHandler);
-                    dialog.close();
-                }, okClickHandler = function() {
-                    dialog.removeEventListener("close", closeHandler);
-                    okBtn.removeEventListener("click", okClickHandler);
-                    dialog.close();
-                    promise.success(inputEl && inputEl.value);
                 };
-                dialog.addEventListener("close", closeHandler);
-                cancelBtn.addEventListener("click", cancelClickHandler);
-                okBtn && okBtn.addEventListener("click", okClickHandler);
-                if (inputEl) {
-                    inputEl.value = defaultValue;
+            }
+        });
+    };
+    qq.s3.RequestSigner.prototype.REQUEST_TYPE = {
+        MULTIPART_INITIATE: "multipart_initiate",
+        MULTIPART_COMPLETE: "multipart_complete",
+        MULTIPART_ABORT: "multipart_abort",
+        MULTIPART_UPLOAD: "multipart_upload"
+    };
+    qq.UploadSuccessAjaxRequester = function(o) {
+        "use strict";
+        var requester, pendingRequests = [], options = {
+            method: "POST",
+            endpoint: null,
+            maxConnections: 3,
+            customHeaders: {},
+            paramsStore: {},
+            cors: {
+                expected: false,
+                sendCredentials: false
+            },
+            log: function(str, level) {}
+        };
+        qq.extend(options, o);
+        function handleSuccessResponse(id, xhrOrXdr, isError) {
+            var promise = pendingRequests[id], responseJson = xhrOrXdr.responseText, successIndicator = {
+                success: true
+            }, failureIndicator = {
+                success: false
+            }, parsedResponse;
+            delete pendingRequests[id];
+            options.log(qq.format("Received the following response body to an upload success request for id {}: {}", id, responseJson));
+            try {
+                parsedResponse = qq.parseJson(responseJson);
+                if (isError || parsedResponse && (parsedResponse.error || parsedResponse.success === false)) {
+                    options.log("Upload success request was rejected by the server.", "error");
+                    promise.failure(qq.extend(parsedResponse, failureIndicator));
+                } else {
+                    options.log("Upload success was acknowledged by the server.");
+                    promise.success(qq.extend(parsedResponse, successIndicator));
                 }
-                messageEl.textContent = message;
-                dialog.showModal();
+            } catch (error) {
+                if (isError) {
+                    options.log(qq.format("Your server indicated failure in its upload success request response for id {}!", id), "error");
+                    promise.failure(failureIndicator);
+                } else {
+                    options.log("Upload success was acknowledged by the server.");
+                    promise.success(successIndicator);
+                }
+            }
+        }
+        requester = qq.extend(this, new qq.AjaxRequester({
+            acceptHeader: "application/json",
+            method: options.method,
+            endpointStore: {
+                get: function() {
+                    return options.endpoint;
+                }
+            },
+            paramsStore: options.paramsStore,
+            maxConnections: options.maxConnections,
+            customHeaders: options.customHeaders,
+            log: options.log,
+            onComplete: handleSuccessResponse,
+            cors: options.cors
+        }));
+        qq.extend(this, {
+            sendSuccessRequest: function(id, spec) {
+                var promise = new qq.Promise();
+                options.log("Submitting upload success request/notification for " + id);
+                requester.initTransport(id).withParams(spec).send();
+                pendingRequests[id] = promise;
                 return promise;
             }
         });
     };
-    qq.UiEventHandler = function(s, protectedApi) {
+    qq.s3.InitiateMultipartAjaxRequester = function(o) {
         "use strict";
-        var disposer = new qq.DisposeSupport(), spec = {
-            eventType: "click",
-            attachTo: null,
-            onHandled: function(target, event) {}
+        var requester, pendingInitiateRequests = {}, options = {
+            filenameParam: "qqfilename",
+            method: "POST",
+            endpointStore: null,
+            paramsStore: null,
+            signatureSpec: null,
+            aclStore: null,
+            reducedRedundancy: false,
+            serverSideEncryption: false,
+            maxConnections: 3,
+            getContentType: function(id) {},
+            getBucket: function(id) {},
+            getHost: function(id) {},
+            getKey: function(id) {},
+            getName: function(id) {},
+            log: function(str, level) {}
+        }, getSignatureAjaxRequester;
+        qq.extend(options, o);
+        getSignatureAjaxRequester = new qq.s3.RequestSigner({
+            endpointStore: options.endpointStore,
+            signatureSpec: options.signatureSpec,
+            cors: options.cors,
+            log: options.log
+        });
+        function getHeaders(id) {
+            var bucket = options.getBucket(id), host = options.getHost(id), headers = {}, promise = new qq.Promise(), key = options.getKey(id), signatureConstructor;
+            headers["x-amz-acl"] = options.aclStore.get(id);
+            if (options.reducedRedundancy) {
+                headers[qq.s3.util.REDUCED_REDUNDANCY_PARAM_NAME] = qq.s3.util.REDUCED_REDUNDANCY_PARAM_VALUE;
+            }
+            if (options.serverSideEncryption) {
+                headers[qq.s3.util.SERVER_SIDE_ENCRYPTION_PARAM_NAME] = qq.s3.util.SERVER_SIDE_ENCRYPTION_PARAM_VALUE;
+            }
+            headers[qq.s3.util.AWS_PARAM_PREFIX + options.filenameParam] = encodeURIComponent(options.getName(id));
+            qq.each(options.paramsStore.get(id), function(name, val) {
+                if (qq.indexOf(qq.s3.util.UNPREFIXED_PARAM_NAMES, name) >= 0) {
+                    headers[name] = val;
+                } else {
+                    headers[qq.s3.util.AWS_PARAM_PREFIX + name] = encodeURIComponent(val);
+                }
+            });
+            signatureConstructor = getSignatureAjaxRequester.constructStringToSign(getSignatureAjaxRequester.REQUEST_TYPE.MULTIPART_INITIATE, bucket, host, key).withContentType(options.getContentType(id)).withHeaders(headers);
+            getSignatureAjaxRequester.getSignature(id, {
+                signatureConstructor: signatureConstructor
+            }).then(promise.success, promise.failure);
+            return promise;
+        }
+        function handleInitiateRequestComplete(id, xhr, isError) {
+            var promise = pendingInitiateRequests[id], domParser = new DOMParser(), responseDoc = domParser.parseFromString(xhr.responseText, "application/xml"), uploadIdElements, messageElements, uploadId, errorMessage, status;
+            delete pendingInitiateRequests[id];
+            if (isError) {
+                status = xhr.status;
+                messageElements = responseDoc.getElementsByTagName("Message");
+                if (messageElements.length > 0) {
+                    errorMessage = messageElements[0].textContent;
+                }
+            } else {
+                uploadIdElements = responseDoc.getElementsByTagName("UploadId");
+                if (uploadIdElements.length > 0) {
+                    uploadId = uploadIdElements[0].textContent;
+                } else {
+                    errorMessage = "Upload ID missing from request";
+                }
+            }
+            if (uploadId === undefined) {
+                if (errorMessage) {
+                    options.log(qq.format("Specific problem detected initiating multipart upload request for {}: '{}'.", id, errorMessage), "error");
+                } else {
+                    options.log(qq.format("Unexplained error with initiate multipart upload request for {}.  Status code {}.", id, status), "error");
+                }
+                promise.failure("Problem initiating upload request.", xhr);
+            } else {
+                options.log(qq.format("Initiate multipart upload request successful for {}.  Upload ID is {}", id, uploadId));
+                promise.success(uploadId, xhr);
+            }
+        }
+        requester = qq.extend(this, new qq.AjaxRequester({
+            method: options.method,
+            contentType: null,
+            endpointStore: options.endpointStore,
+            maxConnections: options.maxConnections,
+            allowXRequestedWithAndCacheControl: false,
+            log: options.log,
+            onComplete: handleInitiateRequestComplete,
+            successfulResponseCodes: {
+                POST: [ 200 ]
+            }
+        }));
+        qq.extend(this, {
+            send: function(id) {
+                var promise = new qq.Promise();
+                getHeaders(id).then(function(headers, endOfUrl) {
+                    options.log("Submitting S3 initiate multipart upload request for " + id);
+                    pendingInitiateRequests[id] = promise;
+                    requester.initTransport(id).withPath(endOfUrl).withHeaders(headers).send();
+                }, promise.failure);
+                return promise;
+            }
+        });
+    };
+    qq.s3.CompleteMultipartAjaxRequester = function(o) {
+        "use strict";
+        var requester, pendingCompleteRequests = {}, options = {
+            method: "POST",
+            contentType: "text/xml",
+            endpointStore: null,
+            signatureSpec: null,
+            maxConnections: 3,
+            getBucket: function(id) {},
+            getHost: function(id) {},
+            getKey: function(id) {},
+            log: function(str, level) {}
+        }, getSignatureAjaxRequester;
+        qq.extend(options, o);
+        getSignatureAjaxRequester = new qq.s3.RequestSigner({
+            endpointStore: options.endpointStore,
+            signatureSpec: options.signatureSpec,
+            cors: options.cors,
+            log: options.log
+        });
+        function getHeaders(id, uploadId, body) {
+            var headers = {}, promise = new qq.Promise(), bucket = options.getBucket(id), host = options.getHost(id), signatureConstructor = getSignatureAjaxRequester.constructStringToSign(getSignatureAjaxRequester.REQUEST_TYPE.MULTIPART_COMPLETE, bucket, host, options.getKey(id)).withUploadId(uploadId).withContent(body).withContentType("application/xml; charset=UTF-8");
+            getSignatureAjaxRequester.getSignature(id, {
+                signatureConstructor: signatureConstructor
+            }).then(promise.success, promise.failure);
+            return promise;
+        }
+        function handleCompleteRequestComplete(id, xhr, isError) {
+            var promise = pendingCompleteRequests[id], domParser = new DOMParser(), bucket = options.getBucket(id), key = options.getKey(id), responseDoc = domParser.parseFromString(xhr.responseText, "application/xml"), bucketEls = responseDoc.getElementsByTagName("Bucket"), keyEls = responseDoc.getElementsByTagName("Key");
+            delete pendingCompleteRequests[id];
+            options.log(qq.format("Complete response status {}, body = {}", xhr.status, xhr.responseText));
+            if (isError) {
+                options.log(qq.format("Complete Multipart Upload request for {} failed with status {}.", id, xhr.status), "error");
+            } else {
+                if (bucketEls.length && keyEls.length) {
+                    if (bucketEls[0].textContent !== bucket) {
+                        isError = true;
+                        options.log(qq.format("Wrong bucket in response to Complete Multipart Upload request for {}.", id), "error");
+                    }
+                } else {
+                    isError = true;
+                    options.log(qq.format("Missing bucket and/or key in response to Complete Multipart Upload request for {}.", id), "error");
+                }
+            }
+            if (isError) {
+                promise.failure("Problem combining the file parts!", xhr);
+            } else {
+                promise.success({}, xhr);
+            }
+        }
+        function getCompleteRequestBody(etagEntries) {
+            var doc = document.implementation.createDocument(null, "CompleteMultipartUpload", null);
+            etagEntries.sort(function(a, b) {
+                return a.part - b.part;
+            });
+            qq.each(etagEntries, function(idx, etagEntry) {
+                var part = etagEntry.part, etag = etagEntry.etag, partEl = doc.createElement("Part"), partNumEl = doc.createElement("PartNumber"), partNumTextEl = doc.createTextNode(part), etagTextEl = doc.createTextNode(etag), etagEl = doc.createElement("ETag");
+                etagEl.appendChild(etagTextEl);
+                partNumEl.appendChild(partNumTextEl);
+                partEl.appendChild(partNumEl);
+                partEl.appendChild(etagEl);
+                qq(doc).children()[0].appendChild(partEl);
+            });
+            return new XMLSerializer().serializeToString(doc);
+        }
+        requester = qq.extend(this, new qq.AjaxRequester({
+            method: options.method,
+            contentType: "application/xml; charset=UTF-8",
+            endpointStore: options.endpointStore,
+            maxConnections: options.maxConnections,
+            allowXRequestedWithAndCacheControl: false,
+            log: options.log,
+            onComplete: handleCompleteRequestComplete,
+            successfulResponseCodes: {
+                POST: [ 200 ]
+            }
+        }));
+        qq.extend(this, {
+            send: function(id, uploadId, etagEntries) {
+                var promise = new qq.Promise(), body = getCompleteRequestBody(etagEntries);
+                getHeaders(id, uploadId, body).then(function(headers, endOfUrl) {
+                    options.log("Submitting S3 complete multipart upload request for " + id);
+                    pendingCompleteRequests[id] = promise;
+                    delete headers["Content-Type"];
+                    requester.initTransport(id).withPath(endOfUrl).withHeaders(headers).withPayload(body).send();
+                }, promise.failure);
+                return promise;
+            }
+        });
+    };
+    qq.s3.AbortMultipartAjaxRequester = function(o) {
+        "use strict";
+        var requester, options = {
+            method: "DELETE",
+            endpointStore: null,
+            signatureSpec: null,
+            maxConnections: 3,
+            getBucket: function(id) {},
+            getHost: function(id) {},
+            getKey: function(id) {},
+            log: function(str, level) {}
+        }, getSignatureAjaxRequester;
+        qq.extend(options, o);
+        getSignatureAjaxRequester = new qq.s3.RequestSigner({
+            endpointStore: options.endpointStore,
+            signatureSpec: options.signatureSpec,
+            cors: options.cors,
+            log: options.log
+        });
+        function getHeaders(id, uploadId) {
+            var headers = {}, promise = new qq.Promise(), bucket = options.getBucket(id), host = options.getHost(id), signatureConstructor = getSignatureAjaxRequester.constructStringToSign(getSignatureAjaxRequester.REQUEST_TYPE.MULTIPART_ABORT, bucket, host, options.getKey(id)).withUploadId(uploadId);
+            getSignatureAjaxRequester.getSignature(id, {
+                signatureConstructor: signatureConstructor
+            }).then(promise.success, promise.failure);
+            return promise;
+        }
+        function handleAbortRequestComplete(id, xhr, isError) {
+            var domParser = new DOMParser(), responseDoc = domParser.parseFromString(xhr.responseText, "application/xml"), errorEls = responseDoc.getElementsByTagName("Error"), awsErrorMsg;
+            options.log(qq.format("Abort response status {}, body = {}", xhr.status, xhr.responseText));
+            if (isError) {
+                options.log(qq.format("Abort Multipart Upload request for {} failed with status {}.", id, xhr.status), "error");
+            } else {
+                if (errorEls.length) {
+                    isError = true;
+                    awsErrorMsg = responseDoc.getElementsByTagName("Message")[0].textContent;
+                    options.log(qq.format("Failed to Abort Multipart Upload request for {}.  Error: {}", id, awsErrorMsg), "error");
+                } else {
+                    options.log(qq.format("Abort MPU request succeeded for file ID {}.", id));
+                }
+            }
+        }
+        requester = qq.extend(this, new qq.AjaxRequester({
+            validMethods: [ "DELETE" ],
+            method: options.method,
+            contentType: null,
+            endpointStore: options.endpointStore,
+            maxConnections: options.maxConnections,
+            allowXRequestedWithAndCacheControl: false,
+            log: options.log,
+            onComplete: handleAbortRequestComplete,
+            successfulResponseCodes: {
+                DELETE: [ 204 ]
+            }
+        }));
+        qq.extend(this, {
+            send: function(id, uploadId) {
+                getHeaders(id, uploadId).then(function(headers, endOfUrl) {
+                    options.log("Submitting S3 Abort multipart upload request for " + id);
+                    requester.initTransport(id).withPath(endOfUrl).withHeaders(headers).send();
+                });
+            }
+        });
+    };
+    qq.s3.XhrUploadHandler = function(spec, proxy) {
+        "use strict";
+        var getName = proxy.getName, log = proxy.log, clockDrift = spec.clockDrift, expectedStatus = 200, onGetBucket = spec.getBucket, onGetHost = spec.getHost, onGetKeyName = spec.getKeyName, filenameParam = spec.filenameParam, paramsStore = spec.paramsStore, endpointStore = spec.endpointStore, aclStore = spec.aclStore, reducedRedundancy = spec.objectProperties.reducedRedundancy, region = spec.objectProperties.region, serverSideEncryption = spec.objectProperties.serverSideEncryption, validation = spec.validation, signature = qq.extend({
+            region: region,
+            drift: clockDrift
+        }, spec.signature), handler = this, credentialsProvider = spec.signature.credentialsProvider, chunked = {
+            combine: function(id) {
+                var uploadId = handler._getPersistableData(id).uploadId, etagMap = handler._getPersistableData(id).etags, result = new qq.Promise();
+                requesters.completeMultipart.send(id, uploadId, etagMap).then(result.success, function failure(reason, xhr) {
+                    result.failure(upload.done(id, xhr).response, xhr);
+                });
+                return result;
+            },
+            done: function(id, xhr, chunkIdx) {
+                var response = upload.response.parse(id, xhr), etag;
+                if (response.success) {
+                    etag = xhr.getResponseHeader("ETag");
+                    if (!handler._getPersistableData(id).etags) {
+                        handler._getPersistableData(id).etags = [];
+                    }
+                    handler._getPersistableData(id).etags.push({
+                        part: chunkIdx + 1,
+                        etag: etag
+                    });
+                }
+            },
+            initHeaders: function(id, chunkIdx, blob) {
+                var headers = {}, bucket = upload.bucket.getName(id), host = upload.host.getName(id), key = upload.key.urlSafe(id), promise = new qq.Promise(), signatureConstructor = requesters.restSignature.constructStringToSign(requesters.restSignature.REQUEST_TYPE.MULTIPART_UPLOAD, bucket, host, key).withPartNum(chunkIdx + 1).withContent(blob).withUploadId(handler._getPersistableData(id).uploadId);
+                requesters.restSignature.getSignature(id + "." + chunkIdx, {
+                    signatureConstructor: signatureConstructor
+                }).then(promise.success, promise.failure);
+                return promise;
+            },
+            put: function(id, chunkIdx) {
+                var xhr = handler._createXhr(id, chunkIdx), chunkData = handler._getChunkData(id, chunkIdx), domain = spec.endpointStore.get(id), promise = new qq.Promise();
+                chunked.initHeaders(id, chunkIdx, chunkData.blob).then(function(headers, endOfUrl) {
+                    if (xhr._cancelled) {
+                        log(qq.format("Upload of item {}.{} cancelled. Upload will not start after successful signature request.", id, chunkIdx));
+                        promise.failure({
+                            error: "Chunk upload cancelled"
+                        });
+                    } else {
+                        var url = domain + "/" + endOfUrl;
+                        handler._registerProgressHandler(id, chunkIdx, chunkData.size);
+                        upload.track(id, xhr, chunkIdx).then(promise.success, promise.failure);
+                        xhr.open("PUT", url, true);
+                        qq.each(headers, function(name, val) {
+                            xhr.setRequestHeader(name, val);
+                        });
+                        xhr.send(chunkData.blob);
+                    }
+                }, function() {
+                    promise.failure({
+                        error: "Problem signing the chunk!"
+                    }, xhr);
+                });
+                return promise;
+            },
+            send: function(id, chunkIdx) {
+                var promise = new qq.Promise();
+                chunked.setup(id).then(function() {
+                    chunked.put(id, chunkIdx).then(promise.success, promise.failure);
+                }, function(errorMessage, xhr) {
+                    promise.failure({
+                        error: errorMessage
+                    }, xhr);
+                });
+                return promise;
+            },
+            setup: function(id) {
+                var promise = new qq.Promise(), uploadId = handler._getPersistableData(id).uploadId, uploadIdPromise = new qq.Promise();
+                if (!uploadId) {
+                    handler._getPersistableData(id).uploadId = uploadIdPromise;
+                    requesters.initiateMultipart.send(id).then(function(uploadId) {
+                        handler._getPersistableData(id).uploadId = uploadId;
+                        uploadIdPromise.success(uploadId);
+                        promise.success(uploadId);
+                    }, function(errorMsg, xhr) {
+                        handler._getPersistableData(id).uploadId = null;
+                        promise.failure(errorMsg, xhr);
+                        uploadIdPromise.failure(errorMsg, xhr);
+                    });
+                } else if (uploadId instanceof qq.Promise) {
+                    uploadId.then(function(uploadId) {
+                        promise.success(uploadId);
+                    });
+                } else {
+                    promise.success(uploadId);
+                }
+                return promise;
+            }
+        }, requesters = {
+            abortMultipart: new qq.s3.AbortMultipartAjaxRequester({
+                endpointStore: endpointStore,
+                signatureSpec: signature,
+                cors: spec.cors,
+                log: log,
+                getBucket: function(id) {
+                    return upload.bucket.getName(id);
+                },
+                getHost: function(id) {
+                    return upload.host.getName(id);
+                },
+                getKey: function(id) {
+                    return upload.key.urlSafe(id);
+                }
+            }),
+            completeMultipart: new qq.s3.CompleteMultipartAjaxRequester({
+                endpointStore: endpointStore,
+                signatureSpec: signature,
+                cors: spec.cors,
+                log: log,
+                getBucket: function(id) {
+                    return upload.bucket.getName(id);
+                },
+                getHost: function(id) {
+                    return upload.host.getName(id);
+                },
+                getKey: function(id) {
+                    return upload.key.urlSafe(id);
+                }
+            }),
+            initiateMultipart: new qq.s3.InitiateMultipartAjaxRequester({
+                filenameParam: filenameParam,
+                endpointStore: endpointStore,
+                paramsStore: paramsStore,
+                signatureSpec: signature,
+                aclStore: aclStore,
+                reducedRedundancy: reducedRedundancy,
+                serverSideEncryption: serverSideEncryption,
+                cors: spec.cors,
+                log: log,
+                getContentType: function(id) {
+                    return handler._getMimeType(id);
+                },
+                getBucket: function(id) {
+                    return upload.bucket.getName(id);
+                },
+                getHost: function(id) {
+                    return upload.host.getName(id);
+                },
+                getKey: function(id) {
+                    return upload.key.urlSafe(id);
+                },
+                getName: function(id) {
+                    return getName(id);
+                }
+            }),
+            policySignature: new qq.s3.RequestSigner({
+                expectingPolicy: true,
+                signatureSpec: signature,
+                cors: spec.cors,
+                log: log
+            }),
+            restSignature: new qq.s3.RequestSigner({
+                endpointStore: endpointStore,
+                signatureSpec: signature,
+                cors: spec.cors,
+                log: log
+            })
+        }, simple = {
+            initParams: function(id) {
+                var customParams = paramsStore.get(id);
+                customParams[filenameParam] = getName(id);
+                return qq.s3.util.generateAwsParams({
+                    endpoint: endpointStore.get(id),
+                    clockDrift: clockDrift,
+                    params: customParams,
+                    type: handler._getMimeType(id),
+                    bucket: upload.bucket.getName(id),
+                    key: handler.getThirdPartyFileId(id),
+                    accessKey: credentialsProvider.get().accessKey,
+                    sessionToken: credentialsProvider.get().sessionToken,
+                    acl: aclStore.get(id),
+                    expectedStatus: expectedStatus,
+                    minFileSize: validation.minSizeLimit,
+                    maxFileSize: validation.maxSizeLimit,
+                    reducedRedundancy: reducedRedundancy,
+                    region: region,
+                    serverSideEncryption: serverSideEncryption,
+                    signatureVersion: signature.version,
+                    log: log
+                }, qq.bind(requesters.policySignature.getSignature, this, id));
+            },
+            send: function(id) {
+                var promise = new qq.Promise(), xhr = handler._createXhr(id), fileOrBlob = handler.getFile(id);
+                handler._registerProgressHandler(id);
+                upload.track(id, xhr).then(promise.success, promise.failure);
+                simple.setup(id, xhr, fileOrBlob).then(function(toSend) {
+                    log("Sending upload request for " + id);
+                    xhr.send(toSend);
+                }, promise.failure);
+                return promise;
+            },
+            setup: function(id, xhr, fileOrBlob) {
+                var formData = new FormData(), endpoint = endpointStore.get(id), url = endpoint, promise = new qq.Promise();
+                simple.initParams(id).then(function(awsParams) {
+                    xhr.open("POST", url, true);
+                    qq.obj2FormData(awsParams, formData);
+                    formData.append("file", fileOrBlob);
+                    promise.success(formData);
+                }, function(errorMessage) {
+                    promise.failure({
+                        error: errorMessage
+                    });
+                });
+                return promise;
+            }
+        }, upload = {
+            bucket: {
+                promise: function(id) {
+                    var promise = new qq.Promise(), cachedBucket = handler._getFileState(id).bucket;
+                    if (cachedBucket) {
+                        promise.success(cachedBucket);
+                    } else {
+                        onGetBucket(id).then(function(bucket) {
+                            handler._getFileState(id).bucket = bucket;
+                            promise.success(bucket);
+                        }, promise.failure);
+                    }
+                    return promise;
+                },
+                getName: function(id) {
+                    return handler._getFileState(id).bucket;
+                }
+            },
+            host: {
+                promise: function(id) {
+                    var promise = new qq.Promise(), cachedHost = handler._getFileState(id).host;
+                    if (cachedHost) {
+                        promise.success(cachedHost);
+                    } else {
+                        onGetHost(id).then(function(host) {
+                            handler._getFileState(id).host = host;
+                            promise.success(host);
+                        }, promise.failure);
+                    }
+                    return promise;
+                },
+                getName: function(id) {
+                    return handler._getFileState(id).host;
+                }
+            },
+            done: function(id, xhr) {
+                var response = upload.response.parse(id, xhr), isError = response.success !== true;
+                if (isError && upload.response.shouldReset(response.code)) {
+                    log("This is an unrecoverable error, we must restart the upload entirely on the next retry attempt.", "error");
+                    response.reset = true;
+                }
+                return {
+                    success: !isError,
+                    response: response
+                };
+            },
+            key: {
+                promise: function(id) {
+                    var promise = new qq.Promise(), key = handler.getThirdPartyFileId(id);
+                    if (key == null) {
+                        handler._setThirdPartyFileId(id, promise);
+                        onGetKeyName(id, getName(id)).then(function(keyName) {
+                            handler._setThirdPartyFileId(id, keyName);
+                            promise.success(keyName);
+                        }, function(errorReason) {
+                            handler._setThirdPartyFileId(id, null);
+                            promise.failure(errorReason);
+                        });
+                    } else if (qq.isGenericPromise(key)) {
+                        key.then(promise.success, promise.failure);
+                    } else {
+                        promise.success(key);
+                    }
+                    return promise;
+                },
+                urlSafe: function(id) {
+                    var encodedKey = encodeURIComponent(handler.getThirdPartyFileId(id));
+                    return encodedKey.replace(/%2F/g, "/");
+                }
+            },
+            response: {
+                parse: function(id, xhr) {
+                    var response = {}, parsedErrorProps;
+                    try {
+                        log(qq.format("Received response status {} with body: {}", xhr.status, xhr.responseText));
+                        if (xhr.status === expectedStatus) {
+                            response.success = true;
+                        } else {
+                            parsedErrorProps = upload.response.parseError(xhr.responseText);
+                            if (parsedErrorProps) {
+                                response.error = parsedErrorProps.message;
+                                response.code = parsedErrorProps.code;
+                            }
+                        }
+                    } catch (error) {
+                        log("Error when attempting to parse xhr response text (" + error.message + ")", "error");
+                    }
+                    return response;
+                },
+                parseError: function(awsResponseXml) {
+                    var parser = new DOMParser(), parsedDoc = parser.parseFromString(awsResponseXml, "application/xml"), errorEls = parsedDoc.getElementsByTagName("Error"), errorDetails = {}, codeEls, messageEls;
+                    if (errorEls.length) {
+                        codeEls = parsedDoc.getElementsByTagName("Code");
+                        messageEls = parsedDoc.getElementsByTagName("Message");
+                        if (messageEls.length) {
+                            errorDetails.message = messageEls[0].textContent;
+                        }
+                        if (codeEls.length) {
+                            errorDetails.code = codeEls[0].textContent;
+                        }
+                        return errorDetails;
+                    }
+                },
+                shouldReset: function(errorCode) {
+                    return errorCode === "EntityTooSmall" || errorCode === "InvalidPart" || errorCode === "InvalidPartOrder" || errorCode === "NoSuchUpload";
+                }
+            },
+            start: function(id, optChunkIdx) {
+                var promise = new qq.Promise();
+                upload.key.promise(id).then(function() {
+                    upload.bucket.promise(id).then(function() {
+                        upload.host.promise(id).then(function() {
+                            if (optChunkIdx == null) {
+                                simple.send(id).then(promise.success, promise.failure);
+                            } else {
+                                chunked.send(id, optChunkIdx).then(promise.success, promise.failure);
+                            }
+                        });
+                    });
+                }, function(errorReason) {
+                    promise.failure({
+                        error: errorReason
+                    });
+                });
+                return promise;
+            },
+            track: function(id, xhr, optChunkIdx) {
+                var promise = new qq.Promise();
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        var result;
+                        if (optChunkIdx == null) {
+                            result = upload.done(id, xhr);
+                            promise[result.success ? "success" : "failure"](result.response, xhr);
+                        } else {
+                            chunked.done(id, xhr, optChunkIdx);
+                            result = upload.done(id, xhr);
+                            promise[result.success ? "success" : "failure"](result.response, xhr);
+                        }
+                    }
+                };
+                return promise;
+            }
         };
         qq.extend(this, {
-            addHandler: function(element) {
-                addHandler(element);
-            },
-            dispose: function() {
-                disposer.dispose();
-            }
+            uploadChunk: upload.start,
+            uploadFile: upload.start
         });
-        function addHandler(element) {
-            disposer.attach(element, spec.eventType, function(event) {
-                event = event || window.event;
-                var target = event.target || event.srcElement;
-                spec.onHandled(target, event);
-            });
-        }
-        qq.extend(protectedApi, {
-            getFileIdFromItem: function(item) {
-                return item.qqFileId;
-            },
-            getDisposeSupport: function() {
-                return disposer;
-            }
+        qq.extend(this, new qq.XhrUploadHandler({
+            options: qq.extend({
+                namespace: "s3"
+            }, spec),
+            proxy: qq.extend({
+                getEndpoint: spec.endpointStore.get
+            }, proxy)
+        }));
+        qq.override(this, function(super_) {
+            return {
+                expunge: function(id) {
+                    var uploadId = handler._getPersistableData(id) && handler._getPersistableData(id).uploadId, existedInLocalStorage = handler._maybeDeletePersistedChunkData(id);
+                    if (uploadId !== undefined && existedInLocalStorage) {
+                        requesters.abortMultipart.send(id, uploadId);
+                    }
+                    super_.expunge(id);
+                },
+                finalizeChunks: function(id) {
+                    return chunked.combine(id);
+                },
+                _getLocalStorageId: function(id) {
+                    var baseStorageId = super_._getLocalStorageId(id), bucketName = upload.bucket.getName(id);
+                    return baseStorageId + "-" + bucketName;
+                }
+            };
         });
-        qq.extend(spec, s);
-        if (spec.attachTo) {
-            addHandler(spec.attachTo);
-        }
     };
-    qq.FileButtonsClickHandler = function(s) {
+    qq.s3.FormUploadHandler = function(options, proxy) {
         "use strict";
-        var inheritedInternalApi = {}, spec = {
-            templating: null,
-            log: function(message, lvl) {},
-            onDeleteFile: function(fileId) {},
-            onCancel: function(fileId) {},
-            onRetry: function(fileId) {},
-            onPause: function(fileId) {},
-            onContinue: function(fileId) {},
-            onGetName: function(fileId) {}
-        }, buttonHandlers = {
-            cancel: function(id) {
-                spec.onCancel(id);
-            },
-            retry: function(id) {
-                spec.onRetry(id);
-            },
-            deleteButton: function(id) {
-                spec.onDeleteFile(id);
-            },
-            pause: function(id) {
-                spec.onPause(id);
-            },
-            continueButton: function(id) {
-                spec.onContinue(id);
+        var handler = this, clockDrift = options.clockDrift, onUuidChanged = proxy.onUuidChanged, getName = proxy.getName, getUuid = proxy.getUuid, log = proxy.log, onGetBucket = options.getBucket, onGetKeyName = options.getKeyName, filenameParam = options.filenameParam, paramsStore = options.paramsStore, endpointStore = options.endpointStore, aclStore = options.aclStore, reducedRedundancy = options.objectProperties.reducedRedundancy, region = options.objectProperties.region, serverSideEncryption = options.objectProperties.serverSideEncryption, validation = options.validation, signature = options.signature, successRedirectUrl = options.iframeSupport.localBlankPagePath, credentialsProvider = options.signature.credentialsProvider, getSignatureAjaxRequester = new qq.s3.RequestSigner({
+            signatureSpec: signature,
+            cors: options.cors,
+            log: log
+        });
+        if (successRedirectUrl === undefined) {
+            throw new Error("successRedirectEndpoint MUST be defined if you intend to use browsers that do not support the File API!");
+        }
+        function isValidResponse(id, iframe) {
+            var response, endpoint = options.endpointStore.get(id), bucket = handler._getFileState(id).bucket, doc, innerHtml, responseData;
+            try {
+                doc = iframe.contentDocument || iframe.contentWindow.document;
+                innerHtml = doc.body.innerHTML;
+                responseData = qq.s3.util.parseIframeResponse(iframe);
+                if (responseData.bucket === bucket && responseData.key === qq.s3.util.encodeQueryStringParam(handler.getThirdPartyFileId(id))) {
+                    return true;
+                }
+                log("Response from AWS included an unexpected bucket or key name.", "error");
+            } catch (error) {
+                log("Error when attempting to parse form upload response (" + error.message + ")", "error");
             }
-        };
-        function examineEvent(target, event) {
-            qq.each(buttonHandlers, function(buttonType, handler) {
-                var firstLetterCapButtonType = buttonType.charAt(0).toUpperCase() + buttonType.slice(1), fileId;
-                if (spec.templating["is" + firstLetterCapButtonType](target)) {
-                    fileId = spec.templating.getFileId(target);
-                    qq.preventDefault(event);
-                    spec.log(qq.format("Detected valid file button click event on file '{}', ID: {}.", spec.onGetName(fileId), fileId));
-                    handler(fileId);
+            return false;
+        }
+        function generateAwsParams(id) {
+            var customParams = paramsStore.get(id);
+            customParams[filenameParam] = getName(id);
+            return qq.s3.util.generateAwsParams({
+                endpoint: endpointStore.get(id),
+                clockDrift: clockDrift,
+                params: customParams,
+                bucket: handler._getFileState(id).bucket,
+                key: handler.getThirdPartyFileId(id),
+                accessKey: credentialsProvider.get().accessKey,
+                sessionToken: credentialsProvider.get().sessionToken,
+                acl: aclStore.get(id),
+                minFileSize: validation.minSizeLimit,
+                maxFileSize: validation.maxSizeLimit,
+                successRedirectUrl: successRedirectUrl,
+                reducedRedundancy: reducedRedundancy,
+                region: region,
+                serverSideEncryption: serverSideEncryption,
+                signatureVersion: signature.version,
+                log: log
+            }, qq.bind(getSignatureAjaxRequester.getSignature, this, id));
+        }
+        function createForm(id, iframe) {
+            var promise = new qq.Promise(), method = "POST", endpoint = options.endpointStore.get(id), fileName = getName(id);
+            generateAwsParams(id).then(function(params) {
+                var form = handler._initFormForUpload({
+                    method: method,
+                    endpoint: endpoint,
+                    params: params,
+                    paramsInBody: true,
+                    targetName: iframe.name
+                });
+                promise.success(form);
+            }, function(errorMessage) {
+                promise.failure(errorMessage);
+                handleFinishedUpload(id, iframe, fileName, {
+                    error: errorMessage
+                });
+            });
+            return promise;
+        }
+        function handleUpload(id) {
+            var iframe = handler._createIframe(id), input = handler.getInput(id), promise = new qq.Promise();
+            createForm(id, iframe).then(function(form) {
+                form.appendChild(input);
+                handler._attachLoadEvent(iframe, function(response) {
+                    log("iframe loaded");
+                    if (response) {
+                        if (response.success === false) {
+                            log("Amazon likely rejected the upload request", "error");
+                            promise.failure(response);
+                        }
+                    } else {
+                        response = {};
+                        response.success = isValidResponse(id, iframe);
+                        if (response.success === false) {
+                            log("A success response was received by Amazon, but it was invalid in some way.", "error");
+                            promise.failure(response);
+                        } else {
+                            qq.extend(response, qq.s3.util.parseIframeResponse(iframe));
+                            promise.success(response);
+                        }
+                    }
+                    handleFinishedUpload(id, iframe);
+                });
+                log("Sending upload request for " + id);
+                form.submit();
+                qq(form).remove();
+            }, promise.failure);
+            return promise;
+        }
+        function handleFinishedUpload(id, iframe) {
+            handler._detachLoadEvent(id);
+            iframe && qq(iframe).remove();
+        }
+        qq.extend(this, new qq.FormUploadHandler({
+            options: {
+                isCors: false,
+                inputName: "file"
+            },
+            proxy: {
+                onCancel: options.onCancel,
+                onUuidChanged: onUuidChanged,
+                getName: getName,
+                getUuid: getUuid,
+                log: log
+            }
+        }));
+        qq.extend(this, {
+            uploadFile: function(id) {
+                var name = getName(id), promise = new qq.Promise();
+                if (handler.getThirdPartyFileId(id)) {
+                    if (handler._getFileState(id).bucket) {
+                        handleUpload(id).then(promise.success, promise.failure);
+                    } else {
+                        onGetBucket(id).then(function(bucket) {
+                            handler._getFileState(id).bucket = bucket;
+                            handleUpload(id).then(promise.success, promise.failure);
+                        });
+                    }
+                } else {
+                    onGetKeyName(id, name).then(function(key) {
+                        onGetBucket(id).then(function(bucket) {
+                            handler._getFileState(id).bucket = bucket;
+                            handler._setThirdPartyFileId(id, key);
+                            handleUpload(id).then(promise.success, promise.failure);
+                        }, function(errorReason) {
+                            promise.failure({
+                                error: errorReason
+                            });
+                        });
+                    }, function(errorReason) {
+                        promise.failure({
+                            error: errorReason
+                        });
+                    });
+                }
+                return promise;
+            }
+        });
+    };
+    qq.azure = qq.azure || {};
+    qq.azure.util = qq.azure.util || function() {
+        "use strict";
+        return {
+            AZURE_PARAM_PREFIX: "x-ms-meta-",
+            _paramNameMatchesAzureParameter: function(name) {
+                switch (name) {
+                  case "Cache-Control":
+                  case "Content-Disposition":
+                  case "Content-Encoding":
+                  case "Content-MD5":
+                  case "x-ms-blob-content-encoding":
+                  case "x-ms-blob-content-disposition":
+                  case "x-ms-blob-content-md5":
+                  case "x-ms-blob-cache-control":
+                    return true;
+
+                  default:
                     return false;
                 }
-            });
-        }
-        qq.extend(spec, s);
-        spec.eventType = "click";
-        spec.onHandled = examineEvent;
-        spec.attachTo = spec.templating.getFileList();
-        qq.extend(this, new qq.UiEventHandler(spec, inheritedInternalApi));
-    };
-    qq.FilenameClickHandler = function(s) {
-        "use strict";
-        var inheritedInternalApi = {}, spec = {
-            templating: null,
-            log: function(message, lvl) {},
-            classes: {
-                file: "qq-upload-file",
-                editNameIcon: "qq-edit-filename-icon"
             },
-            onGetUploadStatus: function(fileId) {},
-            onGetName: function(fileId) {}
-        };
-        qq.extend(spec, s);
-        function examineEvent(target, event) {
-            if (spec.templating.isFileName(target) || spec.templating.isEditIcon(target)) {
-                var fileId = spec.templating.getFileId(target), status = spec.onGetUploadStatus(fileId);
-                if (status === qq.status.SUBMITTED) {
-                    spec.log(qq.format("Detected valid filename click event on file '{}', ID: {}.", spec.onGetName(fileId), fileId));
-                    qq.preventDefault(event);
-                    inheritedInternalApi.handleFilenameEdit(fileId, target, true);
+            _getPrefixedParamName: function(name) {
+                if (qq.azure.util._paramNameMatchesAzureParameter(name)) {
+                    return name;
+                } else {
+                    return qq.azure.util.AZURE_PARAM_PREFIX + name;
+                }
+            },
+            getParamsAsHeaders: function(params) {
+                var headers = {};
+                qq.each(params, function(name, val) {
+                    var headerName = qq.azure.util._getPrefixedParamName(name), value = null;
+                    if (qq.isFunction(val)) {
+                        value = String(val());
+                    } else if (qq.isObject(val)) {
+                        qq.extend(headers, qq.azure.util.getParamsAsHeaders(val));
+                    } else {
+                        value = String(val);
+                    }
+                    if (value !== null) {
+                        if (qq.azure.util._paramNameMatchesAzureParameter(name)) {
+                            headers[headerName] = value;
+                        } else {
+                            headers[headerName] = encodeURIComponent(value);
+                        }
+                    }
+                });
+                return headers;
+            },
+            parseAzureError: function(responseText, log) {
+                var domParser = new DOMParser(), responseDoc = domParser.parseFromString(responseText, "application/xml"), errorTag = responseDoc.getElementsByTagName("Error")[0], errorDetails = {}, codeTag, messageTag;
+                log("Received error response: " + responseText, "error");
+                if (errorTag) {
+                    messageTag = errorTag.getElementsByTagName("Message")[0];
+                    if (messageTag) {
+                        errorDetails.message = messageTag.textContent;
+                    }
+                    codeTag = errorTag.getElementsByTagName("Code")[0];
+                    if (codeTag) {
+                        errorDetails.code = codeTag.textContent;
+                    }
+                    log("Parsed Azure error: " + JSON.stringify(errorDetails), "error");
+                    return errorDetails;
                 }
             }
-        }
-        spec.eventType = "click";
-        spec.onHandled = examineEvent;
-        qq.extend(this, new qq.FilenameEditHandler(spec, inheritedInternalApi));
-    };
-    qq.FilenameInputFocusInHandler = function(s, inheritedInternalApi) {
-        "use strict";
-        var spec = {
-            templating: null,
-            onGetUploadStatus: function(fileId) {},
-            log: function(message, lvl) {}
         };
-        if (!inheritedInternalApi) {
-            inheritedInternalApi = {};
-        }
-        function handleInputFocus(target, event) {
-            if (spec.templating.isEditInput(target)) {
-                var fileId = spec.templating.getFileId(target), status = spec.onGetUploadStatus(fileId);
-                if (status === qq.status.SUBMITTED) {
-                    spec.log(qq.format("Detected valid filename input focus event on file '{}', ID: {}.", spec.onGetName(fileId), fileId));
-                    inheritedInternalApi.handleFilenameEdit(fileId, target);
-                }
+    }();
+    (function() {
+        "use strict";
+        qq.nonTraditionalBasePublicApi = {
+            setUploadSuccessParams: function(params, id) {
+                this._uploadSuccessParamsStore.set(params, id);
+            },
+            setUploadSuccessEndpoint: function(endpoint, id) {
+                this._uploadSuccessEndpointStore.set(endpoint, id);
             }
-        }
-        spec.eventType = "focusin";
-        spec.onHandled = handleInputFocus;
-        qq.extend(spec, s);
-        qq.extend(this, new qq.FilenameEditHandler(spec, inheritedInternalApi));
-    };
-    qq.FilenameInputFocusHandler = function(spec) {
-        "use strict";
-        spec.eventType = "focus";
-        spec.attachTo = null;
-        qq.extend(this, new qq.FilenameInputFocusInHandler(spec, {}));
-    };
-    qq.FilenameEditHandler = function(s, inheritedInternalApi) {
-        "use strict";
-        var spec = {
-            templating: null,
-            log: function(message, lvl) {},
-            onGetUploadStatus: function(fileId) {},
-            onGetName: function(fileId) {},
-            onSetName: function(fileId, newName) {},
-            onEditingStatusChange: function(fileId, isEditing) {}
         };
-        function getFilenameSansExtension(fileId) {
-            var filenameSansExt = spec.onGetName(fileId), extIdx = filenameSansExt.lastIndexOf(".");
-            if (extIdx > 0) {
-                filenameSansExt = filenameSansExt.substr(0, extIdx);
-            }
-            return filenameSansExt;
-        }
-        function getOriginalExtension(fileId) {
-            var origName = spec.onGetName(fileId);
-            return qq.getExtension(origName);
-        }
-        function handleNameUpdate(newFilenameInputEl, fileId) {
-            var newName = newFilenameInputEl.value, origExtension;
-            if (newName !== undefined && qq.trimStr(newName).length > 0) {
-                origExtension = getOriginalExtension(fileId);
-                if (origExtension !== undefined) {
-                    newName = newName + "." + origExtension;
+        qq.nonTraditionalBasePrivateApi = {
+            _onComplete: function(id, name, result, xhr) {
+                var success = result.success ? true : false, self = this, onCompleteArgs = arguments, successEndpoint = this._uploadSuccessEndpointStore.get(id), successCustomHeaders = this._options.uploadSuccess.customHeaders, successMethod = this._options.uploadSuccess.method, cors = this._options.cors, promise = new qq.Promise(), uploadSuccessParams = this._uploadSuccessParamsStore.get(id), fileParams = this._paramsStore.get(id), onSuccessFromServer = function(successRequestResult) {
+                    delete self._failedSuccessRequestCallbacks[id];
+                    qq.extend(result, successRequestResult);
+                    qq.FineUploaderBasic.prototype._onComplete.apply(self, onCompleteArgs);
+                    promise.success(successRequestResult);
+                }, onFailureFromServer = function(successRequestResult) {
+                    var callback = submitSuccessRequest;
+                    qq.extend(result, successRequestResult);
+                    if (result && result.reset) {
+                        callback = null;
+                    }
+                    if (!callback) {
+                        delete self._failedSuccessRequestCallbacks[id];
+                    } else {
+                        self._failedSuccessRequestCallbacks[id] = callback;
+                    }
+                    if (!self._onAutoRetry(id, name, result, xhr, callback)) {
+                        qq.FineUploaderBasic.prototype._onComplete.apply(self, onCompleteArgs);
+                        promise.failure(successRequestResult);
+                    }
+                }, submitSuccessRequest, successAjaxRequester;
+                if (success && successEndpoint) {
+                    successAjaxRequester = new qq.UploadSuccessAjaxRequester({
+                        endpoint: successEndpoint,
+                        method: successMethod,
+                        customHeaders: successCustomHeaders,
+                        cors: cors,
+                        log: qq.bind(this.log, this)
+                    });
+                    qq.extend(uploadSuccessParams, self._getEndpointSpecificParams(id, result, xhr), true);
+                    fileParams && qq.extend(uploadSuccessParams, fileParams, true);
+                    submitSuccessRequest = qq.bind(function() {
+                        successAjaxRequester.sendSuccessRequest(id, uploadSuccessParams).then(onSuccessFromServer, onFailureFromServer);
+                    }, self);
+                    submitSuccessRequest();
+                    return promise;
                 }
-                spec.onSetName(fileId, newName);
+                return qq.FineUploaderBasic.prototype._onComplete.apply(this, arguments);
+            },
+            _manualRetry: function(id) {
+                var successRequestCallback = this._failedSuccessRequestCallbacks[id];
+                return qq.FineUploaderBasic.prototype._manualRetry.call(this, id, successRequestCallback);
             }
-            spec.onEditingStatusChange(fileId, false);
+        };
+    })();
+    (function() {
+        "use strict";
+        qq.azure.FineUploaderBasic = function(o) {
+            if (!qq.supportedFeatures.ajaxUploading) {
+                throw new qq.Error("Uploading directly to Azure is not possible in this browser.");
+            }
+            var options = {
+                signature: {
+                    endpoint: null,
+                    customHeaders: {}
+                },
+                blobProperties: {
+                    name: "uuid"
+                },
+                uploadSuccess: {
+                    endpoint: null,
+                    method: "POST",
+                    params: {},
+                    customHeaders: {}
+                },
+                chunking: {
+                    partSize: 4e6,
+                    minFileSize: 4000001
+                }
+            };
+            qq.extend(options, o, true);
+            qq.FineUploaderBasic.call(this, options);
+            this._uploadSuccessParamsStore = this._createStore(this._options.uploadSuccess.params);
+            this._uploadSuccessEndpointStore = this._createStore(this._options.uploadSuccess.endpoint);
+            this._failedSuccessRequestCallbacks = {};
+            this._cannedBlobNames = {};
+        };
+        qq.extend(qq.azure.FineUploaderBasic.prototype, qq.basePublicApi);
+        qq.extend(qq.azure.FineUploaderBasic.prototype, qq.basePrivateApi);
+        qq.extend(qq.azure.FineUploaderBasic.prototype, qq.nonTraditionalBasePublicApi);
+        qq.extend(qq.azure.FineUploaderBasic.prototype, qq.nonTraditionalBasePrivateApi);
+        qq.extend(qq.azure.FineUploaderBasic.prototype, {
+            getBlobName: function(id) {
+                if (this._cannedBlobNames[id] == null) {
+                    return this._handler.getThirdPartyFileId(id);
+                }
+                return this._cannedBlobNames[id];
+            },
+            _getEndpointSpecificParams: function(id) {
+                return {
+                    blob: this.getBlobName(id),
+                    uuid: this.getUuid(id),
+                    name: this.getName(id),
+                    container: this._endpointStore.get(id)
+                };
+            },
+            _createUploadHandler: function() {
+                return qq.FineUploaderBasic.prototype._createUploadHandler.call(this, {
+                    signature: this._options.signature,
+                    onGetBlobName: qq.bind(this._determineBlobName, this),
+                    deleteBlob: qq.bind(this._deleteBlob, this, true)
+                }, "azure");
+            },
+            _determineBlobName: function(id) {
+                var self = this, blobNameOptionValue = this._options.blobProperties.name, uuid = this.getUuid(id), filename = this.getName(id), fileExtension = qq.getExtension(filename), blobNameToUse = uuid;
+                if (qq.isString(blobNameOptionValue)) {
+                    switch (blobNameOptionValue) {
+                      case "uuid":
+                        if (fileExtension !== undefined) {
+                            blobNameToUse += "." + fileExtension;
+                        }
+                        return new qq.Promise().success(blobNameToUse);
+
+                      case "filename":
+                        return new qq.Promise().success(filename);
+
+                      default:
+                        return new qq.Promise.failure("Invalid blobName option value - " + blobNameOptionValue);
+                    }
+                } else {
+                    return blobNameOptionValue.call(this, id);
+                }
+            },
+            _addCannedFile: function(sessionData) {
+                var id;
+                if (sessionData.blobName == null) {
+                    throw new qq.Error("Did not find blob name property in server session response.  This is required!");
+                } else {
+                    id = qq.FineUploaderBasic.prototype._addCannedFile.apply(this, arguments);
+                    this._cannedBlobNames[id] = sessionData.blobName;
+                }
+                return id;
+            },
+            _deleteBlob: function(relatedToCancel, id) {
+                var self = this, deleteBlobSasUri = {}, blobUriStore = {
+                    get: function(id) {
+                        return self._endpointStore.get(id) + "/" + self.getBlobName(id);
+                    }
+                }, deleteFileEndpointStore = {
+                    get: function(id) {
+                        return deleteBlobSasUri[id];
+                    }
+                }, getSasSuccess = function(id, sasUri) {
+                    deleteBlobSasUri[id] = sasUri;
+                    deleteBlob.send(id);
+                }, getSasFailure = function(id, reason, xhr) {
+                    if (relatedToCancel) {
+                        self.log("Will cancel upload, but cannot remove uncommitted parts from Azure due to issue retrieving SAS", "error");
+                        qq.FineUploaderBasic.prototype._onCancel.call(self, id, self.getName(id));
+                    } else {
+                        self._onDeleteComplete(id, xhr, true);
+                        self._options.callbacks.onDeleteComplete(id, xhr, true);
+                    }
+                }, deleteBlob = new qq.azure.DeleteBlob({
+                    endpointStore: deleteFileEndpointStore,
+                    log: qq.bind(self.log, self),
+                    onDelete: function(id) {
+                        self._onDelete(id);
+                        self._options.callbacks.onDelete(id);
+                    },
+                    onDeleteComplete: function(id, xhrOrXdr, isError) {
+                        delete deleteBlobSasUri[id];
+                        if (isError) {
+                            if (relatedToCancel) {
+                                self.log("Will cancel upload, but failed to remove uncommitted parts from Azure.", "error");
+                            } else {
+                                qq.azure.util.parseAzureError(xhrOrXdr.responseText, qq.bind(self.log, self));
+                            }
+                        }
+                        if (relatedToCancel) {
+                            qq.FineUploaderBasic.prototype._onCancel.call(self, id, self.getName(id));
+                            self.log("Deleted uncommitted blob chunks for " + id);
+                        } else {
+                            self._onDeleteComplete(id, xhrOrXdr, isError);
+                            self._options.callbacks.onDeleteComplete(id, xhrOrXdr, isError);
+                        }
+                    }
+                }), getSas = new qq.azure.GetSas({
+                    cors: this._options.cors,
+                    endpointStore: {
+                        get: function() {
+                            return self._options.signature.endpoint;
+                        }
+                    },
+                    restRequestVerb: deleteBlob.method,
+                    log: qq.bind(self.log, self)
+                });
+                getSas.request(id, blobUriStore.get(id)).then(qq.bind(getSasSuccess, self, id), qq.bind(getSasFailure, self, id));
+            },
+            _createDeleteHandler: function() {
+                var self = this;
+                return {
+                    sendDelete: function(id, uuid) {
+                        self._deleteBlob(false, id);
+                    }
+                };
+            }
+        });
+    })();
+    qq.azure.XhrUploadHandler = function(spec, proxy) {
+        "use strict";
+        var handler = this, log = proxy.log, cors = spec.cors, endpointStore = spec.endpointStore, paramsStore = spec.paramsStore, signature = spec.signature, filenameParam = spec.filenameParam, minFileSizeForChunking = spec.chunking.minFileSize, deleteBlob = spec.deleteBlob, onGetBlobName = spec.onGetBlobName, getName = proxy.getName, getSize = proxy.getSize, getBlobMetadata = function(id) {
+            var params = paramsStore.get(id);
+            params[filenameParam] = getName(id);
+            return params;
+        }, api = {
+            putBlob: new qq.azure.PutBlob({
+                getBlobMetadata: getBlobMetadata,
+                log: log
+            }),
+            putBlock: new qq.azure.PutBlock({
+                log: log
+            }),
+            putBlockList: new qq.azure.PutBlockList({
+                getBlobMetadata: getBlobMetadata,
+                log: log
+            }),
+            getSasForPutBlobOrBlock: new qq.azure.GetSas({
+                cors: cors,
+                customHeaders: signature.customHeaders,
+                endpointStore: {
+                    get: function() {
+                        return signature.endpoint;
+                    }
+                },
+                log: log,
+                restRequestVerb: "PUT"
+            })
+        };
+        function combineChunks(id) {
+            var promise = new qq.Promise();
+            getSignedUrl(id).then(function(sasUri) {
+                var mimeType = handler._getMimeType(id), blockIdEntries = handler._getPersistableData(id).blockIdEntries;
+                api.putBlockList.send(id, sasUri, blockIdEntries, mimeType, function(xhr) {
+                    handler._registerXhr(id, null, xhr, api.putBlockList);
+                }).then(function(xhr) {
+                    log("Success combining chunks for id " + id);
+                    promise.success({}, xhr);
+                }, function(xhr) {
+                    log("Attempt to combine chunks failed for id " + id, "error");
+                    handleFailure(xhr, promise);
+                });
+            }, promise.failure);
+            return promise;
         }
-        function registerInputBlurHandler(inputEl, fileId) {
-            inheritedInternalApi.getDisposeSupport().attach(inputEl, "blur", function() {
-                handleNameUpdate(inputEl, fileId);
+        function determineBlobUrl(id) {
+            var containerUrl = endpointStore.get(id), promise = new qq.Promise(), getBlobNameSuccess = function(blobName) {
+                handler._setThirdPartyFileId(id, blobName);
+                promise.success(containerUrl + "/" + blobName);
+            }, getBlobNameFailure = function(reason) {
+                promise.failure(reason);
+            };
+            onGetBlobName(id).then(getBlobNameSuccess, getBlobNameFailure);
+            return promise;
+        }
+        function getSignedUrl(id, optChunkIdx) {
+            var getSasId = optChunkIdx == null ? id : id + "." + optChunkIdx, promise = new qq.Promise(), getSasSuccess = function(sasUri) {
+                log("GET SAS request succeeded.");
+                promise.success(sasUri);
+            }, getSasFailure = function(reason, getSasXhr) {
+                log("GET SAS request failed: " + reason, "error");
+                promise.failure({
+                    error: "Problem communicating with local server"
+                }, getSasXhr);
+            }, determineBlobUrlSuccess = function(blobUrl) {
+                api.getSasForPutBlobOrBlock.request(getSasId, blobUrl).then(getSasSuccess, getSasFailure);
+            }, determineBlobUrlFailure = function(reason) {
+                log(qq.format("Failed to determine blob name for ID {} - {}", id, reason), "error");
+                promise.failure({
+                    error: reason
+                });
+            };
+            determineBlobUrl(id).then(determineBlobUrlSuccess, determineBlobUrlFailure);
+            return promise;
+        }
+        function handleFailure(xhr, promise) {
+            var azureError = qq.azure.util.parseAzureError(xhr.responseText, log), errorMsg = "Problem sending file to Azure";
+            promise.failure({
+                error: errorMsg,
+                azureError: azureError && azureError.message,
+                reset: xhr.status === 403
             });
         }
-        function registerInputEnterKeyHandler(inputEl, fileId) {
-            inheritedInternalApi.getDisposeSupport().attach(inputEl, "keyup", function(event) {
-                var code = event.keyCode || event.which;
-                if (code === 13) {
-                    handleNameUpdate(inputEl, fileId);
+        qq.extend(this, {
+            uploadChunk: function(id, chunkIdx) {
+                var promise = new qq.Promise();
+                getSignedUrl(id, chunkIdx).then(function(sasUri) {
+                    var xhr = handler._createXhr(id, chunkIdx), chunkData = handler._getChunkData(id, chunkIdx);
+                    handler._registerProgressHandler(id, chunkIdx, chunkData.size);
+                    handler._registerXhr(id, chunkIdx, xhr, api.putBlock);
+                    api.putBlock.upload(id + "." + chunkIdx, xhr, sasUri, chunkIdx, chunkData.blob).then(function(blockIdEntry) {
+                        if (!handler._getPersistableData(id).blockIdEntries) {
+                            handler._getPersistableData(id).blockIdEntries = [];
+                        }
+                        handler._getPersistableData(id).blockIdEntries.push(blockIdEntry);
+                        log("Put Block call succeeded for " + id);
+                        promise.success({}, xhr);
+                    }, function() {
+                        log(qq.format("Put Block call failed for ID {} on part {}", id, chunkIdx), "error");
+                        handleFailure(xhr, promise);
+                    });
+                }, promise.failure);
+                return promise;
+            },
+            uploadFile: function(id) {
+                var promise = new qq.Promise(), fileOrBlob = handler.getFile(id);
+                getSignedUrl(id).then(function(sasUri) {
+                    var xhr = handler._createXhr(id);
+                    handler._registerProgressHandler(id);
+                    api.putBlob.upload(id, xhr, sasUri, fileOrBlob).then(function() {
+                        log("Put Blob call succeeded for " + id);
+                        promise.success({}, xhr);
+                    }, function() {
+                        log("Put Blob call failed for " + id, "error");
+                        handleFailure(xhr, promise);
+                    });
+                }, promise.failure);
+                return promise;
+            }
+        });
+        qq.extend(this, new qq.XhrUploadHandler({
+            options: qq.extend({
+                namespace: "azure"
+            }, spec),
+            proxy: qq.extend({
+                getEndpoint: spec.endpointStore.get
+            }, proxy)
+        }));
+        qq.override(this, function(super_) {
+            return {
+                expunge: function(id) {
+                    var relatedToCancel = handler._wasCanceled(id), chunkingData = handler._getPersistableData(id), blockIdEntries = chunkingData && chunkingData.blockIdEntries || [];
+                    if (relatedToCancel && blockIdEntries.length > 0) {
+                        deleteBlob(id);
+                    }
+                    super_.expunge(id);
+                },
+                finalizeChunks: function(id) {
+                    return combineChunks(id);
+                },
+                _shouldChunkThisFile: function(id) {
+                    var maybePossible = super_._shouldChunkThisFile(id);
+                    return maybePossible && getSize(id) >= minFileSizeForChunking;
                 }
-            });
+            };
+        });
+    };
+    qq.azure.GetSas = function(o) {
+        "use strict";
+        var requester, options = {
+            cors: {
+                expected: false,
+                sendCredentials: false
+            },
+            customHeaders: {},
+            restRequestVerb: "PUT",
+            endpointStore: null,
+            log: function(str, level) {}
+        }, requestPromises = {};
+        qq.extend(options, o);
+        function sasResponseReceived(id, xhr, isError) {
+            var promise = requestPromises[id];
+            if (isError) {
+                promise.failure("Received response code " + xhr.status, xhr);
+            } else {
+                if (xhr.responseText.length) {
+                    promise.success(xhr.responseText);
+                } else {
+                    promise.failure("Empty response.", xhr);
+                }
+            }
+            delete requestPromises[id];
         }
-        qq.extend(spec, s);
-        spec.attachTo = spec.templating.getFileList();
-        qq.extend(this, new qq.UiEventHandler(spec, inheritedInternalApi));
-        qq.extend(inheritedInternalApi, {
-            handleFilenameEdit: function(id, target, focusInput) {
-                var newFilenameInputEl = spec.templating.getEditInput(id);
-                spec.onEditingStatusChange(id, true);
-                newFilenameInputEl.value = getFilenameSansExtension(id);
-                if (focusInput) {
-                    newFilenameInputEl.focus();
+        requester = qq.extend(this, new qq.AjaxRequester({
+            acceptHeader: "application/json",
+            validMethods: [ "GET" ],
+            method: "GET",
+            successfulResponseCodes: {
+                GET: [ 200 ]
+            },
+            contentType: null,
+            customHeaders: options.customHeaders,
+            endpointStore: options.endpointStore,
+            cors: options.cors,
+            log: options.log,
+            onComplete: sasResponseReceived
+        }));
+        qq.extend(this, {
+            request: function(id, blobUri) {
+                var requestPromise = new qq.Promise(), restVerb = options.restRequestVerb;
+                options.log(qq.format("Submitting GET SAS request for a {} REST request related to file ID {}.", restVerb, id));
+                requestPromises[id] = requestPromise;
+                requester.initTransport(id).withParams({
+                    bloburi: blobUri,
+                    _method: restVerb
+                }).withCacheBuster().send();
+                return requestPromise;
+            }
+        });
+    };
+    qq.UploadSuccessAjaxRequester = function(o) {
+        "use strict";
+        var requester, pendingRequests = [], options = {
+            method: "POST",
+            endpoint: null,
+            maxConnections: 3,
+            customHeaders: {},
+            paramsStore: {},
+            cors: {
+                expected: false,
+                sendCredentials: false
+            },
+            log: function(str, level) {}
+        };
+        qq.extend(options, o);
+        function handleSuccessResponse(id, xhrOrXdr, isError) {
+            var promise = pendingRequests[id], responseJson = xhrOrXdr.responseText, successIndicator = {
+                success: true
+            }, failureIndicator = {
+                success: false
+            }, parsedResponse;
+            delete pendingRequests[id];
+            options.log(qq.format("Received the following response body to an upload success request for id {}: {}", id, responseJson));
+            try {
+                parsedResponse = qq.parseJson(responseJson);
+                if (isError || parsedResponse && (parsedResponse.error || parsedResponse.success === false)) {
+                    options.log("Upload success request was rejected by the server.", "error");
+                    promise.failure(qq.extend(parsedResponse, failureIndicator));
+                } else {
+                    options.log("Upload success was acknowledged by the server.");
+                    promise.success(qq.extend(parsedResponse, successIndicator));
                 }
-                registerInputBlurHandler(newFilenameInputEl, id);
-                registerInputEnterKeyHandler(newFilenameInputEl, id);
+            } catch (error) {
+                if (isError) {
+                    options.log(qq.format("Your server indicated failure in its upload success request response for id {}!", id), "error");
+                    promise.failure(failureIndicator);
+                } else {
+                    options.log("Upload success was acknowledged by the server.");
+                    promise.success(successIndicator);
+                }
+            }
+        }
+        requester = qq.extend(this, new qq.AjaxRequester({
+            acceptHeader: "application/json",
+            method: options.method,
+            endpointStore: {
+                get: function() {
+                    return options.endpoint;
+                }
+            },
+            paramsStore: options.paramsStore,
+            maxConnections: options.maxConnections,
+            customHeaders: options.customHeaders,
+            log: options.log,
+            onComplete: handleSuccessResponse,
+            cors: options.cors
+        }));
+        qq.extend(this, {
+            sendSuccessRequest: function(id, spec) {
+                var promise = new qq.Promise();
+                options.log("Submitting upload success request/notification for " + id);
+                requester.initTransport(id).withParams(spec).send();
+                pendingRequests[id] = promise;
+                return promise;
+            }
+        });
+    };
+    qq.azure.DeleteBlob = function(o) {
+        "use strict";
+        var requester, method = "DELETE", options = {
+            endpointStore: {},
+            onDelete: function(id) {},
+            onDeleteComplete: function(id, xhr, isError) {},
+            log: function(str, level) {}
+        };
+        qq.extend(options, o);
+        requester = qq.extend(this, new qq.AjaxRequester({
+            validMethods: [ method ],
+            method: method,
+            successfulResponseCodes: function() {
+                var codes = {};
+                codes[method] = [ 202 ];
+                return codes;
+            }(),
+            contentType: null,
+            endpointStore: options.endpointStore,
+            allowXRequestedWithAndCacheControl: false,
+            cors: {
+                expected: true
+            },
+            log: options.log,
+            onSend: options.onDelete,
+            onComplete: options.onDeleteComplete
+        }));
+        qq.extend(this, {
+            method: method,
+            send: function(id) {
+                options.log("Submitting Delete Blob request for " + id);
+                return requester.initTransport(id).send();
+            }
+        });
+    };
+    qq.azure.PutBlob = function(o) {
+        "use strict";
+        var requester, method = "PUT", options = {
+            getBlobMetadata: function(id) {},
+            log: function(str, level) {}
+        }, endpoints = {}, promises = {}, endpointHandler = {
+            get: function(id) {
+                return endpoints[id];
+            }
+        };
+        qq.extend(options, o);
+        requester = qq.extend(this, new qq.AjaxRequester({
+            validMethods: [ method ],
+            method: method,
+            successfulResponseCodes: function() {
+                var codes = {};
+                codes[method] = [ 201 ];
+                return codes;
+            }(),
+            contentType: null,
+            customHeaders: function(id) {
+                var params = options.getBlobMetadata(id), headers = qq.azure.util.getParamsAsHeaders(params);
+                headers["x-ms-blob-type"] = "BlockBlob";
+                return headers;
+            },
+            endpointStore: endpointHandler,
+            allowXRequestedWithAndCacheControl: false,
+            cors: {
+                expected: true
+            },
+            log: options.log,
+            onComplete: function(id, xhr, isError) {
+                var promise = promises[id];
+                delete endpoints[id];
+                delete promises[id];
+                if (isError) {
+                    promise.failure();
+                } else {
+                    promise.success();
+                }
+            }
+        }));
+        qq.extend(this, {
+            method: method,
+            upload: function(id, xhr, url, file) {
+                var promise = new qq.Promise();
+                options.log("Submitting Put Blob request for " + id);
+                promises[id] = promise;
+                endpoints[id] = url;
+                requester.initTransport(id).withPayload(file).withHeaders({
+                    "Content-Type": file.type
+                }).send(xhr);
+                return promise;
+            }
+        });
+    };
+    qq.azure.PutBlock = function(o) {
+        "use strict";
+        var requester, method = "PUT", blockIdEntries = {}, promises = {}, options = {
+            log: function(str, level) {}
+        }, endpoints = {}, endpointHandler = {
+            get: function(id) {
+                return endpoints[id];
+            }
+        };
+        qq.extend(options, o);
+        requester = qq.extend(this, new qq.AjaxRequester({
+            validMethods: [ method ],
+            method: method,
+            successfulResponseCodes: function() {
+                var codes = {};
+                codes[method] = [ 201 ];
+                return codes;
+            }(),
+            contentType: null,
+            endpointStore: endpointHandler,
+            allowXRequestedWithAndCacheControl: false,
+            cors: {
+                expected: true
+            },
+            log: options.log,
+            onComplete: function(id, xhr, isError) {
+                var promise = promises[id], blockIdEntry = blockIdEntries[id];
+                delete endpoints[id];
+                delete promises[id];
+                delete blockIdEntries[id];
+                if (isError) {
+                    promise.failure();
+                } else {
+                    promise.success(blockIdEntry);
+                }
+            }
+        }));
+        function createBlockId(partNum) {
+            var digits = 5, zeros = new Array(digits + 1).join("0"), paddedPartNum = (zeros + partNum).slice(-digits);
+            return btoa(paddedPartNum);
+        }
+        qq.extend(this, {
+            method: method,
+            upload: function(id, xhr, sasUri, partNum, blob) {
+                var promise = new qq.Promise(), blockId = createBlockId(partNum);
+                promises[id] = promise;
+                options.log(qq.format("Submitting Put Block request for {} = part {}", id, partNum));
+                endpoints[id] = qq.format("{}&comp=block&blockid={}", sasUri, encodeURIComponent(blockId));
+                blockIdEntries[id] = {
+                    part: partNum,
+                    id: blockId
+                };
+                requester.initTransport(id).withPayload(blob).send(xhr);
+                return promise;
+            }
+        });
+    };
+    qq.azure.PutBlockList = function(o) {
+        "use strict";
+        var requester, method = "PUT", promises = {}, options = {
+            getBlobMetadata: function(id) {},
+            log: function(str, level) {}
+        }, endpoints = {}, endpointHandler = {
+            get: function(id) {
+                return endpoints[id];
+            }
+        };
+        qq.extend(options, o);
+        requester = qq.extend(this, new qq.AjaxRequester({
+            validMethods: [ method ],
+            method: method,
+            successfulResponseCodes: function() {
+                var codes = {};
+                codes[method] = [ 201 ];
+                return codes;
+            }(),
+            customHeaders: function(id) {
+                var params = options.getBlobMetadata(id);
+                return qq.azure.util.getParamsAsHeaders(params);
+            },
+            contentType: "text/plain",
+            endpointStore: endpointHandler,
+            allowXRequestedWithAndCacheControl: false,
+            cors: {
+                expected: true
+            },
+            log: options.log,
+            onSend: function() {},
+            onComplete: function(id, xhr, isError) {
+                var promise = promises[id];
+                delete endpoints[id];
+                delete promises[id];
+                if (isError) {
+                    promise.failure(xhr);
+                } else {
+                    promise.success(xhr);
+                }
+            }
+        }));
+        function createRequestBody(blockIdEntries) {
+            var doc = document.implementation.createDocument(null, "BlockList", null);
+            blockIdEntries.sort(function(a, b) {
+                return a.part - b.part;
+            });
+            qq.each(blockIdEntries, function(idx, blockIdEntry) {
+                var latestEl = doc.createElement("Latest"), latestTextEl = doc.createTextNode(blockIdEntry.id);
+                latestEl.appendChild(latestTextEl);
+                qq(doc).children()[0].appendChild(latestEl);
+            });
+            return new XMLSerializer().serializeToString(doc);
+        }
+        qq.extend(this, {
+            method: method,
+            send: function(id, sasUri, blockIdEntries, fileMimeType, registerXhrCallback) {
+                var promise = new qq.Promise(), blockIdsXml = createRequestBody(blockIdEntries), xhr;
+                promises[id] = promise;
+                options.log(qq.format("Submitting Put Block List request for {}", id));
+                endpoints[id] = qq.format("{}&comp=blocklist", sasUri);
+                xhr = requester.initTransport(id).withPayload(blockIdsXml).withHeaders({
+                    "x-ms-blob-content-type": fileMimeType
+                }).send();
+                registerXhrCallback(xhr);
+                return promise;
             }
         });
     };
 })(window);
-//# sourceMappingURL=fine-uploader.js.map
+//# sourceMappingURL=all.fine-uploader.core.js.map
