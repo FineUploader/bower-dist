@@ -5269,209 +5269,408 @@
             return obj;
         }
     });
-    qq.traditional = qq.traditional || {};
-    qq.traditional.FormUploadHandler = function(options, proxy) {
+    qq.azure = qq.azure || {};
+    qq.azure.util = qq.azure.util || function() {
         "use strict";
-        var handler = this, getName = proxy.getName, getUuid = proxy.getUuid, log = proxy.log;
-        function getIframeContentJson(id, iframe) {
-            var response, doc, innerHtml;
-            try {
-                doc = iframe.contentDocument || iframe.contentWindow.document;
-                innerHtml = doc.body.innerHTML;
-                log("converting iframe's innerHTML to JSON");
-                log("innerHTML = " + innerHtml);
-                if (innerHtml && innerHtml.match(/^<pre/i)) {
-                    innerHtml = doc.body.firstChild.firstChild.nodeValue;
+        return {
+            AZURE_PARAM_PREFIX: "x-ms-meta-",
+            _paramNameMatchesAzureParameter: function(name) {
+                switch (name) {
+                  case "Cache-Control":
+                  case "Content-Disposition":
+                  case "Content-Encoding":
+                  case "Content-MD5":
+                  case "x-ms-blob-content-encoding":
+                  case "x-ms-blob-content-disposition":
+                  case "x-ms-blob-content-md5":
+                  case "x-ms-blob-cache-control":
+                    return true;
+
+                  default:
+                    return false;
                 }
-                response = handler._parseJsonResponse(innerHtml);
-            } catch (error) {
-                log("Error when attempting to parse form upload response (" + error.message + ")", "error");
-                response = {
-                    success: false
+            },
+            _getPrefixedParamName: function(name) {
+                if (qq.azure.util._paramNameMatchesAzureParameter(name)) {
+                    return name;
+                } else {
+                    return qq.azure.util.AZURE_PARAM_PREFIX + name;
+                }
+            },
+            getParamsAsHeaders: function(params) {
+                var headers = {};
+                qq.each(params, function(name, val) {
+                    var headerName = qq.azure.util._getPrefixedParamName(name), value = null;
+                    if (qq.isFunction(val)) {
+                        value = String(val());
+                    } else if (qq.isObject(val)) {
+                        qq.extend(headers, qq.azure.util.getParamsAsHeaders(val));
+                    } else {
+                        value = String(val);
+                    }
+                    if (value !== null) {
+                        if (qq.azure.util._paramNameMatchesAzureParameter(name)) {
+                            headers[headerName] = value;
+                        } else {
+                            headers[headerName] = encodeURIComponent(value);
+                        }
+                    }
+                });
+                return headers;
+            },
+            parseAzureError: function(responseText, log) {
+                var domParser = new DOMParser(), responseDoc = domParser.parseFromString(responseText, "application/xml"), errorTag = responseDoc.getElementsByTagName("Error")[0], errorDetails = {}, codeTag, messageTag;
+                log("Received error response: " + responseText, "error");
+                if (errorTag) {
+                    messageTag = errorTag.getElementsByTagName("Message")[0];
+                    if (messageTag) {
+                        errorDetails.message = messageTag.textContent;
+                    }
+                    codeTag = errorTag.getElementsByTagName("Code")[0];
+                    if (codeTag) {
+                        errorDetails.code = codeTag.textContent;
+                    }
+                    log("Parsed Azure error: " + JSON.stringify(errorDetails), "error");
+                    return errorDetails;
+                }
+            }
+        };
+    }();
+    (function() {
+        "use strict";
+        qq.nonTraditionalBasePublicApi = {
+            setUploadSuccessParams: function(params, id) {
+                this._uploadSuccessParamsStore.set(params, id);
+            },
+            setUploadSuccessEndpoint: function(endpoint, id) {
+                this._uploadSuccessEndpointStore.set(endpoint, id);
+            }
+        };
+        qq.nonTraditionalBasePrivateApi = {
+            _onComplete: function(id, name, result, xhr) {
+                var success = result.success ? true : false, self = this, onCompleteArgs = arguments, successEndpoint = this._uploadSuccessEndpointStore.get(id), successCustomHeaders = this._options.uploadSuccess.customHeaders, successMethod = this._options.uploadSuccess.method, cors = this._options.cors, promise = new qq.Promise(), uploadSuccessParams = this._uploadSuccessParamsStore.get(id), fileParams = this._paramsStore.get(id), onSuccessFromServer = function(successRequestResult) {
+                    delete self._failedSuccessRequestCallbacks[id];
+                    qq.extend(result, successRequestResult);
+                    qq.FineUploaderBasic.prototype._onComplete.apply(self, onCompleteArgs);
+                    promise.success(successRequestResult);
+                }, onFailureFromServer = function(successRequestResult) {
+                    var callback = submitSuccessRequest;
+                    qq.extend(result, successRequestResult);
+                    if (result && result.reset) {
+                        callback = null;
+                    }
+                    if (!callback) {
+                        delete self._failedSuccessRequestCallbacks[id];
+                    } else {
+                        self._failedSuccessRequestCallbacks[id] = callback;
+                    }
+                    if (!self._onAutoRetry(id, name, result, xhr, callback)) {
+                        qq.FineUploaderBasic.prototype._onComplete.apply(self, onCompleteArgs);
+                        promise.failure(successRequestResult);
+                    }
+                }, submitSuccessRequest, successAjaxRequester;
+                if (success && successEndpoint) {
+                    successAjaxRequester = new qq.UploadSuccessAjaxRequester({
+                        endpoint: successEndpoint,
+                        method: successMethod,
+                        customHeaders: successCustomHeaders,
+                        cors: cors,
+                        log: qq.bind(this.log, this)
+                    });
+                    qq.extend(uploadSuccessParams, self._getEndpointSpecificParams(id, result, xhr), true);
+                    fileParams && qq.extend(uploadSuccessParams, fileParams, true);
+                    submitSuccessRequest = qq.bind(function() {
+                        successAjaxRequester.sendSuccessRequest(id, uploadSuccessParams).then(onSuccessFromServer, onFailureFromServer);
+                    }, self);
+                    submitSuccessRequest();
+                    return promise;
+                }
+                return qq.FineUploaderBasic.prototype._onComplete.apply(this, arguments);
+            },
+            _manualRetry: function(id) {
+                var successRequestCallback = this._failedSuccessRequestCallbacks[id];
+                return qq.FineUploaderBasic.prototype._manualRetry.call(this, id, successRequestCallback);
+            }
+        };
+    })();
+    (function() {
+        "use strict";
+        qq.azure.FineUploaderBasic = function(o) {
+            if (!qq.supportedFeatures.ajaxUploading) {
+                throw new qq.Error("Uploading directly to Azure is not possible in this browser.");
+            }
+            var options = {
+                signature: {
+                    endpoint: null,
+                    customHeaders: {}
+                },
+                blobProperties: {
+                    name: "uuid"
+                },
+                uploadSuccess: {
+                    endpoint: null,
+                    method: "POST",
+                    params: {},
+                    customHeaders: {}
+                },
+                chunking: {
+                    partSize: 4e6,
+                    minFileSize: 4000001
+                }
+            };
+            qq.extend(options, o, true);
+            qq.FineUploaderBasic.call(this, options);
+            this._uploadSuccessParamsStore = this._createStore(this._options.uploadSuccess.params);
+            this._uploadSuccessEndpointStore = this._createStore(this._options.uploadSuccess.endpoint);
+            this._failedSuccessRequestCallbacks = {};
+            this._cannedBlobNames = {};
+        };
+        qq.extend(qq.azure.FineUploaderBasic.prototype, qq.basePublicApi);
+        qq.extend(qq.azure.FineUploaderBasic.prototype, qq.basePrivateApi);
+        qq.extend(qq.azure.FineUploaderBasic.prototype, qq.nonTraditionalBasePublicApi);
+        qq.extend(qq.azure.FineUploaderBasic.prototype, qq.nonTraditionalBasePrivateApi);
+        qq.extend(qq.azure.FineUploaderBasic.prototype, {
+            getBlobName: function(id) {
+                if (this._cannedBlobNames[id] == null) {
+                    return this._handler.getThirdPartyFileId(id);
+                }
+                return this._cannedBlobNames[id];
+            },
+            _getEndpointSpecificParams: function(id) {
+                return {
+                    blob: this.getBlobName(id),
+                    uuid: this.getUuid(id),
+                    name: this.getName(id),
+                    container: this._endpointStore.get(id)
+                };
+            },
+            _createUploadHandler: function() {
+                return qq.FineUploaderBasic.prototype._createUploadHandler.call(this, {
+                    signature: this._options.signature,
+                    onGetBlobName: qq.bind(this._determineBlobName, this),
+                    deleteBlob: qq.bind(this._deleteBlob, this, true)
+                }, "azure");
+            },
+            _determineBlobName: function(id) {
+                var self = this, blobNameOptionValue = this._options.blobProperties.name, uuid = this.getUuid(id), filename = this.getName(id), fileExtension = qq.getExtension(filename), blobNameToUse = uuid;
+                if (qq.isString(blobNameOptionValue)) {
+                    switch (blobNameOptionValue) {
+                      case "uuid":
+                        if (fileExtension !== undefined) {
+                            blobNameToUse += "." + fileExtension;
+                        }
+                        return new qq.Promise().success(blobNameToUse);
+
+                      case "filename":
+                        return new qq.Promise().success(filename);
+
+                      default:
+                        return new qq.Promise.failure("Invalid blobName option value - " + blobNameOptionValue);
+                    }
+                } else {
+                    return blobNameOptionValue.call(this, id);
+                }
+            },
+            _addCannedFile: function(sessionData) {
+                var id;
+                if (sessionData.blobName == null) {
+                    throw new qq.Error("Did not find blob name property in server session response.  This is required!");
+                } else {
+                    id = qq.FineUploaderBasic.prototype._addCannedFile.apply(this, arguments);
+                    this._cannedBlobNames[id] = sessionData.blobName;
+                }
+                return id;
+            },
+            _deleteBlob: function(relatedToCancel, id) {
+                var self = this, deleteBlobSasUri = {}, blobUriStore = {
+                    get: function(id) {
+                        return self._endpointStore.get(id) + "/" + self.getBlobName(id);
+                    }
+                }, deleteFileEndpointStore = {
+                    get: function(id) {
+                        return deleteBlobSasUri[id];
+                    }
+                }, getSasSuccess = function(id, sasUri) {
+                    deleteBlobSasUri[id] = sasUri;
+                    deleteBlob.send(id);
+                }, getSasFailure = function(id, reason, xhr) {
+                    if (relatedToCancel) {
+                        self.log("Will cancel upload, but cannot remove uncommitted parts from Azure due to issue retrieving SAS", "error");
+                        qq.FineUploaderBasic.prototype._onCancel.call(self, id, self.getName(id));
+                    } else {
+                        self._onDeleteComplete(id, xhr, true);
+                        self._options.callbacks.onDeleteComplete(id, xhr, true);
+                    }
+                }, deleteBlob = new qq.azure.DeleteBlob({
+                    endpointStore: deleteFileEndpointStore,
+                    log: qq.bind(self.log, self),
+                    onDelete: function(id) {
+                        self._onDelete(id);
+                        self._options.callbacks.onDelete(id);
+                    },
+                    onDeleteComplete: function(id, xhrOrXdr, isError) {
+                        delete deleteBlobSasUri[id];
+                        if (isError) {
+                            if (relatedToCancel) {
+                                self.log("Will cancel upload, but failed to remove uncommitted parts from Azure.", "error");
+                            } else {
+                                qq.azure.util.parseAzureError(xhrOrXdr.responseText, qq.bind(self.log, self));
+                            }
+                        }
+                        if (relatedToCancel) {
+                            qq.FineUploaderBasic.prototype._onCancel.call(self, id, self.getName(id));
+                            self.log("Deleted uncommitted blob chunks for " + id);
+                        } else {
+                            self._onDeleteComplete(id, xhrOrXdr, isError);
+                            self._options.callbacks.onDeleteComplete(id, xhrOrXdr, isError);
+                        }
+                    }
+                }), getSas = new qq.azure.GetSas({
+                    cors: this._options.cors,
+                    endpointStore: {
+                        get: function() {
+                            return self._options.signature.endpoint;
+                        }
+                    },
+                    restRequestVerb: deleteBlob.method,
+                    log: qq.bind(self.log, self)
+                });
+                getSas.request(id, blobUriStore.get(id)).then(qq.bind(getSasSuccess, self, id), qq.bind(getSasFailure, self, id));
+            },
+            _createDeleteHandler: function() {
+                var self = this;
+                return {
+                    sendDelete: function(id, uuid) {
+                        self._deleteBlob(false, id);
+                    }
                 };
             }
-            return response;
-        }
-        function createForm(id, iframe) {
-            var params = options.paramsStore.get(id), method = options.method.toLowerCase() === "get" ? "GET" : "POST", endpoint = options.endpointStore.get(id), name = getName(id);
-            params[options.uuidName] = getUuid(id);
-            params[options.filenameParam] = name;
-            return handler._initFormForUpload({
-                method: method,
-                endpoint: endpoint,
-                params: params,
-                paramsInBody: options.paramsInBody,
-                targetName: iframe.name
-            });
-        }
-        this.uploadFile = function(id) {
-            var input = handler.getInput(id), iframe = handler._createIframe(id), promise = new qq.Promise(), form;
-            form = createForm(id, iframe);
-            form.appendChild(input);
-            handler._attachLoadEvent(iframe, function(responseFromMessage) {
-                log("iframe loaded");
-                var response = responseFromMessage ? responseFromMessage : getIframeContentJson(id, iframe);
-                handler._detachLoadEvent(id);
-                if (!options.cors.expected) {
-                    qq(iframe).remove();
-                }
-                if (response.success) {
-                    promise.success(response);
-                } else {
-                    promise.failure(response);
-                }
-            });
-            log("Sending upload request for " + id);
-            form.submit();
-            qq(form).remove();
-            return promise;
-        };
-        qq.extend(this, new qq.FormUploadHandler({
-            options: {
-                isCors: options.cors.expected,
-                inputName: options.inputName
-            },
-            proxy: {
-                onCancel: options.onCancel,
-                getName: getName,
-                getUuid: getUuid,
-                log: log
-            }
-        }));
-    };
-    qq.traditional = qq.traditional || {};
-    qq.traditional.XhrUploadHandler = function(spec, proxy) {
+        });
+    })();
+    qq.azure.XhrUploadHandler = function(spec, proxy) {
         "use strict";
-        var handler = this, getName = proxy.getName, getSize = proxy.getSize, getUuid = proxy.getUuid, log = proxy.log, multipart = spec.forceMultipart || spec.paramsInBody, addChunkingSpecificParams = function(id, params, chunkData) {
-            var size = getSize(id), name = getName(id);
-            params[spec.chunking.paramNames.partIndex] = chunkData.part;
-            params[spec.chunking.paramNames.partByteOffset] = chunkData.start;
-            params[spec.chunking.paramNames.chunkSize] = chunkData.size;
-            params[spec.chunking.paramNames.totalParts] = chunkData.count;
-            params[spec.totalFileSizeName] = size;
-            if (multipart) {
-                params[spec.filenameParam] = name;
-            }
-        }, allChunksDoneRequester = new qq.traditional.AllChunksDoneAjaxRequester({
-            cors: spec.cors,
-            endpoint: spec.chunking.success.endpoint,
-            log: log
-        }), createReadyStateChangedHandler = function(id, xhr) {
-            var promise = new qq.Promise();
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4) {
-                    var result = onUploadOrChunkComplete(id, xhr);
-                    if (result.success) {
-                        promise.success(result.response, xhr);
-                    } else {
-                        promise.failure(result.response, xhr);
-                    }
-                }
-            };
-            return promise;
-        }, getChunksCompleteParams = function(id) {
-            var params = spec.paramsStore.get(id), name = getName(id), size = getSize(id);
-            params[spec.uuidName] = getUuid(id);
-            params[spec.filenameParam] = name;
-            params[spec.totalFileSizeName] = size;
-            params[spec.chunking.paramNames.totalParts] = handler._getTotalChunks(id);
+        var handler = this, log = proxy.log, cors = spec.cors, endpointStore = spec.endpointStore, paramsStore = spec.paramsStore, signature = spec.signature, filenameParam = spec.filenameParam, minFileSizeForChunking = spec.chunking.minFileSize, deleteBlob = spec.deleteBlob, onGetBlobName = spec.onGetBlobName, getName = proxy.getName, getSize = proxy.getSize, getBlobMetadata = function(id) {
+            var params = paramsStore.get(id);
+            params[filenameParam] = getName(id);
             return params;
-        }, isErrorUploadResponse = function(xhr, response) {
-            return qq.indexOf([ 200, 201, 202, 203, 204 ], xhr.status) < 0 || !response.success || response.reset;
-        }, onUploadOrChunkComplete = function(id, xhr) {
-            var response;
-            log("xhr - server response received for " + id);
-            log("responseText = " + xhr.responseText);
-            response = parseResponse(true, xhr);
-            return {
-                success: !isErrorUploadResponse(xhr, response),
-                response: response
-            };
-        }, parseResponse = function(upload, xhr) {
-            var response = {};
-            try {
-                log(qq.format("Received response status {} with body: {}", xhr.status, xhr.responseText));
-                response = qq.parseJson(xhr.responseText);
-            } catch (error) {
-                upload && log("Error when attempting to parse xhr response text (" + error.message + ")", "error");
-            }
-            return response;
-        }, sendChunksCompleteRequest = function(id) {
-            var promise = new qq.Promise();
-            allChunksDoneRequester.complete(id, handler._createXhr(id), getChunksCompleteParams(id), spec.customHeaders.get(id)).then(function(xhr) {
-                promise.success(parseResponse(false, xhr), xhr);
-            }, function(xhr) {
-                promise.failure(parseResponse(false, xhr), xhr);
-            });
-            return promise;
-        }, setParamsAndGetEntityToSend = function(params, xhr, fileOrBlob, id) {
-            var formData = new FormData(), method = spec.method, endpoint = spec.endpointStore.get(id), name = getName(id), size = getSize(id);
-            params[spec.uuidName] = getUuid(id);
-            params[spec.filenameParam] = name;
-            if (multipart) {
-                params[spec.totalFileSizeName] = size;
-            }
-            if (!spec.paramsInBody) {
-                if (!multipart) {
-                    params[spec.inputName] = name;
-                }
-                endpoint = qq.obj2url(params, endpoint);
-            }
-            xhr.open(method, endpoint, true);
-            if (spec.cors.expected && spec.cors.sendCredentials) {
-                xhr.withCredentials = true;
-            }
-            if (multipart) {
-                if (spec.paramsInBody) {
-                    qq.obj2FormData(params, formData);
-                }
-                formData.append(spec.inputName, fileOrBlob);
-                return formData;
-            }
-            return fileOrBlob;
-        }, setUploadHeaders = function(id, xhr) {
-            var extraHeaders = spec.customHeaders.get(id), fileOrBlob = handler.getFile(id);
-            xhr.setRequestHeader("Accept", "application/json");
-            xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
-            xhr.setRequestHeader("Cache-Control", "no-cache");
-            if (!multipart) {
-                xhr.setRequestHeader("Content-Type", "application/octet-stream");
-                xhr.setRequestHeader("X-Mime-Type", fileOrBlob.type);
-            }
-            qq.each(extraHeaders, function(name, val) {
-                xhr.setRequestHeader(name, val);
-            });
+        }, api = {
+            putBlob: new qq.azure.PutBlob({
+                getBlobMetadata: getBlobMetadata,
+                log: log
+            }),
+            putBlock: new qq.azure.PutBlock({
+                log: log
+            }),
+            putBlockList: new qq.azure.PutBlockList({
+                getBlobMetadata: getBlobMetadata,
+                log: log
+            }),
+            getSasForPutBlobOrBlock: new qq.azure.GetSas({
+                cors: cors,
+                customHeaders: signature.customHeaders,
+                endpointStore: {
+                    get: function() {
+                        return signature.endpoint;
+                    }
+                },
+                log: log,
+                restRequestVerb: "PUT"
+            })
         };
+        function combineChunks(id) {
+            var promise = new qq.Promise();
+            getSignedUrl(id).then(function(sasUri) {
+                var mimeType = handler._getMimeType(id), blockIdEntries = handler._getPersistableData(id).blockIdEntries;
+                api.putBlockList.send(id, sasUri, blockIdEntries, mimeType, function(xhr) {
+                    handler._registerXhr(id, null, xhr, api.putBlockList);
+                }).then(function(xhr) {
+                    log("Success combining chunks for id " + id);
+                    promise.success({}, xhr);
+                }, function(xhr) {
+                    log("Attempt to combine chunks failed for id " + id, "error");
+                    handleFailure(xhr, promise);
+                });
+            }, promise.failure);
+            return promise;
+        }
+        function determineBlobUrl(id) {
+            var containerUrl = endpointStore.get(id), promise = new qq.Promise(), getBlobNameSuccess = function(blobName) {
+                handler._setThirdPartyFileId(id, blobName);
+                promise.success(containerUrl + "/" + blobName);
+            }, getBlobNameFailure = function(reason) {
+                promise.failure(reason);
+            };
+            onGetBlobName(id).then(getBlobNameSuccess, getBlobNameFailure);
+            return promise;
+        }
+        function getSignedUrl(id, optChunkIdx) {
+            var getSasId = optChunkIdx == null ? id : id + "." + optChunkIdx, promise = new qq.Promise(), getSasSuccess = function(sasUri) {
+                log("GET SAS request succeeded.");
+                promise.success(sasUri);
+            }, getSasFailure = function(reason, getSasXhr) {
+                log("GET SAS request failed: " + reason, "error");
+                promise.failure({
+                    error: "Problem communicating with local server"
+                }, getSasXhr);
+            }, determineBlobUrlSuccess = function(blobUrl) {
+                api.getSasForPutBlobOrBlock.request(getSasId, blobUrl).then(getSasSuccess, getSasFailure);
+            }, determineBlobUrlFailure = function(reason) {
+                log(qq.format("Failed to determine blob name for ID {} - {}", id, reason), "error");
+                promise.failure({
+                    error: reason
+                });
+            };
+            determineBlobUrl(id).then(determineBlobUrlSuccess, determineBlobUrlFailure);
+            return promise;
+        }
+        function handleFailure(xhr, promise) {
+            var azureError = qq.azure.util.parseAzureError(xhr.responseText, log), errorMsg = "Problem sending file to Azure";
+            promise.failure({
+                error: errorMsg,
+                azureError: azureError && azureError.message,
+                reset: xhr.status === 403
+            });
+        }
         qq.extend(this, {
-            uploadChunk: function(id, chunkIdx, resuming) {
-                var chunkData = handler._getChunkData(id, chunkIdx), xhr = handler._createXhr(id, chunkIdx), size = getSize(id), promise, toSend, params;
-                promise = createReadyStateChangedHandler(id, xhr);
-                handler._registerProgressHandler(id, chunkIdx, chunkData.size);
-                params = spec.paramsStore.get(id);
-                addChunkingSpecificParams(id, params, chunkData);
-                if (resuming) {
-                    params[spec.resume.paramNames.resuming] = true;
-                }
-                toSend = setParamsAndGetEntityToSend(params, xhr, chunkData.blob, id);
-                setUploadHeaders(id, xhr);
-                xhr.send(toSend);
+            uploadChunk: function(id, chunkIdx) {
+                var promise = new qq.Promise();
+                getSignedUrl(id, chunkIdx).then(function(sasUri) {
+                    var xhr = handler._createXhr(id, chunkIdx), chunkData = handler._getChunkData(id, chunkIdx);
+                    handler._registerProgressHandler(id, chunkIdx, chunkData.size);
+                    handler._registerXhr(id, chunkIdx, xhr, api.putBlock);
+                    api.putBlock.upload(id + "." + chunkIdx, xhr, sasUri, chunkIdx, chunkData.blob).then(function(blockIdEntry) {
+                        if (!handler._getPersistableData(id).blockIdEntries) {
+                            handler._getPersistableData(id).blockIdEntries = [];
+                        }
+                        handler._getPersistableData(id).blockIdEntries.push(blockIdEntry);
+                        log("Put Block call succeeded for " + id);
+                        promise.success({}, xhr);
+                    }, function() {
+                        log(qq.format("Put Block call failed for ID {} on part {}", id, chunkIdx), "error");
+                        handleFailure(xhr, promise);
+                    });
+                }, promise.failure);
                 return promise;
             },
             uploadFile: function(id) {
-                var fileOrBlob = handler.getFile(id), promise, xhr, params, toSend;
-                xhr = handler._createXhr(id);
-                handler._registerProgressHandler(id);
-                promise = createReadyStateChangedHandler(id, xhr);
-                params = spec.paramsStore.get(id);
-                toSend = setParamsAndGetEntityToSend(params, xhr, fileOrBlob, id);
-                setUploadHeaders(id, xhr);
-                xhr.send(toSend);
+                var promise = new qq.Promise(), fileOrBlob = handler.getFile(id);
+                getSignedUrl(id).then(function(sasUri) {
+                    var xhr = handler._createXhr(id);
+                    handler._registerProgressHandler(id);
+                    api.putBlob.upload(id, xhr, sasUri, fileOrBlob).then(function() {
+                        log("Put Blob call succeeded for " + id);
+                        promise.success({}, xhr);
+                    }, function() {
+                        log("Put Blob call failed for " + id, "error");
+                        handleFailure(xhr, promise);
+                    });
+                }, promise.failure);
                 return promise;
             }
         });
         qq.extend(this, new qq.XhrUploadHandler({
             options: qq.extend({
-                namespace: "traditional"
+                namespace: "azure"
             }, spec),
             proxy: qq.extend({
                 getEndpoint: spec.endpointStore.get
@@ -5479,42 +5678,325 @@
         }));
         qq.override(this, function(super_) {
             return {
-                finalizeChunks: function(id) {
-                    if (spec.chunking.success.endpoint) {
-                        return sendChunksCompleteRequest(id);
-                    } else {
-                        return super_.finalizeChunks(id, qq.bind(parseResponse, this, true));
+                expunge: function(id) {
+                    var relatedToCancel = handler._wasCanceled(id), chunkingData = handler._getPersistableData(id), blockIdEntries = chunkingData && chunkingData.blockIdEntries || [];
+                    if (relatedToCancel && blockIdEntries.length > 0) {
+                        deleteBlob(id);
                     }
+                    super_.expunge(id);
+                },
+                finalizeChunks: function(id) {
+                    return combineChunks(id);
+                },
+                _shouldChunkThisFile: function(id) {
+                    var maybePossible = super_._shouldChunkThisFile(id);
+                    return maybePossible && getSize(id) >= minFileSizeForChunking;
                 }
             };
         });
     };
-    qq.traditional.AllChunksDoneAjaxRequester = function(o) {
+    qq.azure.GetSas = function(o) {
         "use strict";
-        var requester, method = "POST", options = {
+        var requester, options = {
             cors: {
-                allowXdr: false,
                 expected: false,
                 sendCredentials: false
             },
-            endpoint: null,
+            customHeaders: {},
+            restRequestVerb: "PUT",
+            endpointStore: null,
             log: function(str, level) {}
-        }, promises = {}, endpointHandler = {
+        }, requestPromises = {};
+        qq.extend(options, o);
+        function sasResponseReceived(id, xhr, isError) {
+            var promise = requestPromises[id];
+            if (isError) {
+                promise.failure("Received response code " + xhr.status, xhr);
+            } else {
+                if (xhr.responseText.length) {
+                    promise.success(xhr.responseText);
+                } else {
+                    promise.failure("Empty response.", xhr);
+                }
+            }
+            delete requestPromises[id];
+        }
+        requester = qq.extend(this, new qq.AjaxRequester({
+            acceptHeader: "application/json",
+            validMethods: [ "GET" ],
+            method: "GET",
+            successfulResponseCodes: {
+                GET: [ 200 ]
+            },
+            contentType: null,
+            customHeaders: options.customHeaders,
+            endpointStore: options.endpointStore,
+            cors: options.cors,
+            log: options.log,
+            onComplete: sasResponseReceived
+        }));
+        qq.extend(this, {
+            request: function(id, blobUri) {
+                var requestPromise = new qq.Promise(), restVerb = options.restRequestVerb;
+                options.log(qq.format("Submitting GET SAS request for a {} REST request related to file ID {}.", restVerb, id));
+                requestPromises[id] = requestPromise;
+                requester.initTransport(id).withParams({
+                    bloburi: blobUri,
+                    _method: restVerb
+                }).withCacheBuster().send();
+                return requestPromise;
+            }
+        });
+    };
+    qq.UploadSuccessAjaxRequester = function(o) {
+        "use strict";
+        var requester, pendingRequests = [], options = {
+            method: "POST",
+            endpoint: null,
+            maxConnections: 3,
+            customHeaders: {},
+            paramsStore: {},
+            cors: {
+                expected: false,
+                sendCredentials: false
+            },
+            log: function(str, level) {}
+        };
+        qq.extend(options, o);
+        function handleSuccessResponse(id, xhrOrXdr, isError) {
+            var promise = pendingRequests[id], responseJson = xhrOrXdr.responseText, successIndicator = {
+                success: true
+            }, failureIndicator = {
+                success: false
+            }, parsedResponse;
+            delete pendingRequests[id];
+            options.log(qq.format("Received the following response body to an upload success request for id {}: {}", id, responseJson));
+            try {
+                parsedResponse = qq.parseJson(responseJson);
+                if (isError || parsedResponse && (parsedResponse.error || parsedResponse.success === false)) {
+                    options.log("Upload success request was rejected by the server.", "error");
+                    promise.failure(qq.extend(parsedResponse, failureIndicator));
+                } else {
+                    options.log("Upload success was acknowledged by the server.");
+                    promise.success(qq.extend(parsedResponse, successIndicator));
+                }
+            } catch (error) {
+                if (isError) {
+                    options.log(qq.format("Your server indicated failure in its upload success request response for id {}!", id), "error");
+                    promise.failure(failureIndicator);
+                } else {
+                    options.log("Upload success was acknowledged by the server.");
+                    promise.success(successIndicator);
+                }
+            }
+        }
+        requester = qq.extend(this, new qq.AjaxRequester({
+            acceptHeader: "application/json",
+            method: options.method,
+            endpointStore: {
+                get: function() {
+                    return options.endpoint;
+                }
+            },
+            paramsStore: options.paramsStore,
+            maxConnections: options.maxConnections,
+            customHeaders: options.customHeaders,
+            log: options.log,
+            onComplete: handleSuccessResponse,
+            cors: options.cors
+        }));
+        qq.extend(this, {
+            sendSuccessRequest: function(id, spec) {
+                var promise = new qq.Promise();
+                options.log("Submitting upload success request/notification for " + id);
+                requester.initTransport(id).withParams(spec).send();
+                pendingRequests[id] = promise;
+                return promise;
+            }
+        });
+    };
+    qq.azure.DeleteBlob = function(o) {
+        "use strict";
+        var requester, method = "DELETE", options = {
+            endpointStore: {},
+            onDelete: function(id) {},
+            onDeleteComplete: function(id, xhr, isError) {},
+            log: function(str, level) {}
+        };
+        qq.extend(options, o);
+        requester = qq.extend(this, new qq.AjaxRequester({
+            validMethods: [ method ],
+            method: method,
+            successfulResponseCodes: function() {
+                var codes = {};
+                codes[method] = [ 202 ];
+                return codes;
+            }(),
+            contentType: null,
+            endpointStore: options.endpointStore,
+            allowXRequestedWithAndCacheControl: false,
+            cors: {
+                expected: true
+            },
+            log: options.log,
+            onSend: options.onDelete,
+            onComplete: options.onDeleteComplete
+        }));
+        qq.extend(this, {
+            method: method,
+            send: function(id) {
+                options.log("Submitting Delete Blob request for " + id);
+                return requester.initTransport(id).send();
+            }
+        });
+    };
+    qq.azure.PutBlob = function(o) {
+        "use strict";
+        var requester, method = "PUT", options = {
+            getBlobMetadata: function(id) {},
+            log: function(str, level) {}
+        }, endpoints = {}, promises = {}, endpointHandler = {
             get: function(id) {
-                return options.endpoint;
+                return endpoints[id];
             }
         };
         qq.extend(options, o);
         requester = qq.extend(this, new qq.AjaxRequester({
-            acceptHeader: "application/json",
             validMethods: [ method ],
             method: method,
+            successfulResponseCodes: function() {
+                var codes = {};
+                codes[method] = [ 201 ];
+                return codes;
+            }(),
+            contentType: null,
+            customHeaders: function(id) {
+                var params = options.getBlobMetadata(id), headers = qq.azure.util.getParamsAsHeaders(params);
+                headers["x-ms-blob-type"] = "BlockBlob";
+                return headers;
+            },
             endpointStore: endpointHandler,
             allowXRequestedWithAndCacheControl: false,
-            cors: options.cors,
+            cors: {
+                expected: true
+            },
             log: options.log,
             onComplete: function(id, xhr, isError) {
                 var promise = promises[id];
+                delete endpoints[id];
+                delete promises[id];
+                if (isError) {
+                    promise.failure();
+                } else {
+                    promise.success();
+                }
+            }
+        }));
+        qq.extend(this, {
+            method: method,
+            upload: function(id, xhr, url, file) {
+                var promise = new qq.Promise();
+                options.log("Submitting Put Blob request for " + id);
+                promises[id] = promise;
+                endpoints[id] = url;
+                requester.initTransport(id).withPayload(file).withHeaders({
+                    "Content-Type": file.type
+                }).send(xhr);
+                return promise;
+            }
+        });
+    };
+    qq.azure.PutBlock = function(o) {
+        "use strict";
+        var requester, method = "PUT", blockIdEntries = {}, promises = {}, options = {
+            log: function(str, level) {}
+        }, endpoints = {}, endpointHandler = {
+            get: function(id) {
+                return endpoints[id];
+            }
+        };
+        qq.extend(options, o);
+        requester = qq.extend(this, new qq.AjaxRequester({
+            validMethods: [ method ],
+            method: method,
+            successfulResponseCodes: function() {
+                var codes = {};
+                codes[method] = [ 201 ];
+                return codes;
+            }(),
+            contentType: null,
+            endpointStore: endpointHandler,
+            allowXRequestedWithAndCacheControl: false,
+            cors: {
+                expected: true
+            },
+            log: options.log,
+            onComplete: function(id, xhr, isError) {
+                var promise = promises[id], blockIdEntry = blockIdEntries[id];
+                delete endpoints[id];
+                delete promises[id];
+                delete blockIdEntries[id];
+                if (isError) {
+                    promise.failure();
+                } else {
+                    promise.success(blockIdEntry);
+                }
+            }
+        }));
+        function createBlockId(partNum) {
+            var digits = 5, zeros = new Array(digits + 1).join("0"), paddedPartNum = (zeros + partNum).slice(-digits);
+            return btoa(paddedPartNum);
+        }
+        qq.extend(this, {
+            method: method,
+            upload: function(id, xhr, sasUri, partNum, blob) {
+                var promise = new qq.Promise(), blockId = createBlockId(partNum);
+                promises[id] = promise;
+                options.log(qq.format("Submitting Put Block request for {} = part {}", id, partNum));
+                endpoints[id] = qq.format("{}&comp=block&blockid={}", sasUri, encodeURIComponent(blockId));
+                blockIdEntries[id] = {
+                    part: partNum,
+                    id: blockId
+                };
+                requester.initTransport(id).withPayload(blob).send(xhr);
+                return promise;
+            }
+        });
+    };
+    qq.azure.PutBlockList = function(o) {
+        "use strict";
+        var requester, method = "PUT", promises = {}, options = {
+            getBlobMetadata: function(id) {},
+            log: function(str, level) {}
+        }, endpoints = {}, endpointHandler = {
+            get: function(id) {
+                return endpoints[id];
+            }
+        };
+        qq.extend(options, o);
+        requester = qq.extend(this, new qq.AjaxRequester({
+            validMethods: [ method ],
+            method: method,
+            successfulResponseCodes: function() {
+                var codes = {};
+                codes[method] = [ 201 ];
+                return codes;
+            }(),
+            customHeaders: function(id) {
+                var params = options.getBlobMetadata(id);
+                return qq.azure.util.getParamsAsHeaders(params);
+            },
+            contentType: "text/plain",
+            endpointStore: endpointHandler,
+            allowXRequestedWithAndCacheControl: false,
+            cors: {
+                expected: true
+            },
+            log: options.log,
+            onSend: function() {},
+            onComplete: function(id, xhr, isError) {
+                var promise = promises[id];
+                delete endpoints[id];
                 delete promises[id];
                 if (isError) {
                     promise.failure(xhr);
@@ -5523,1914 +6005,32 @@
                 }
             }
         }));
+        function createRequestBody(blockIdEntries) {
+            var doc = document.implementation.createDocument(null, "BlockList", null);
+            blockIdEntries.sort(function(a, b) {
+                return a.part - b.part;
+            });
+            qq.each(blockIdEntries, function(idx, blockIdEntry) {
+                var latestEl = doc.createElement("Latest"), latestTextEl = doc.createTextNode(blockIdEntry.id);
+                latestEl.appendChild(latestTextEl);
+                qq(doc).children()[0].appendChild(latestEl);
+            });
+            return new XMLSerializer().serializeToString(doc);
+        }
         qq.extend(this, {
-            complete: function(id, xhr, params, headers) {
-                var promise = new qq.Promise();
-                options.log("Submitting All Chunks Done request for " + id);
+            method: method,
+            send: function(id, sasUri, blockIdEntries, fileMimeType, registerXhrCallback) {
+                var promise = new qq.Promise(), blockIdsXml = createRequestBody(blockIdEntries), xhr;
                 promises[id] = promise;
-                requester.initTransport(id).withParams(params).withHeaders(headers).send(xhr);
+                options.log(qq.format("Submitting Put Block List request for {}", id));
+                endpoints[id] = qq.format("{}&comp=blocklist", sasUri);
+                xhr = requester.initTransport(id).withPayload(blockIdsXml).withHeaders({
+                    "x-ms-blob-content-type": fileMimeType
+                }).send();
+                registerXhrCallback(xhr);
                 return promise;
-            }
-        });
-    };
-    qq.DragAndDrop = function(o) {
-        "use strict";
-        var options, HIDE_ZONES_EVENT_NAME = "qq-hidezones", HIDE_BEFORE_ENTER_ATTR = "qq-hide-dropzone", uploadDropZones = [], droppedFiles = [], disposeSupport = new qq.DisposeSupport();
-        options = {
-            dropZoneElements: [],
-            allowMultipleItems: true,
-            classes: {
-                dropActive: null
-            },
-            callbacks: new qq.DragAndDrop.callbacks()
-        };
-        qq.extend(options, o, true);
-        function uploadDroppedFiles(files, uploadDropZone) {
-            var filesAsArray = Array.prototype.slice.call(files);
-            options.callbacks.dropLog("Grabbed " + files.length + " dropped files.");
-            uploadDropZone.dropDisabled(false);
-            options.callbacks.processingDroppedFilesComplete(filesAsArray, uploadDropZone.getElement());
-        }
-        function traverseFileTree(entry) {
-            var parseEntryPromise = new qq.Promise();
-            if (entry.isFile) {
-                entry.file(function(file) {
-                    var name = entry.name, fullPath = entry.fullPath, indexOfNameInFullPath = fullPath.indexOf(name);
-                    fullPath = fullPath.substr(0, indexOfNameInFullPath);
-                    if (fullPath.charAt(0) === "/") {
-                        fullPath = fullPath.substr(1);
-                    }
-                    file.qqPath = fullPath;
-                    droppedFiles.push(file);
-                    parseEntryPromise.success();
-                }, function(fileError) {
-                    options.callbacks.dropLog("Problem parsing '" + entry.fullPath + "'.  FileError code " + fileError.code + ".", "error");
-                    parseEntryPromise.failure();
-                });
-            } else if (entry.isDirectory) {
-                getFilesInDirectory(entry).then(function allEntriesRead(entries) {
-                    var entriesLeft = entries.length;
-                    qq.each(entries, function(idx, entry) {
-                        traverseFileTree(entry).done(function() {
-                            entriesLeft -= 1;
-                            if (entriesLeft === 0) {
-                                parseEntryPromise.success();
-                            }
-                        });
-                    });
-                    if (!entries.length) {
-                        parseEntryPromise.success();
-                    }
-                }, function readFailure(fileError) {
-                    options.callbacks.dropLog("Problem parsing '" + entry.fullPath + "'.  FileError code " + fileError.code + ".", "error");
-                    parseEntryPromise.failure();
-                });
-            }
-            return parseEntryPromise;
-        }
-        function getFilesInDirectory(entry, reader, accumEntries, existingPromise) {
-            var promise = existingPromise || new qq.Promise(), dirReader = reader || entry.createReader();
-            dirReader.readEntries(function readSuccess(entries) {
-                var newEntries = accumEntries ? accumEntries.concat(entries) : entries;
-                if (entries.length) {
-                    setTimeout(function() {
-                        getFilesInDirectory(entry, dirReader, newEntries, promise);
-                    }, 0);
-                } else {
-                    promise.success(newEntries);
-                }
-            }, promise.failure);
-            return promise;
-        }
-        function handleDataTransfer(dataTransfer, uploadDropZone) {
-            var pendingFolderPromises = [], handleDataTransferPromise = new qq.Promise();
-            options.callbacks.processingDroppedFiles();
-            uploadDropZone.dropDisabled(true);
-            if (dataTransfer.files.length > 1 && !options.allowMultipleItems) {
-                options.callbacks.processingDroppedFilesComplete([]);
-                options.callbacks.dropError("tooManyFilesError", "");
-                uploadDropZone.dropDisabled(false);
-                handleDataTransferPromise.failure();
-            } else {
-                droppedFiles = [];
-                if (qq.isFolderDropSupported(dataTransfer)) {
-                    qq.each(dataTransfer.items, function(idx, item) {
-                        var entry = item.webkitGetAsEntry();
-                        if (entry) {
-                            if (entry.isFile) {
-                                droppedFiles.push(item.getAsFile());
-                            } else {
-                                pendingFolderPromises.push(traverseFileTree(entry).done(function() {
-                                    pendingFolderPromises.pop();
-                                    if (pendingFolderPromises.length === 0) {
-                                        handleDataTransferPromise.success();
-                                    }
-                                }));
-                            }
-                        }
-                    });
-                } else {
-                    droppedFiles = dataTransfer.files;
-                }
-                if (pendingFolderPromises.length === 0) {
-                    handleDataTransferPromise.success();
-                }
-            }
-            return handleDataTransferPromise;
-        }
-        function setupDropzone(dropArea) {
-            var dropZone = new qq.UploadDropZone({
-                HIDE_ZONES_EVENT_NAME: HIDE_ZONES_EVENT_NAME,
-                element: dropArea,
-                onEnter: function(e) {
-                    qq(dropArea).addClass(options.classes.dropActive);
-                    e.stopPropagation();
-                },
-                onLeaveNotDescendants: function(e) {
-                    qq(dropArea).removeClass(options.classes.dropActive);
-                },
-                onDrop: function(e) {
-                    handleDataTransfer(e.dataTransfer, dropZone).then(function() {
-                        uploadDroppedFiles(droppedFiles, dropZone);
-                    }, function() {
-                        options.callbacks.dropLog("Drop event DataTransfer parsing failed.  No files will be uploaded.", "error");
-                    });
-                }
-            });
-            disposeSupport.addDisposer(function() {
-                dropZone.dispose();
-            });
-            qq(dropArea).hasAttribute(HIDE_BEFORE_ENTER_ATTR) && qq(dropArea).hide();
-            uploadDropZones.push(dropZone);
-            return dropZone;
-        }
-        function isFileDrag(dragEvent) {
-            var fileDrag;
-            qq.each(dragEvent.dataTransfer.types, function(key, val) {
-                if (val === "Files") {
-                    fileDrag = true;
-                    return false;
-                }
-            });
-            return fileDrag;
-        }
-        function leavingDocumentOut(e) {
-            if (qq.firefox()) {
-                return !e.relatedTarget;
-            }
-            if (qq.safari()) {
-                return e.x < 0 || e.y < 0;
-            }
-            return e.x === 0 && e.y === 0;
-        }
-        function setupDragDrop() {
-            var dropZones = options.dropZoneElements, maybeHideDropZones = function() {
-                setTimeout(function() {
-                    qq.each(dropZones, function(idx, dropZone) {
-                        qq(dropZone).hasAttribute(HIDE_BEFORE_ENTER_ATTR) && qq(dropZone).hide();
-                        qq(dropZone).removeClass(options.classes.dropActive);
-                    });
-                }, 10);
-            };
-            qq.each(dropZones, function(idx, dropZone) {
-                var uploadDropZone = setupDropzone(dropZone);
-                if (dropZones.length && qq.supportedFeatures.fileDrop) {
-                    disposeSupport.attach(document, "dragenter", function(e) {
-                        if (!uploadDropZone.dropDisabled() && isFileDrag(e)) {
-                            qq.each(dropZones, function(idx, dropZone) {
-                                if (dropZone instanceof HTMLElement && qq(dropZone).hasAttribute(HIDE_BEFORE_ENTER_ATTR)) {
-                                    qq(dropZone).css({
-                                        display: "block"
-                                    });
-                                }
-                            });
-                        }
-                    });
-                }
-            });
-            disposeSupport.attach(document, "dragleave", function(e) {
-                if (leavingDocumentOut(e)) {
-                    maybeHideDropZones();
-                }
-            });
-            disposeSupport.attach(qq(document).children()[0], "mouseenter", function(e) {
-                maybeHideDropZones();
-            });
-            disposeSupport.attach(document, "drop", function(e) {
-                e.preventDefault();
-                maybeHideDropZones();
-            });
-            disposeSupport.attach(document, HIDE_ZONES_EVENT_NAME, maybeHideDropZones);
-        }
-        setupDragDrop();
-        qq.extend(this, {
-            setupExtraDropzone: function(element) {
-                options.dropZoneElements.push(element);
-                setupDropzone(element);
-            },
-            removeDropzone: function(element) {
-                var i, dzs = options.dropZoneElements;
-                for (i in dzs) {
-                    if (dzs[i] === element) {
-                        return dzs.splice(i, 1);
-                    }
-                }
-            },
-            dispose: function() {
-                disposeSupport.dispose();
-                qq.each(uploadDropZones, function(idx, dropZone) {
-                    dropZone.dispose();
-                });
-            }
-        });
-    };
-    qq.DragAndDrop.callbacks = function() {
-        "use strict";
-        return {
-            processingDroppedFiles: function() {},
-            processingDroppedFilesComplete: function(files, targetEl) {},
-            dropError: function(code, errorSpecifics) {
-                qq.log("Drag & drop error code '" + code + " with these specifics: '" + errorSpecifics + "'", "error");
-            },
-            dropLog: function(message, level) {
-                qq.log(message, level);
-            }
-        };
-    };
-    qq.UploadDropZone = function(o) {
-        "use strict";
-        var disposeSupport = new qq.DisposeSupport(), options, element, preventDrop, dropOutsideDisabled;
-        options = {
-            element: null,
-            onEnter: function(e) {},
-            onLeave: function(e) {},
-            onLeaveNotDescendants: function(e) {},
-            onDrop: function(e) {}
-        };
-        qq.extend(options, o);
-        element = options.element;
-        function dragoverShouldBeCanceled() {
-            return qq.safari() || qq.firefox() && qq.windows();
-        }
-        function disableDropOutside(e) {
-            if (!dropOutsideDisabled) {
-                if (dragoverShouldBeCanceled) {
-                    disposeSupport.attach(document, "dragover", function(e) {
-                        e.preventDefault();
-                    });
-                } else {
-                    disposeSupport.attach(document, "dragover", function(e) {
-                        if (e.dataTransfer) {
-                            e.dataTransfer.dropEffect = "none";
-                            e.preventDefault();
-                        }
-                    });
-                }
-                dropOutsideDisabled = true;
-            }
-        }
-        function isValidFileDrag(e) {
-            if (!qq.supportedFeatures.fileDrop) {
-                return false;
-            }
-            var effectTest, dt = e.dataTransfer, isSafari = qq.safari();
-            effectTest = qq.ie() && qq.supportedFeatures.fileDrop ? true : dt.effectAllowed !== "none";
-            return dt && effectTest && (dt.files || !isSafari && dt.types.contains && dt.types.contains("Files"));
-        }
-        function isOrSetDropDisabled(isDisabled) {
-            if (isDisabled !== undefined) {
-                preventDrop = isDisabled;
-            }
-            return preventDrop;
-        }
-        function triggerHidezonesEvent() {
-            var hideZonesEvent;
-            function triggerUsingOldApi() {
-                hideZonesEvent = document.createEvent("Event");
-                hideZonesEvent.initEvent(options.HIDE_ZONES_EVENT_NAME, true, true);
-            }
-            if (window.CustomEvent) {
-                try {
-                    hideZonesEvent = new CustomEvent(options.HIDE_ZONES_EVENT_NAME);
-                } catch (err) {
-                    triggerUsingOldApi();
-                }
-            } else {
-                triggerUsingOldApi();
-            }
-            document.dispatchEvent(hideZonesEvent);
-        }
-        function attachEvents() {
-            disposeSupport.attach(element, "dragover", function(e) {
-                if (!isValidFileDrag(e)) {
-                    return;
-                }
-                var effect = qq.ie() && qq.supportedFeatures.fileDrop ? null : e.dataTransfer.effectAllowed;
-                if (effect === "move" || effect === "linkMove") {
-                    e.dataTransfer.dropEffect = "move";
-                } else {
-                    e.dataTransfer.dropEffect = "copy";
-                }
-                e.stopPropagation();
-                e.preventDefault();
-            });
-            disposeSupport.attach(element, "dragenter", function(e) {
-                if (!isOrSetDropDisabled()) {
-                    if (!isValidFileDrag(e)) {
-                        return;
-                    }
-                    options.onEnter(e);
-                }
-            });
-            disposeSupport.attach(element, "dragleave", function(e) {
-                if (!isValidFileDrag(e)) {
-                    return;
-                }
-                options.onLeave(e);
-                var relatedTarget = document.elementFromPoint(e.clientX, e.clientY);
-                if (qq(this).contains(relatedTarget)) {
-                    return;
-                }
-                options.onLeaveNotDescendants(e);
-            });
-            disposeSupport.attach(element, "drop", function(e) {
-                if (!isOrSetDropDisabled()) {
-                    if (!isValidFileDrag(e)) {
-                        return;
-                    }
-                    e.preventDefault();
-                    e.stopPropagation();
-                    options.onDrop(e);
-                    triggerHidezonesEvent();
-                }
-            });
-        }
-        disableDropOutside();
-        attachEvents();
-        qq.extend(this, {
-            dropDisabled: function(isDisabled) {
-                return isOrSetDropDisabled(isDisabled);
-            },
-            dispose: function() {
-                disposeSupport.dispose();
-            },
-            getElement: function() {
-                return element;
-            }
-        });
-    };
-    (function() {
-        "use strict";
-        qq.uiPublicApi = {
-            addInitialFiles: function(cannedFileList) {
-                this._parent.prototype.addInitialFiles.apply(this, arguments);
-                this._templating.addCacheToDom();
-            },
-            clearStoredFiles: function() {
-                this._parent.prototype.clearStoredFiles.apply(this, arguments);
-                this._templating.clearFiles();
-            },
-            addExtraDropzone: function(element) {
-                this._dnd && this._dnd.setupExtraDropzone(element);
-            },
-            removeExtraDropzone: function(element) {
-                if (this._dnd) {
-                    return this._dnd.removeDropzone(element);
-                }
-            },
-            getItemByFileId: function(id) {
-                if (!this._templating.isHiddenForever(id)) {
-                    return this._templating.getFileContainer(id);
-                }
-            },
-            reset: function() {
-                this._parent.prototype.reset.apply(this, arguments);
-                this._templating.reset();
-                if (!this._options.button && this._templating.getButton()) {
-                    this._defaultButtonId = this._createUploadButton({
-                        element: this._templating.getButton(),
-                        title: this._options.text.fileInputTitle
-                    }).getButtonId();
-                }
-                if (this._dnd) {
-                    this._dnd.dispose();
-                    this._dnd = this._setupDragAndDrop();
-                }
-                this._totalFilesInBatch = 0;
-                this._filesInBatchAddedToUi = 0;
-                this._setupClickAndEditEventHandlers();
-            },
-            setName: function(id, newName) {
-                var formattedFilename = this._options.formatFileName(newName);
-                this._parent.prototype.setName.apply(this, arguments);
-                this._templating.updateFilename(id, formattedFilename);
-            },
-            pauseUpload: function(id) {
-                var paused = this._parent.prototype.pauseUpload.apply(this, arguments);
-                paused && this._templating.uploadPaused(id);
-                return paused;
-            },
-            continueUpload: function(id) {
-                var continued = this._parent.prototype.continueUpload.apply(this, arguments);
-                continued && this._templating.uploadContinued(id);
-                return continued;
-            },
-            getId: function(fileContainerOrChildEl) {
-                return this._templating.getFileId(fileContainerOrChildEl);
-            },
-            getDropTarget: function(fileId) {
-                var file = this.getFile(fileId);
-                return file.qqDropTarget;
-            }
-        };
-        qq.uiPrivateApi = {
-            _getButton: function(buttonId) {
-                var button = this._parent.prototype._getButton.apply(this, arguments);
-                if (!button) {
-                    if (buttonId === this._defaultButtonId) {
-                        button = this._templating.getButton();
-                    }
-                }
-                return button;
-            },
-            _removeFileItem: function(fileId) {
-                this._templating.removeFile(fileId);
-            },
-            _setupClickAndEditEventHandlers: function() {
-                this._fileButtonsClickHandler = qq.FileButtonsClickHandler && this._bindFileButtonsClickEvent();
-                this._focusinEventSupported = !qq.firefox();
-                if (this._isEditFilenameEnabled()) {
-                    this._filenameClickHandler = this._bindFilenameClickEvent();
-                    this._filenameInputFocusInHandler = this._bindFilenameInputFocusInEvent();
-                    this._filenameInputFocusHandler = this._bindFilenameInputFocusEvent();
-                }
-            },
-            _setupDragAndDrop: function() {
-                var self = this, dropZoneElements = this._options.dragAndDrop.extraDropzones, templating = this._templating, defaultDropZone = templating.getDropZone();
-                defaultDropZone && dropZoneElements.push(defaultDropZone);
-                return new qq.DragAndDrop({
-                    dropZoneElements: dropZoneElements,
-                    allowMultipleItems: this._options.multiple,
-                    classes: {
-                        dropActive: this._options.classes.dropActive
-                    },
-                    callbacks: {
-                        processingDroppedFiles: function() {
-                            templating.showDropProcessing();
-                        },
-                        processingDroppedFilesComplete: function(files, targetEl) {
-                            templating.hideDropProcessing();
-                            qq.each(files, function(idx, file) {
-                                file.qqDropTarget = targetEl;
-                            });
-                            if (files.length) {
-                                self.addFiles(files, null, null);
-                            }
-                        },
-                        dropError: function(code, errorData) {
-                            self._itemError(code, errorData);
-                        },
-                        dropLog: function(message, level) {
-                            self.log(message, level);
-                        }
-                    }
-                });
-            },
-            _bindFileButtonsClickEvent: function() {
-                var self = this;
-                return new qq.FileButtonsClickHandler({
-                    templating: this._templating,
-                    log: function(message, lvl) {
-                        self.log(message, lvl);
-                    },
-                    onDeleteFile: function(fileId) {
-                        self.deleteFile(fileId);
-                    },
-                    onCancel: function(fileId) {
-                        self.cancel(fileId);
-                    },
-                    onRetry: function(fileId) {
-                        self.retry(fileId);
-                    },
-                    onPause: function(fileId) {
-                        self.pauseUpload(fileId);
-                    },
-                    onContinue: function(fileId) {
-                        self.continueUpload(fileId);
-                    },
-                    onGetName: function(fileId) {
-                        return self.getName(fileId);
-                    }
-                });
-            },
-            _isEditFilenameEnabled: function() {
-                return this._templating.isEditFilenamePossible() && !this._options.autoUpload && qq.FilenameClickHandler && qq.FilenameInputFocusHandler && qq.FilenameInputFocusHandler;
-            },
-            _filenameEditHandler: function() {
-                var self = this, templating = this._templating;
-                return {
-                    templating: templating,
-                    log: function(message, lvl) {
-                        self.log(message, lvl);
-                    },
-                    onGetUploadStatus: function(fileId) {
-                        return self.getUploads({
-                            id: fileId
-                        }).status;
-                    },
-                    onGetName: function(fileId) {
-                        return self.getName(fileId);
-                    },
-                    onSetName: function(id, newName) {
-                        self.setName(id, newName);
-                    },
-                    onEditingStatusChange: function(id, isEditing) {
-                        var qqInput = qq(templating.getEditInput(id)), qqFileContainer = qq(templating.getFileContainer(id));
-                        if (isEditing) {
-                            qqInput.addClass("qq-editing");
-                            templating.hideFilename(id);
-                            templating.hideEditIcon(id);
-                        } else {
-                            qqInput.removeClass("qq-editing");
-                            templating.showFilename(id);
-                            templating.showEditIcon(id);
-                        }
-                        qqFileContainer.addClass("qq-temp").removeClass("qq-temp");
-                    }
-                };
-            },
-            _onUploadStatusChange: function(id, oldStatus, newStatus) {
-                this._parent.prototype._onUploadStatusChange.apply(this, arguments);
-                if (this._isEditFilenameEnabled()) {
-                    if (this._templating.getFileContainer(id) && newStatus !== qq.status.SUBMITTED) {
-                        this._templating.markFilenameEditable(id);
-                        this._templating.hideEditIcon(id);
-                    }
-                }
-                if (newStatus === qq.status.UPLOAD_RETRYING) {
-                    this._templating.hideRetry(id);
-                    this._templating.setStatusText(id);
-                    qq(this._templating.getFileContainer(id)).removeClass(this._classes.retrying);
-                } else if (newStatus === qq.status.UPLOAD_FAILED) {
-                    this._templating.hidePause(id);
-                }
-            },
-            _bindFilenameInputFocusInEvent: function() {
-                var spec = qq.extend({}, this._filenameEditHandler());
-                return new qq.FilenameInputFocusInHandler(spec);
-            },
-            _bindFilenameInputFocusEvent: function() {
-                var spec = qq.extend({}, this._filenameEditHandler());
-                return new qq.FilenameInputFocusHandler(spec);
-            },
-            _bindFilenameClickEvent: function() {
-                var spec = qq.extend({}, this._filenameEditHandler());
-                return new qq.FilenameClickHandler(spec);
-            },
-            _storeForLater: function(id) {
-                this._parent.prototype._storeForLater.apply(this, arguments);
-                this._templating.hideSpinner(id);
-            },
-            _onAllComplete: function(successful, failed) {
-                this._parent.prototype._onAllComplete.apply(this, arguments);
-                this._templating.resetTotalProgress();
-            },
-            _onSubmit: function(id, name) {
-                var file = this.getFile(id);
-                if (file && file.qqPath && this._options.dragAndDrop.reportDirectoryPaths) {
-                    this._paramsStore.addReadOnly(id, {
-                        qqpath: file.qqPath
-                    });
-                }
-                this._parent.prototype._onSubmit.apply(this, arguments);
-                this._addToList(id, name);
-            },
-            _onSubmitted: function(id) {
-                if (this._isEditFilenameEnabled()) {
-                    this._templating.markFilenameEditable(id);
-                    this._templating.showEditIcon(id);
-                    if (!this._focusinEventSupported) {
-                        this._filenameInputFocusHandler.addHandler(this._templating.getEditInput(id));
-                    }
-                }
-            },
-            _onProgress: function(id, name, loaded, total) {
-                this._parent.prototype._onProgress.apply(this, arguments);
-                this._templating.updateProgress(id, loaded, total);
-                if (Math.round(loaded / total * 100) === 100) {
-                    this._templating.hideCancel(id);
-                    this._templating.hidePause(id);
-                    this._templating.hideProgress(id);
-                    this._templating.setStatusText(id, this._options.text.waitingForResponse);
-                    this._displayFileSize(id);
-                } else {
-                    this._displayFileSize(id, loaded, total);
-                }
-            },
-            _onTotalProgress: function(loaded, total) {
-                this._parent.prototype._onTotalProgress.apply(this, arguments);
-                this._templating.updateTotalProgress(loaded, total);
-            },
-            _onComplete: function(id, name, result, xhr) {
-                var parentRetVal = this._parent.prototype._onComplete.apply(this, arguments), templating = this._templating, fileContainer = templating.getFileContainer(id), self = this;
-                function completeUpload(result) {
-                    if (!fileContainer) {
-                        return;
-                    }
-                    templating.setStatusText(id);
-                    qq(fileContainer).removeClass(self._classes.retrying);
-                    templating.hideProgress(id);
-                    if (self.getUploads({
-                        id: id
-                    }).status !== qq.status.UPLOAD_FAILED) {
-                        templating.hideCancel(id);
-                    }
-                    templating.hideSpinner(id);
-                    if (result.success) {
-                        self._markFileAsSuccessful(id);
-                    } else {
-                        qq(fileContainer).addClass(self._classes.fail);
-                        templating.showCancel(id);
-                        if (templating.isRetryPossible() && !self._preventRetries[id]) {
-                            qq(fileContainer).addClass(self._classes.retryable);
-                            templating.showRetry(id);
-                        }
-                        self._controlFailureTextDisplay(id, result);
-                    }
-                }
-                if (parentRetVal instanceof qq.Promise) {
-                    parentRetVal.done(function(newResult) {
-                        completeUpload(newResult);
-                    });
-                } else {
-                    completeUpload(result);
-                }
-                return parentRetVal;
-            },
-            _markFileAsSuccessful: function(id) {
-                var templating = this._templating;
-                if (this._isDeletePossible()) {
-                    templating.showDeleteButton(id);
-                }
-                qq(templating.getFileContainer(id)).addClass(this._classes.success);
-                this._maybeUpdateThumbnail(id);
-            },
-            _onUploadPrep: function(id) {
-                this._parent.prototype._onUploadPrep.apply(this, arguments);
-                this._templating.showSpinner(id);
-            },
-            _onUpload: function(id, name) {
-                var parentRetVal = this._parent.prototype._onUpload.apply(this, arguments);
-                this._templating.showSpinner(id);
-                return parentRetVal;
-            },
-            _onUploadChunk: function(id, chunkData) {
-                this._parent.prototype._onUploadChunk.apply(this, arguments);
-                if (chunkData.partIndex > 0 && this._handler.isResumable(id)) {
-                    this._templating.allowPause(id);
-                }
-            },
-            _onCancel: function(id, name) {
-                this._parent.prototype._onCancel.apply(this, arguments);
-                this._removeFileItem(id);
-                if (this._getNotFinished() === 0) {
-                    this._templating.resetTotalProgress();
-                }
-            },
-            _onBeforeAutoRetry: function(id) {
-                var retryNumForDisplay, maxAuto, retryNote;
-                this._parent.prototype._onBeforeAutoRetry.apply(this, arguments);
-                this._showCancelLink(id);
-                if (this._options.retry.showAutoRetryNote) {
-                    retryNumForDisplay = this._autoRetries[id];
-                    maxAuto = this._options.retry.maxAutoAttempts;
-                    retryNote = this._options.retry.autoRetryNote.replace(/\{retryNum\}/g, retryNumForDisplay);
-                    retryNote = retryNote.replace(/\{maxAuto\}/g, maxAuto);
-                    this._templating.setStatusText(id, retryNote);
-                    qq(this._templating.getFileContainer(id)).addClass(this._classes.retrying);
-                }
-            },
-            _onBeforeManualRetry: function(id) {
-                if (this._parent.prototype._onBeforeManualRetry.apply(this, arguments)) {
-                    this._templating.resetProgress(id);
-                    qq(this._templating.getFileContainer(id)).removeClass(this._classes.fail);
-                    this._templating.setStatusText(id);
-                    this._templating.showSpinner(id);
-                    this._showCancelLink(id);
-                    return true;
-                } else {
-                    qq(this._templating.getFileContainer(id)).addClass(this._classes.retryable);
-                    this._templating.showRetry(id);
-                    return false;
-                }
-            },
-            _onSubmitDelete: function(id) {
-                var onSuccessCallback = qq.bind(this._onSubmitDeleteSuccess, this);
-                this._parent.prototype._onSubmitDelete.call(this, id, onSuccessCallback);
-            },
-            _onSubmitDeleteSuccess: function(id, uuid, additionalMandatedParams) {
-                if (this._options.deleteFile.forceConfirm) {
-                    this._showDeleteConfirm.apply(this, arguments);
-                } else {
-                    this._sendDeleteRequest.apply(this, arguments);
-                }
-            },
-            _onDeleteComplete: function(id, xhr, isError) {
-                this._parent.prototype._onDeleteComplete.apply(this, arguments);
-                this._templating.hideSpinner(id);
-                if (isError) {
-                    this._templating.setStatusText(id, this._options.deleteFile.deletingFailedText);
-                    this._templating.showDeleteButton(id);
-                } else {
-                    this._removeFileItem(id);
-                }
-            },
-            _sendDeleteRequest: function(id, uuid, additionalMandatedParams) {
-                this._templating.hideDeleteButton(id);
-                this._templating.showSpinner(id);
-                this._templating.setStatusText(id, this._options.deleteFile.deletingStatusText);
-                this._deleteHandler.sendDelete.apply(this, arguments);
-            },
-            _showDeleteConfirm: function(id, uuid, mandatedParams) {
-                var fileName = this.getName(id), confirmMessage = this._options.deleteFile.confirmMessage.replace(/\{filename\}/g, fileName), uuid = this.getUuid(id), deleteRequestArgs = arguments, self = this, retVal;
-                retVal = this._options.showConfirm(confirmMessage);
-                if (qq.isGenericPromise(retVal)) {
-                    retVal.then(function() {
-                        self._sendDeleteRequest.apply(self, deleteRequestArgs);
-                    });
-                } else if (retVal !== false) {
-                    self._sendDeleteRequest.apply(self, deleteRequestArgs);
-                }
-            },
-            _addToList: function(id, name, canned) {
-                var prependData, prependIndex = 0, dontDisplay = this._handler.isProxied(id) && this._options.scaling.hideScaled, record;
-                if (this._options.display.prependFiles) {
-                    if (this._totalFilesInBatch > 1 && this._filesInBatchAddedToUi > 0) {
-                        prependIndex = this._filesInBatchAddedToUi - 1;
-                    }
-                    prependData = {
-                        index: prependIndex
-                    };
-                }
-                if (!canned) {
-                    if (this._options.disableCancelForFormUploads && !qq.supportedFeatures.ajaxUploading) {
-                        this._templating.disableCancel();
-                    }
-                    if (!this._options.multiple) {
-                        record = this.getUploads({
-                            id: id
-                        });
-                        this._handledProxyGroup = this._handledProxyGroup || record.proxyGroupId;
-                        if (record.proxyGroupId !== this._handledProxyGroup || !record.proxyGroupId) {
-                            this._handler.cancelAll();
-                            this._clearList();
-                            this._handledProxyGroup = null;
-                        }
-                    }
-                }
-                if (canned) {
-                    this._templating.addFileToCache(id, this._options.formatFileName(name), prependData, dontDisplay);
-                    this._templating.updateThumbnail(id, this._thumbnailUrls[id], true, this._options.thumbnails.customResizer);
-                } else {
-                    this._templating.addFile(id, this._options.formatFileName(name), prependData, dontDisplay);
-                    this._templating.generatePreview(id, this.getFile(id), this._options.thumbnails.customResizer);
-                }
-                this._filesInBatchAddedToUi += 1;
-                if (canned || this._options.display.fileSizeOnSubmit && qq.supportedFeatures.ajaxUploading) {
-                    this._displayFileSize(id);
-                }
-            },
-            _clearList: function() {
-                this._templating.clearFiles();
-                this.clearStoredFiles();
-            },
-            _displayFileSize: function(id, loadedSize, totalSize) {
-                var size = this.getSize(id), sizeForDisplay = this._formatSize(size);
-                if (size >= 0) {
-                    if (loadedSize !== undefined && totalSize !== undefined) {
-                        sizeForDisplay = this._formatProgress(loadedSize, totalSize);
-                    }
-                    this._templating.updateSize(id, sizeForDisplay);
-                }
-            },
-            _formatProgress: function(uploadedSize, totalSize) {
-                var message = this._options.text.formatProgress;
-                function r(name, replacement) {
-                    message = message.replace(name, replacement);
-                }
-                r("{percent}", Math.round(uploadedSize / totalSize * 100));
-                r("{total_size}", this._formatSize(totalSize));
-                return message;
-            },
-            _controlFailureTextDisplay: function(id, response) {
-                var mode, responseProperty, failureReason;
-                mode = this._options.failedUploadTextDisplay.mode;
-                responseProperty = this._options.failedUploadTextDisplay.responseProperty;
-                if (mode === "custom") {
-                    failureReason = response[responseProperty];
-                    if (!failureReason) {
-                        failureReason = this._options.text.failUpload;
-                    }
-                    this._templating.setStatusText(id, failureReason);
-                    if (this._options.failedUploadTextDisplay.enableTooltip) {
-                        this._showTooltip(id, failureReason);
-                    }
-                } else if (mode === "default") {
-                    this._templating.setStatusText(id, this._options.text.failUpload);
-                } else if (mode !== "none") {
-                    this.log("failedUploadTextDisplay.mode value of '" + mode + "' is not valid", "warn");
-                }
-            },
-            _showTooltip: function(id, text) {
-                this._templating.getFileContainer(id).title = text;
-            },
-            _showCancelLink: function(id) {
-                if (!this._options.disableCancelForFormUploads || qq.supportedFeatures.ajaxUploading) {
-                    this._templating.showCancel(id);
-                }
-            },
-            _itemError: function(code, name, item) {
-                var message = this._parent.prototype._itemError.apply(this, arguments);
-                this._options.showMessage(message);
-            },
-            _batchError: function(message) {
-                this._parent.prototype._batchError.apply(this, arguments);
-                this._options.showMessage(message);
-            },
-            _setupPastePrompt: function() {
-                var self = this;
-                this._options.callbacks.onPasteReceived = function() {
-                    var message = self._options.paste.namePromptMessage, defaultVal = self._options.paste.defaultName;
-                    return self._options.showPrompt(message, defaultVal);
-                };
-            },
-            _fileOrBlobRejected: function(id, name) {
-                this._totalFilesInBatch -= 1;
-                this._parent.prototype._fileOrBlobRejected.apply(this, arguments);
-            },
-            _prepareItemsForUpload: function(items, params, endpoint) {
-                this._totalFilesInBatch = items.length;
-                this._filesInBatchAddedToUi = 0;
-                this._parent.prototype._prepareItemsForUpload.apply(this, arguments);
-            },
-            _maybeUpdateThumbnail: function(fileId) {
-                var thumbnailUrl = this._thumbnailUrls[fileId], fileStatus = this.getUploads({
-                    id: fileId
-                }).status;
-                if (fileStatus !== qq.status.DELETED && (thumbnailUrl || this._options.thumbnails.placeholders.waitUntilResponse || !qq.supportedFeatures.imagePreviews)) {
-                    this._templating.updateThumbnail(fileId, thumbnailUrl, this._options.thumbnails.customResizer);
-                }
-            },
-            _addCannedFile: function(sessionData) {
-                var id = this._parent.prototype._addCannedFile.apply(this, arguments);
-                this._addToList(id, this.getName(id), true);
-                this._templating.hideSpinner(id);
-                this._templating.hideCancel(id);
-                this._markFileAsSuccessful(id);
-                return id;
-            },
-            _setSize: function(id, newSize) {
-                this._parent.prototype._setSize.apply(this, arguments);
-                this._templating.updateSize(id, this._formatSize(newSize));
-            },
-            _sessionRequestComplete: function() {
-                this._templating.addCacheToDom();
-                this._parent.prototype._sessionRequestComplete.apply(this, arguments);
-            }
-        };
-    })();
-    qq.FineUploader = function(o, namespace) {
-        "use strict";
-        var self = this;
-        this._parent = namespace ? qq[namespace].FineUploaderBasic : qq.FineUploaderBasic;
-        this._parent.apply(this, arguments);
-        qq.extend(this._options, {
-            element: null,
-            button: null,
-            listElement: null,
-            dragAndDrop: {
-                extraDropzones: [],
-                reportDirectoryPaths: false
-            },
-            text: {
-                formatProgress: "{percent}% of {total_size}",
-                failUpload: "Upload failed",
-                waitingForResponse: "Processing...",
-                paused: "Paused"
-            },
-            template: "qq-template",
-            classes: {
-                retrying: "qq-upload-retrying",
-                retryable: "qq-upload-retryable",
-                success: "qq-upload-success",
-                fail: "qq-upload-fail",
-                editable: "qq-editable",
-                hide: "qq-hide",
-                dropActive: "qq-upload-drop-area-active"
-            },
-            failedUploadTextDisplay: {
-                mode: "default",
-                responseProperty: "error",
-                enableTooltip: true
-            },
-            messages: {
-                tooManyFilesError: "You may only drop one file",
-                unsupportedBrowser: "Unrecoverable error - this browser does not permit file uploading of any kind."
-            },
-            retry: {
-                showAutoRetryNote: true,
-                autoRetryNote: "Retrying {retryNum}/{maxAuto}..."
-            },
-            deleteFile: {
-                forceConfirm: false,
-                confirmMessage: "Are you sure you want to delete {filename}?",
-                deletingStatusText: "Deleting...",
-                deletingFailedText: "Delete failed"
-            },
-            display: {
-                fileSizeOnSubmit: false,
-                prependFiles: false
-            },
-            paste: {
-                promptForName: false,
-                namePromptMessage: "Please name this image"
-            },
-            thumbnails: {
-                customResizer: null,
-                maxCount: 0,
-                placeholders: {
-                    waitUntilResponse: false,
-                    notAvailablePath: null,
-                    waitingPath: null
-                },
-                timeBetweenThumbs: 750
-            },
-            scaling: {
-                hideScaled: false
-            },
-            showMessage: function(message) {
-                if (self._templating.hasDialog("alert")) {
-                    return self._templating.showDialog("alert", message);
-                } else {
-                    setTimeout(function() {
-                        window.alert(message);
-                    }, 0);
-                }
-            },
-            showConfirm: function(message) {
-                if (self._templating.hasDialog("confirm")) {
-                    return self._templating.showDialog("confirm", message);
-                } else {
-                    return window.confirm(message);
-                }
-            },
-            showPrompt: function(message, defaultValue) {
-                if (self._templating.hasDialog("prompt")) {
-                    return self._templating.showDialog("prompt", message, defaultValue);
-                } else {
-                    return window.prompt(message, defaultValue);
-                }
-            }
-        }, true);
-        qq.extend(this._options, o, true);
-        this._templating = new qq.Templating({
-            log: qq.bind(this.log, this),
-            templateIdOrEl: this._options.template,
-            containerEl: this._options.element,
-            fileContainerEl: this._options.listElement,
-            button: this._options.button,
-            imageGenerator: this._imageGenerator,
-            classes: {
-                hide: this._options.classes.hide,
-                editable: this._options.classes.editable
-            },
-            limits: {
-                maxThumbs: this._options.thumbnails.maxCount,
-                timeBetweenThumbs: this._options.thumbnails.timeBetweenThumbs
-            },
-            placeholders: {
-                waitUntilUpdate: this._options.thumbnails.placeholders.waitUntilResponse,
-                thumbnailNotAvailable: this._options.thumbnails.placeholders.notAvailablePath,
-                waitingForThumbnail: this._options.thumbnails.placeholders.waitingPath
-            },
-            text: this._options.text
-        });
-        if (this._options.workarounds.ios8SafariUploads && qq.ios800() && qq.iosSafari()) {
-            this._templating.renderFailure(this._options.messages.unsupportedBrowserIos8Safari);
-        } else if (!qq.supportedFeatures.uploading || this._options.cors.expected && !qq.supportedFeatures.uploadCors) {
-            this._templating.renderFailure(this._options.messages.unsupportedBrowser);
-        } else {
-            this._wrapCallbacks();
-            this._templating.render();
-            this._classes = this._options.classes;
-            if (!this._options.button && this._templating.getButton()) {
-                this._defaultButtonId = this._createUploadButton({
-                    element: this._templating.getButton(),
-                    title: this._options.text.fileInputTitle
-                }).getButtonId();
-            }
-            this._setupClickAndEditEventHandlers();
-            if (qq.DragAndDrop && qq.supportedFeatures.fileDrop) {
-                this._dnd = this._setupDragAndDrop();
-            }
-            if (this._options.paste.targetElement && this._options.paste.promptForName) {
-                if (qq.PasteSupport) {
-                    this._setupPastePrompt();
-                } else {
-                    this.log("Paste support module not found.", "error");
-                }
-            }
-            this._totalFilesInBatch = 0;
-            this._filesInBatchAddedToUi = 0;
-        }
-    };
-    qq.extend(qq.FineUploader.prototype, qq.basePublicApi);
-    qq.extend(qq.FineUploader.prototype, qq.basePrivateApi);
-    qq.extend(qq.FineUploader.prototype, qq.uiPublicApi);
-    qq.extend(qq.FineUploader.prototype, qq.uiPrivateApi);
-    qq.Templating = function(spec) {
-        "use strict";
-        var FILE_ID_ATTR = "qq-file-id", FILE_CLASS_PREFIX = "qq-file-id-", THUMBNAIL_MAX_SIZE_ATTR = "qq-max-size", THUMBNAIL_SERVER_SCALE_ATTR = "qq-server-scale", HIDE_DROPZONE_ATTR = "qq-hide-dropzone", DROPZPONE_TEXT_ATTR = "qq-drop-area-text", IN_PROGRESS_CLASS = "qq-in-progress", HIDDEN_FOREVER_CLASS = "qq-hidden-forever", fileBatch = {
-            content: document.createDocumentFragment(),
-            map: {}
-        }, isCancelDisabled = false, generatedThumbnails = 0, thumbnailQueueMonitorRunning = false, thumbGenerationQueue = [], thumbnailMaxSize = -1, options = {
-            log: null,
-            limits: {
-                maxThumbs: 0,
-                timeBetweenThumbs: 750
-            },
-            templateIdOrEl: "qq-template",
-            containerEl: null,
-            fileContainerEl: null,
-            button: null,
-            imageGenerator: null,
-            classes: {
-                hide: "qq-hide",
-                editable: "qq-editable"
-            },
-            placeholders: {
-                waitUntilUpdate: false,
-                thumbnailNotAvailable: null,
-                waitingForThumbnail: null
-            },
-            text: {
-                paused: "Paused"
-            }
-        }, selectorClasses = {
-            button: "qq-upload-button-selector",
-            alertDialog: "qq-alert-dialog-selector",
-            dialogCancelButton: "qq-cancel-button-selector",
-            confirmDialog: "qq-confirm-dialog-selector",
-            dialogMessage: "qq-dialog-message-selector",
-            dialogOkButton: "qq-ok-button-selector",
-            promptDialog: "qq-prompt-dialog-selector",
-            uploader: "qq-uploader-selector",
-            drop: "qq-upload-drop-area-selector",
-            list: "qq-upload-list-selector",
-            progressBarContainer: "qq-progress-bar-container-selector",
-            progressBar: "qq-progress-bar-selector",
-            totalProgressBarContainer: "qq-total-progress-bar-container-selector",
-            totalProgressBar: "qq-total-progress-bar-selector",
-            file: "qq-upload-file-selector",
-            spinner: "qq-upload-spinner-selector",
-            size: "qq-upload-size-selector",
-            cancel: "qq-upload-cancel-selector",
-            pause: "qq-upload-pause-selector",
-            continueButton: "qq-upload-continue-selector",
-            deleteButton: "qq-upload-delete-selector",
-            retry: "qq-upload-retry-selector",
-            statusText: "qq-upload-status-text-selector",
-            editFilenameInput: "qq-edit-filename-selector",
-            editNameIcon: "qq-edit-filename-icon-selector",
-            dropText: "qq-upload-drop-area-text-selector",
-            dropProcessing: "qq-drop-processing-selector",
-            dropProcessingSpinner: "qq-drop-processing-spinner-selector",
-            thumbnail: "qq-thumbnail-selector"
-        }, previewGeneration = {}, cachedThumbnailNotAvailableImg = new qq.Promise(), cachedWaitingForThumbnailImg = new qq.Promise(), log, isEditElementsExist, isRetryElementExist, templateHtml, container, fileList, showThumbnails, serverScale, cacheThumbnailPlaceholders = function() {
-            var notAvailableUrl = options.placeholders.thumbnailNotAvailable, waitingUrl = options.placeholders.waitingForThumbnail, spec = {
-                maxSize: thumbnailMaxSize,
-                scale: serverScale
-            };
-            if (showThumbnails) {
-                if (notAvailableUrl) {
-                    options.imageGenerator.generate(notAvailableUrl, new Image(), spec).then(function(updatedImg) {
-                        cachedThumbnailNotAvailableImg.success(updatedImg);
-                    }, function() {
-                        cachedThumbnailNotAvailableImg.failure();
-                        log("Problem loading 'not available' placeholder image at " + notAvailableUrl, "error");
-                    });
-                } else {
-                    cachedThumbnailNotAvailableImg.failure();
-                }
-                if (waitingUrl) {
-                    options.imageGenerator.generate(waitingUrl, new Image(), spec).then(function(updatedImg) {
-                        cachedWaitingForThumbnailImg.success(updatedImg);
-                    }, function() {
-                        cachedWaitingForThumbnailImg.failure();
-                        log("Problem loading 'waiting for thumbnail' placeholder image at " + waitingUrl, "error");
-                    });
-                } else {
-                    cachedWaitingForThumbnailImg.failure();
-                }
-            }
-        }, displayWaitingImg = function(thumbnail) {
-            var waitingImgPlacement = new qq.Promise();
-            cachedWaitingForThumbnailImg.then(function(img) {
-                maybeScalePlaceholderViaCss(img, thumbnail);
-                if (!thumbnail.src) {
-                    thumbnail.src = img.src;
-                    thumbnail.onload = function() {
-                        thumbnail.onload = null;
-                        show(thumbnail);
-                        waitingImgPlacement.success();
-                    };
-                } else {
-                    waitingImgPlacement.success();
-                }
-            }, function() {
-                hide(thumbnail);
-                waitingImgPlacement.success();
-            });
-            return waitingImgPlacement;
-        }, generateNewPreview = function(id, blob, spec) {
-            var thumbnail = getThumbnail(id);
-            log("Generating new thumbnail for " + id);
-            blob.qqThumbnailId = id;
-            return options.imageGenerator.generate(blob, thumbnail, spec).then(function() {
-                generatedThumbnails++;
-                show(thumbnail);
-                previewGeneration[id].success();
-            }, function() {
-                previewGeneration[id].failure();
-                if (!options.placeholders.waitUntilUpdate) {
-                    maybeSetDisplayNotAvailableImg(id, thumbnail);
-                }
-            });
-        }, generateNextQueuedPreview = function() {
-            if (thumbGenerationQueue.length) {
-                thumbnailQueueMonitorRunning = true;
-                var queuedThumbRequest = thumbGenerationQueue.shift();
-                if (queuedThumbRequest.update) {
-                    processUpdateQueuedPreviewRequest(queuedThumbRequest);
-                } else {
-                    processNewQueuedPreviewRequest(queuedThumbRequest);
-                }
-            } else {
-                thumbnailQueueMonitorRunning = false;
-            }
-        }, getCancel = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.cancel);
-        }, getContinue = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.continueButton);
-        }, getDialog = function(type) {
-            return getTemplateEl(container, selectorClasses[type + "Dialog"]);
-        }, getDelete = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.deleteButton);
-        }, getDropProcessing = function() {
-            return getTemplateEl(container, selectorClasses.dropProcessing);
-        }, getEditIcon = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.editNameIcon);
-        }, getFile = function(id) {
-            return fileBatch.map[id] || qq(fileList).getFirstByClass(FILE_CLASS_PREFIX + id);
-        }, getFilename = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.file);
-        }, getPause = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.pause);
-        }, getProgress = function(id) {
-            if (id == null) {
-                return getTemplateEl(container, selectorClasses.totalProgressBarContainer) || getTemplateEl(container, selectorClasses.totalProgressBar);
-            }
-            return getTemplateEl(getFile(id), selectorClasses.progressBarContainer) || getTemplateEl(getFile(id), selectorClasses.progressBar);
-        }, getRetry = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.retry);
-        }, getSize = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.size);
-        }, getSpinner = function(id) {
-            return getTemplateEl(getFile(id), selectorClasses.spinner);
-        }, getTemplateEl = function(context, cssClass) {
-            return context && qq(context).getFirstByClass(cssClass);
-        }, getThumbnail = function(id) {
-            return showThumbnails && getTemplateEl(getFile(id), selectorClasses.thumbnail);
-        }, hide = function(el) {
-            el && qq(el).addClass(options.classes.hide);
-        }, maybeScalePlaceholderViaCss = function(placeholder, thumbnail) {
-            var maxWidth = placeholder.style.maxWidth, maxHeight = placeholder.style.maxHeight;
-            if (maxHeight && maxWidth && !thumbnail.style.maxWidth && !thumbnail.style.maxHeight) {
-                qq(thumbnail).css({
-                    maxWidth: maxWidth,
-                    maxHeight: maxHeight
-                });
-            }
-        }, maybeSetDisplayNotAvailableImg = function(id, thumbnail) {
-            var previewing = previewGeneration[id] || new qq.Promise().failure(), notAvailableImgPlacement = new qq.Promise();
-            cachedThumbnailNotAvailableImg.then(function(img) {
-                previewing.then(function() {
-                    notAvailableImgPlacement.success();
-                }, function() {
-                    maybeScalePlaceholderViaCss(img, thumbnail);
-                    thumbnail.onload = function() {
-                        thumbnail.onload = null;
-                        notAvailableImgPlacement.success();
-                    };
-                    thumbnail.src = img.src;
-                    show(thumbnail);
-                });
-            });
-            return notAvailableImgPlacement;
-        }, parseAndGetTemplate = function() {
-            var scriptEl, scriptHtml, fileListNode, tempTemplateEl, fileListHtml, defaultButton, dropArea, thumbnail, dropProcessing, dropTextEl, uploaderEl;
-            log("Parsing template");
-            if (options.templateIdOrEl == null) {
-                throw new Error("You MUST specify either a template element or ID!");
-            }
-            if (qq.isString(options.templateIdOrEl)) {
-                scriptEl = document.getElementById(options.templateIdOrEl);
-                if (scriptEl === null) {
-                    throw new Error(qq.format("Cannot find template script at ID '{}'!", options.templateIdOrEl));
-                }
-                scriptHtml = scriptEl.innerHTML;
-            } else {
-                if (options.templateIdOrEl.innerHTML === undefined) {
-                    throw new Error("You have specified an invalid value for the template option!  " + "It must be an ID or an Element.");
-                }
-                scriptHtml = options.templateIdOrEl.innerHTML;
-            }
-            scriptHtml = qq.trimStr(scriptHtml);
-            tempTemplateEl = document.createElement("div");
-            tempTemplateEl.appendChild(qq.toElement(scriptHtml));
-            uploaderEl = qq(tempTemplateEl).getFirstByClass(selectorClasses.uploader);
-            if (options.button) {
-                defaultButton = qq(tempTemplateEl).getFirstByClass(selectorClasses.button);
-                if (defaultButton) {
-                    qq(defaultButton).remove();
-                }
-            }
-            if (!qq.DragAndDrop || !qq.supportedFeatures.fileDrop) {
-                dropProcessing = qq(tempTemplateEl).getFirstByClass(selectorClasses.dropProcessing);
-                if (dropProcessing) {
-                    qq(dropProcessing).remove();
-                }
-            }
-            dropArea = qq(tempTemplateEl).getFirstByClass(selectorClasses.drop);
-            if (dropArea && !qq.DragAndDrop) {
-                log("DnD module unavailable.", "info");
-                qq(dropArea).remove();
-            }
-            if (!qq.supportedFeatures.fileDrop) {
-                uploaderEl.removeAttribute(DROPZPONE_TEXT_ATTR);
-                if (dropArea && qq(dropArea).hasAttribute(HIDE_DROPZONE_ATTR)) {
-                    qq(dropArea).css({
-                        display: "none"
-                    });
-                }
-            } else if (qq(uploaderEl).hasAttribute(DROPZPONE_TEXT_ATTR) && dropArea) {
-                dropTextEl = qq(dropArea).getFirstByClass(selectorClasses.dropText);
-                dropTextEl && qq(dropTextEl).remove();
-            }
-            thumbnail = qq(tempTemplateEl).getFirstByClass(selectorClasses.thumbnail);
-            if (!showThumbnails) {
-                thumbnail && qq(thumbnail).remove();
-            } else if (thumbnail) {
-                thumbnailMaxSize = parseInt(thumbnail.getAttribute(THUMBNAIL_MAX_SIZE_ATTR));
-                thumbnailMaxSize = thumbnailMaxSize > 0 ? thumbnailMaxSize : null;
-                serverScale = qq(thumbnail).hasAttribute(THUMBNAIL_SERVER_SCALE_ATTR);
-            }
-            showThumbnails = showThumbnails && thumbnail;
-            isEditElementsExist = qq(tempTemplateEl).getByClass(selectorClasses.editFilenameInput).length > 0;
-            isRetryElementExist = qq(tempTemplateEl).getByClass(selectorClasses.retry).length > 0;
-            fileListNode = qq(tempTemplateEl).getFirstByClass(selectorClasses.list);
-            if (fileListNode == null) {
-                throw new Error("Could not find the file list container in the template!");
-            }
-            fileListHtml = fileListNode.innerHTML;
-            fileListNode.innerHTML = "";
-            if (tempTemplateEl.getElementsByTagName("DIALOG").length) {
-                document.createElement("dialog");
-            }
-            log("Template parsing complete");
-            return {
-                template: qq.trimStr(tempTemplateEl.innerHTML),
-                fileTemplate: qq.trimStr(fileListHtml)
-            };
-        }, prependFile = function(el, index, fileList) {
-            var parentEl = fileList, beforeEl = parentEl.firstChild;
-            if (index > 0) {
-                beforeEl = qq(parentEl).children()[index].nextSibling;
-            }
-            parentEl.insertBefore(el, beforeEl);
-        }, processNewQueuedPreviewRequest = function(queuedThumbRequest) {
-            var id = queuedThumbRequest.id, optFileOrBlob = queuedThumbRequest.optFileOrBlob, relatedThumbnailId = optFileOrBlob && optFileOrBlob.qqThumbnailId, thumbnail = getThumbnail(id), spec = {
-                customResizeFunction: queuedThumbRequest.customResizeFunction,
-                maxSize: thumbnailMaxSize,
-                orient: true,
-                scale: true
-            };
-            if (qq.supportedFeatures.imagePreviews) {
-                if (thumbnail) {
-                    if (options.limits.maxThumbs && options.limits.maxThumbs <= generatedThumbnails) {
-                        maybeSetDisplayNotAvailableImg(id, thumbnail);
-                        generateNextQueuedPreview();
-                    } else {
-                        displayWaitingImg(thumbnail).done(function() {
-                            previewGeneration[id] = new qq.Promise();
-                            previewGeneration[id].done(function() {
-                                setTimeout(generateNextQueuedPreview, options.limits.timeBetweenThumbs);
-                            });
-                            if (relatedThumbnailId != null) {
-                                useCachedPreview(id, relatedThumbnailId);
-                            } else {
-                                generateNewPreview(id, optFileOrBlob, spec);
-                            }
-                        });
-                    }
-                } else {
-                    generateNextQueuedPreview();
-                }
-            } else if (thumbnail) {
-                displayWaitingImg(thumbnail);
-                generateNextQueuedPreview();
-            }
-        }, processUpdateQueuedPreviewRequest = function(queuedThumbRequest) {
-            var id = queuedThumbRequest.id, thumbnailUrl = queuedThumbRequest.thumbnailUrl, showWaitingImg = queuedThumbRequest.showWaitingImg, thumbnail = getThumbnail(id), spec = {
-                customResizeFunction: queuedThumbRequest.customResizeFunction,
-                scale: serverScale,
-                maxSize: thumbnailMaxSize
-            };
-            if (thumbnail) {
-                if (thumbnailUrl) {
-                    if (options.limits.maxThumbs && options.limits.maxThumbs <= generatedThumbnails) {
-                        maybeSetDisplayNotAvailableImg(id, thumbnail);
-                        generateNextQueuedPreview();
-                    } else {
-                        if (showWaitingImg) {
-                            displayWaitingImg(thumbnail);
-                        }
-                        return options.imageGenerator.generate(thumbnailUrl, thumbnail, spec).then(function() {
-                            show(thumbnail);
-                            generatedThumbnails++;
-                            setTimeout(generateNextQueuedPreview, options.limits.timeBetweenThumbs);
-                        }, function() {
-                            maybeSetDisplayNotAvailableImg(id, thumbnail);
-                            setTimeout(generateNextQueuedPreview, options.limits.timeBetweenThumbs);
-                        });
-                    }
-                } else {
-                    maybeSetDisplayNotAvailableImg(id, thumbnail);
-                    generateNextQueuedPreview();
-                }
-            }
-        }, setProgressBarWidth = function(id, percent) {
-            var bar = getProgress(id), progressBarSelector = id == null ? selectorClasses.totalProgressBar : selectorClasses.progressBar;
-            if (bar && !qq(bar).hasClass(progressBarSelector)) {
-                bar = qq(bar).getFirstByClass(progressBarSelector);
-            }
-            if (bar) {
-                qq(bar).css({
-                    width: percent + "%"
-                });
-                bar.setAttribute("aria-valuenow", percent);
-            }
-        }, show = function(el) {
-            el && qq(el).removeClass(options.classes.hide);
-        }, useCachedPreview = function(targetThumbnailId, cachedThumbnailId) {
-            var targetThumbnail = getThumbnail(targetThumbnailId), cachedThumbnail = getThumbnail(cachedThumbnailId);
-            log(qq.format("ID {} is the same file as ID {}.  Will use generated thumbnail from ID {} instead.", targetThumbnailId, cachedThumbnailId, cachedThumbnailId));
-            previewGeneration[cachedThumbnailId].then(function() {
-                generatedThumbnails++;
-                previewGeneration[targetThumbnailId].success();
-                log(qq.format("Now using previously generated thumbnail created for ID {} on ID {}.", cachedThumbnailId, targetThumbnailId));
-                targetThumbnail.src = cachedThumbnail.src;
-                show(targetThumbnail);
-            }, function() {
-                previewGeneration[targetThumbnailId].failure();
-                if (!options.placeholders.waitUntilUpdate) {
-                    maybeSetDisplayNotAvailableImg(targetThumbnailId, targetThumbnail);
-                }
-            });
-        };
-        qq.extend(options, spec);
-        log = options.log;
-        if (!qq.supportedFeatures.imagePreviews) {
-            options.limits.timeBetweenThumbs = 0;
-            options.limits.maxThumbs = 0;
-        }
-        container = options.containerEl;
-        showThumbnails = options.imageGenerator !== undefined;
-        templateHtml = parseAndGetTemplate();
-        cacheThumbnailPlaceholders();
-        qq.extend(this, {
-            render: function() {
-                log("Rendering template in DOM.");
-                generatedThumbnails = 0;
-                container.innerHTML = templateHtml.template;
-                hide(getDropProcessing());
-                this.hideTotalProgress();
-                fileList = options.fileContainerEl || getTemplateEl(container, selectorClasses.list);
-                log("Template rendering complete");
-            },
-            renderFailure: function(message) {
-                var cantRenderEl = qq.toElement(message);
-                container.innerHTML = "";
-                container.appendChild(cantRenderEl);
-            },
-            reset: function() {
-                this.render();
-            },
-            clearFiles: function() {
-                fileList.innerHTML = "";
-            },
-            disableCancel: function() {
-                isCancelDisabled = true;
-            },
-            addFile: function(id, name, prependInfo, hideForever, batch) {
-                var fileEl = qq.toElement(templateHtml.fileTemplate), fileNameEl = getTemplateEl(fileEl, selectorClasses.file), uploaderEl = getTemplateEl(container, selectorClasses.uploader), fileContainer = batch ? fileBatch.content : fileList, thumb;
-                if (batch) {
-                    fileBatch.map[id] = fileEl;
-                }
-                qq(fileEl).addClass(FILE_CLASS_PREFIX + id);
-                uploaderEl.removeAttribute(DROPZPONE_TEXT_ATTR);
-                if (fileNameEl) {
-                    qq(fileNameEl).setText(name);
-                    fileNameEl.setAttribute("title", name);
-                }
-                fileEl.setAttribute(FILE_ID_ATTR, id);
-                if (prependInfo) {
-                    prependFile(fileEl, prependInfo.index, fileContainer);
-                } else {
-                    fileContainer.appendChild(fileEl);
-                }
-                if (hideForever) {
-                    fileEl.style.display = "none";
-                    qq(fileEl).addClass(HIDDEN_FOREVER_CLASS);
-                } else {
-                    hide(getProgress(id));
-                    hide(getSize(id));
-                    hide(getDelete(id));
-                    hide(getRetry(id));
-                    hide(getPause(id));
-                    hide(getContinue(id));
-                    if (isCancelDisabled) {
-                        this.hideCancel(id);
-                    }
-                    thumb = getThumbnail(id);
-                    if (thumb && !thumb.src) {
-                        cachedWaitingForThumbnailImg.then(function(waitingImg) {
-                            thumb.src = waitingImg.src;
-                            if (waitingImg.style.maxHeight && waitingImg.style.maxWidth) {
-                                qq(thumb).css({
-                                    maxHeight: waitingImg.style.maxHeight,
-                                    maxWidth: waitingImg.style.maxWidth
-                                });
-                            }
-                            show(thumb);
-                        });
-                    }
-                }
-            },
-            addFileToCache: function(id, name, prependInfo, hideForever) {
-                this.addFile(id, name, prependInfo, hideForever, true);
-            },
-            addCacheToDom: function() {
-                fileList.appendChild(fileBatch.content);
-                fileBatch.content = document.createDocumentFragment();
-                fileBatch.map = {};
-            },
-            removeFile: function(id) {
-                qq(getFile(id)).remove();
-            },
-            getFileId: function(el) {
-                var currentNode = el;
-                if (currentNode) {
-                    while (currentNode.getAttribute(FILE_ID_ATTR) == null) {
-                        currentNode = currentNode.parentNode;
-                    }
-                    return parseInt(currentNode.getAttribute(FILE_ID_ATTR));
-                }
-            },
-            getFileList: function() {
-                return fileList;
-            },
-            markFilenameEditable: function(id) {
-                var filename = getFilename(id);
-                filename && qq(filename).addClass(options.classes.editable);
-            },
-            updateFilename: function(id, name) {
-                var filenameEl = getFilename(id);
-                if (filenameEl) {
-                    qq(filenameEl).setText(name);
-                    filenameEl.setAttribute("title", name);
-                }
-            },
-            hideFilename: function(id) {
-                hide(getFilename(id));
-            },
-            showFilename: function(id) {
-                show(getFilename(id));
-            },
-            isFileName: function(el) {
-                return qq(el).hasClass(selectorClasses.file);
-            },
-            getButton: function() {
-                return options.button || getTemplateEl(container, selectorClasses.button);
-            },
-            hideDropProcessing: function() {
-                hide(getDropProcessing());
-            },
-            showDropProcessing: function() {
-                show(getDropProcessing());
-            },
-            getDropZone: function() {
-                return getTemplateEl(container, selectorClasses.drop);
-            },
-            isEditFilenamePossible: function() {
-                return isEditElementsExist;
-            },
-            hideRetry: function(id) {
-                hide(getRetry(id));
-            },
-            isRetryPossible: function() {
-                return isRetryElementExist;
-            },
-            showRetry: function(id) {
-                show(getRetry(id));
-            },
-            getFileContainer: function(id) {
-                return getFile(id);
-            },
-            showEditIcon: function(id) {
-                var icon = getEditIcon(id);
-                icon && qq(icon).addClass(options.classes.editable);
-            },
-            isHiddenForever: function(id) {
-                return qq(getFile(id)).hasClass(HIDDEN_FOREVER_CLASS);
-            },
-            hideEditIcon: function(id) {
-                var icon = getEditIcon(id);
-                icon && qq(icon).removeClass(options.classes.editable);
-            },
-            isEditIcon: function(el) {
-                return qq(el).hasClass(selectorClasses.editNameIcon, true);
-            },
-            getEditInput: function(id) {
-                return getTemplateEl(getFile(id), selectorClasses.editFilenameInput);
-            },
-            isEditInput: function(el) {
-                return qq(el).hasClass(selectorClasses.editFilenameInput, true);
-            },
-            updateProgress: function(id, loaded, total) {
-                var bar = getProgress(id), percent;
-                if (bar && total > 0) {
-                    percent = Math.round(loaded / total * 100);
-                    if (percent === 100) {
-                        hide(bar);
-                    } else {
-                        show(bar);
-                    }
-                    setProgressBarWidth(id, percent);
-                }
-            },
-            updateTotalProgress: function(loaded, total) {
-                this.updateProgress(null, loaded, total);
-            },
-            hideProgress: function(id) {
-                var bar = getProgress(id);
-                bar && hide(bar);
-            },
-            hideTotalProgress: function() {
-                this.hideProgress();
-            },
-            resetProgress: function(id) {
-                setProgressBarWidth(id, 0);
-                this.hideTotalProgress(id);
-            },
-            resetTotalProgress: function() {
-                this.resetProgress();
-            },
-            showCancel: function(id) {
-                if (!isCancelDisabled) {
-                    var cancel = getCancel(id);
-                    cancel && qq(cancel).removeClass(options.classes.hide);
-                }
-            },
-            hideCancel: function(id) {
-                hide(getCancel(id));
-            },
-            isCancel: function(el) {
-                return qq(el).hasClass(selectorClasses.cancel, true);
-            },
-            allowPause: function(id) {
-                show(getPause(id));
-                hide(getContinue(id));
-            },
-            uploadPaused: function(id) {
-                this.setStatusText(id, options.text.paused);
-                this.allowContinueButton(id);
-                hide(getSpinner(id));
-            },
-            hidePause: function(id) {
-                hide(getPause(id));
-            },
-            isPause: function(el) {
-                return qq(el).hasClass(selectorClasses.pause, true);
-            },
-            isContinueButton: function(el) {
-                return qq(el).hasClass(selectorClasses.continueButton, true);
-            },
-            allowContinueButton: function(id) {
-                show(getContinue(id));
-                hide(getPause(id));
-            },
-            uploadContinued: function(id) {
-                this.setStatusText(id, "");
-                this.allowPause(id);
-                show(getSpinner(id));
-            },
-            showDeleteButton: function(id) {
-                show(getDelete(id));
-            },
-            hideDeleteButton: function(id) {
-                hide(getDelete(id));
-            },
-            isDeleteButton: function(el) {
-                return qq(el).hasClass(selectorClasses.deleteButton, true);
-            },
-            isRetry: function(el) {
-                return qq(el).hasClass(selectorClasses.retry, true);
-            },
-            updateSize: function(id, text) {
-                var size = getSize(id);
-                if (size) {
-                    show(size);
-                    qq(size).setText(text);
-                }
-            },
-            setStatusText: function(id, text) {
-                var textEl = getTemplateEl(getFile(id), selectorClasses.statusText);
-                if (textEl) {
-                    if (text == null) {
-                        qq(textEl).clearText();
-                    } else {
-                        qq(textEl).setText(text);
-                    }
-                }
-            },
-            hideSpinner: function(id) {
-                qq(getFile(id)).removeClass(IN_PROGRESS_CLASS);
-                hide(getSpinner(id));
-            },
-            showSpinner: function(id) {
-                qq(getFile(id)).addClass(IN_PROGRESS_CLASS);
-                show(getSpinner(id));
-            },
-            generatePreview: function(id, optFileOrBlob, customResizeFunction) {
-                if (!this.isHiddenForever(id)) {
-                    thumbGenerationQueue.push({
-                        id: id,
-                        customResizeFunction: customResizeFunction,
-                        optFileOrBlob: optFileOrBlob
-                    });
-                    !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
-                }
-            },
-            updateThumbnail: function(id, thumbnailUrl, showWaitingImg, customResizeFunction) {
-                if (!this.isHiddenForever(id)) {
-                    thumbGenerationQueue.push({
-                        customResizeFunction: customResizeFunction,
-                        update: true,
-                        id: id,
-                        thumbnailUrl: thumbnailUrl,
-                        showWaitingImg: showWaitingImg
-                    });
-                    !thumbnailQueueMonitorRunning && generateNextQueuedPreview();
-                }
-            },
-            hasDialog: function(type) {
-                return qq.supportedFeatures.dialogElement && !!getDialog(type);
-            },
-            showDialog: function(type, message, defaultValue) {
-                var dialog = getDialog(type), messageEl = getTemplateEl(dialog, selectorClasses.dialogMessage), inputEl = dialog.getElementsByTagName("INPUT")[0], cancelBtn = getTemplateEl(dialog, selectorClasses.dialogCancelButton), okBtn = getTemplateEl(dialog, selectorClasses.dialogOkButton), promise = new qq.Promise(), closeHandler = function() {
-                    cancelBtn.removeEventListener("click", cancelClickHandler);
-                    okBtn && okBtn.removeEventListener("click", okClickHandler);
-                    promise.failure();
-                }, cancelClickHandler = function() {
-                    cancelBtn.removeEventListener("click", cancelClickHandler);
-                    dialog.close();
-                }, okClickHandler = function() {
-                    dialog.removeEventListener("close", closeHandler);
-                    okBtn.removeEventListener("click", okClickHandler);
-                    dialog.close();
-                    promise.success(inputEl && inputEl.value);
-                };
-                dialog.addEventListener("close", closeHandler);
-                cancelBtn.addEventListener("click", cancelClickHandler);
-                okBtn && okBtn.addEventListener("click", okClickHandler);
-                if (inputEl) {
-                    inputEl.value = defaultValue;
-                }
-                messageEl.textContent = message;
-                dialog.showModal();
-                return promise;
-            }
-        });
-    };
-    qq.UiEventHandler = function(s, protectedApi) {
-        "use strict";
-        var disposer = new qq.DisposeSupport(), spec = {
-            eventType: "click",
-            attachTo: null,
-            onHandled: function(target, event) {}
-        };
-        qq.extend(this, {
-            addHandler: function(element) {
-                addHandler(element);
-            },
-            dispose: function() {
-                disposer.dispose();
-            }
-        });
-        function addHandler(element) {
-            disposer.attach(element, spec.eventType, function(event) {
-                event = event || window.event;
-                var target = event.target || event.srcElement;
-                spec.onHandled(target, event);
-            });
-        }
-        qq.extend(protectedApi, {
-            getFileIdFromItem: function(item) {
-                return item.qqFileId;
-            },
-            getDisposeSupport: function() {
-                return disposer;
-            }
-        });
-        qq.extend(spec, s);
-        if (spec.attachTo) {
-            addHandler(spec.attachTo);
-        }
-    };
-    qq.FileButtonsClickHandler = function(s) {
-        "use strict";
-        var inheritedInternalApi = {}, spec = {
-            templating: null,
-            log: function(message, lvl) {},
-            onDeleteFile: function(fileId) {},
-            onCancel: function(fileId) {},
-            onRetry: function(fileId) {},
-            onPause: function(fileId) {},
-            onContinue: function(fileId) {},
-            onGetName: function(fileId) {}
-        }, buttonHandlers = {
-            cancel: function(id) {
-                spec.onCancel(id);
-            },
-            retry: function(id) {
-                spec.onRetry(id);
-            },
-            deleteButton: function(id) {
-                spec.onDeleteFile(id);
-            },
-            pause: function(id) {
-                spec.onPause(id);
-            },
-            continueButton: function(id) {
-                spec.onContinue(id);
-            }
-        };
-        function examineEvent(target, event) {
-            qq.each(buttonHandlers, function(buttonType, handler) {
-                var firstLetterCapButtonType = buttonType.charAt(0).toUpperCase() + buttonType.slice(1), fileId;
-                if (spec.templating["is" + firstLetterCapButtonType](target)) {
-                    fileId = spec.templating.getFileId(target);
-                    qq.preventDefault(event);
-                    spec.log(qq.format("Detected valid file button click event on file '{}', ID: {}.", spec.onGetName(fileId), fileId));
-                    handler(fileId);
-                    return false;
-                }
-            });
-        }
-        qq.extend(spec, s);
-        spec.eventType = "click";
-        spec.onHandled = examineEvent;
-        spec.attachTo = spec.templating.getFileList();
-        qq.extend(this, new qq.UiEventHandler(spec, inheritedInternalApi));
-    };
-    qq.FilenameClickHandler = function(s) {
-        "use strict";
-        var inheritedInternalApi = {}, spec = {
-            templating: null,
-            log: function(message, lvl) {},
-            classes: {
-                file: "qq-upload-file",
-                editNameIcon: "qq-edit-filename-icon"
-            },
-            onGetUploadStatus: function(fileId) {},
-            onGetName: function(fileId) {}
-        };
-        qq.extend(spec, s);
-        function examineEvent(target, event) {
-            if (spec.templating.isFileName(target) || spec.templating.isEditIcon(target)) {
-                var fileId = spec.templating.getFileId(target), status = spec.onGetUploadStatus(fileId);
-                if (status === qq.status.SUBMITTED) {
-                    spec.log(qq.format("Detected valid filename click event on file '{}', ID: {}.", spec.onGetName(fileId), fileId));
-                    qq.preventDefault(event);
-                    inheritedInternalApi.handleFilenameEdit(fileId, target, true);
-                }
-            }
-        }
-        spec.eventType = "click";
-        spec.onHandled = examineEvent;
-        qq.extend(this, new qq.FilenameEditHandler(spec, inheritedInternalApi));
-    };
-    qq.FilenameInputFocusInHandler = function(s, inheritedInternalApi) {
-        "use strict";
-        var spec = {
-            templating: null,
-            onGetUploadStatus: function(fileId) {},
-            log: function(message, lvl) {}
-        };
-        if (!inheritedInternalApi) {
-            inheritedInternalApi = {};
-        }
-        function handleInputFocus(target, event) {
-            if (spec.templating.isEditInput(target)) {
-                var fileId = spec.templating.getFileId(target), status = spec.onGetUploadStatus(fileId);
-                if (status === qq.status.SUBMITTED) {
-                    spec.log(qq.format("Detected valid filename input focus event on file '{}', ID: {}.", spec.onGetName(fileId), fileId));
-                    inheritedInternalApi.handleFilenameEdit(fileId, target);
-                }
-            }
-        }
-        spec.eventType = "focusin";
-        spec.onHandled = handleInputFocus;
-        qq.extend(spec, s);
-        qq.extend(this, new qq.FilenameEditHandler(spec, inheritedInternalApi));
-    };
-    qq.FilenameInputFocusHandler = function(spec) {
-        "use strict";
-        spec.eventType = "focus";
-        spec.attachTo = null;
-        qq.extend(this, new qq.FilenameInputFocusInHandler(spec, {}));
-    };
-    qq.FilenameEditHandler = function(s, inheritedInternalApi) {
-        "use strict";
-        var spec = {
-            templating: null,
-            log: function(message, lvl) {},
-            onGetUploadStatus: function(fileId) {},
-            onGetName: function(fileId) {},
-            onSetName: function(fileId, newName) {},
-            onEditingStatusChange: function(fileId, isEditing) {}
-        };
-        function getFilenameSansExtension(fileId) {
-            var filenameSansExt = spec.onGetName(fileId), extIdx = filenameSansExt.lastIndexOf(".");
-            if (extIdx > 0) {
-                filenameSansExt = filenameSansExt.substr(0, extIdx);
-            }
-            return filenameSansExt;
-        }
-        function getOriginalExtension(fileId) {
-            var origName = spec.onGetName(fileId);
-            return qq.getExtension(origName);
-        }
-        function handleNameUpdate(newFilenameInputEl, fileId) {
-            var newName = newFilenameInputEl.value, origExtension;
-            if (newName !== undefined && qq.trimStr(newName).length > 0) {
-                origExtension = getOriginalExtension(fileId);
-                if (origExtension !== undefined) {
-                    newName = newName + "." + origExtension;
-                }
-                spec.onSetName(fileId, newName);
-            }
-            spec.onEditingStatusChange(fileId, false);
-        }
-        function registerInputBlurHandler(inputEl, fileId) {
-            inheritedInternalApi.getDisposeSupport().attach(inputEl, "blur", function() {
-                handleNameUpdate(inputEl, fileId);
-            });
-        }
-        function registerInputEnterKeyHandler(inputEl, fileId) {
-            inheritedInternalApi.getDisposeSupport().attach(inputEl, "keyup", function(event) {
-                var code = event.keyCode || event.which;
-                if (code === 13) {
-                    handleNameUpdate(inputEl, fileId);
-                }
-            });
-        }
-        qq.extend(spec, s);
-        spec.attachTo = spec.templating.getFileList();
-        qq.extend(this, new qq.UiEventHandler(spec, inheritedInternalApi));
-        qq.extend(inheritedInternalApi, {
-            handleFilenameEdit: function(id, target, focusInput) {
-                var newFilenameInputEl = spec.templating.getEditInput(id);
-                spec.onEditingStatusChange(id, true);
-                newFilenameInputEl.value = getFilenameSansExtension(id);
-                if (focusInput) {
-                    newFilenameInputEl.focus();
-                }
-                registerInputBlurHandler(newFilenameInputEl, id);
-                registerInputEnterKeyHandler(newFilenameInputEl, id);
             }
         });
     };
 })(window);
-//# sourceMappingURL=fine-uploader.js.map
+//# sourceMappingURL=azure.fine-uploader.core.js.map

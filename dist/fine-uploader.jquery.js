@@ -1,5 +1,158 @@
 // Fine Uploader 5.11.0 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
 (function(global) {
+    (function($) {
+        "use strict";
+        var $el, pluginOptions = [ "uploaderType", "endpointType" ];
+        function init(options) {
+            var xformedOpts = transformVariables(options || {}), newUploaderInstance = getNewUploaderInstance(xformedOpts);
+            uploader(newUploaderInstance);
+            addCallbacks(xformedOpts, newUploaderInstance);
+            return $el;
+        }
+        function getNewUploaderInstance(params) {
+            var uploaderType = pluginOption("uploaderType"), namespace = pluginOption("endpointType");
+            if (uploaderType) {
+                uploaderType = uploaderType.charAt(0).toUpperCase() + uploaderType.slice(1).toLowerCase();
+                if (namespace) {
+                    return new qq[namespace]["FineUploader" + uploaderType](params);
+                }
+                return new qq["FineUploader" + uploaderType](params);
+            } else {
+                if (namespace) {
+                    return new qq[namespace].FineUploader(params);
+                }
+                return new qq.FineUploader(params);
+            }
+        }
+        function dataStore(key, val) {
+            var data = $el.data("fineuploader");
+            if (val) {
+                if (data === undefined) {
+                    data = {};
+                }
+                data[key] = val;
+                $el.data("fineuploader", data);
+            } else {
+                if (data === undefined) {
+                    return null;
+                }
+                return data[key];
+            }
+        }
+        function uploader(instanceToStore) {
+            return dataStore("uploader", instanceToStore);
+        }
+        function pluginOption(option, optionVal) {
+            return dataStore(option, optionVal);
+        }
+        function addCallbacks(transformedOpts, newUploaderInstance) {
+            var callbacks = transformedOpts.callbacks = {};
+            $.each(newUploaderInstance._options.callbacks, function(prop, nonJqueryCallback) {
+                var name, callbackEventTarget;
+                name = /^on(\w+)/.exec(prop)[1];
+                name = name.substring(0, 1).toLowerCase() + name.substring(1);
+                callbackEventTarget = $el;
+                callbacks[prop] = function() {
+                    var originalArgs = Array.prototype.slice.call(arguments), transformedArgs = [], nonJqueryCallbackRetVal, jqueryEventCallbackRetVal;
+                    $.each(originalArgs, function(idx, arg) {
+                        transformedArgs.push(maybeWrapInJquery(arg));
+                    });
+                    nonJqueryCallbackRetVal = nonJqueryCallback.apply(this, originalArgs);
+                    try {
+                        jqueryEventCallbackRetVal = callbackEventTarget.triggerHandler(name, transformedArgs);
+                    } catch (error) {
+                        qq.log("Caught error in Fine Uploader jQuery event handler: " + error.message, "error");
+                    }
+                    if (nonJqueryCallbackRetVal != null) {
+                        return nonJqueryCallbackRetVal;
+                    }
+                    return jqueryEventCallbackRetVal;
+                };
+            });
+            newUploaderInstance._options.callbacks = callbacks;
+        }
+        function transformVariables(source, dest) {
+            var xformed, arrayVals;
+            if (dest === undefined) {
+                if (source.uploaderType !== "basic") {
+                    xformed = {
+                        element: $el[0]
+                    };
+                } else {
+                    xformed = {};
+                }
+            } else {
+                xformed = dest;
+            }
+            $.each(source, function(prop, val) {
+                if ($.inArray(prop, pluginOptions) >= 0) {
+                    pluginOption(prop, val);
+                } else if (val instanceof $) {
+                    xformed[prop] = val[0];
+                } else if ($.isPlainObject(val)) {
+                    xformed[prop] = {};
+                    transformVariables(val, xformed[prop]);
+                } else if ($.isArray(val)) {
+                    arrayVals = [];
+                    $.each(val, function(idx, arrayVal) {
+                        var arrayObjDest = {};
+                        if (arrayVal instanceof $) {
+                            $.merge(arrayVals, arrayVal);
+                        } else if ($.isPlainObject(arrayVal)) {
+                            transformVariables(arrayVal, arrayObjDest);
+                            arrayVals.push(arrayObjDest);
+                        } else {
+                            arrayVals.push(arrayVal);
+                        }
+                    });
+                    xformed[prop] = arrayVals;
+                } else {
+                    xformed[prop] = val;
+                }
+            });
+            if (dest === undefined) {
+                return xformed;
+            }
+        }
+        function isValidCommand(command) {
+            return $.type(command) === "string" && !command.match(/^_/) && uploader()[command] !== undefined;
+        }
+        function delegateCommand(command) {
+            var xformedArgs = [], origArgs = Array.prototype.slice.call(arguments, 1), retVal;
+            transformVariables(origArgs, xformedArgs);
+            retVal = uploader()[command].apply(uploader(), xformedArgs);
+            return maybeWrapInJquery(retVal);
+        }
+        function maybeWrapInJquery(val) {
+            var transformedVal = val;
+            if (val != null && typeof val === "object" && (val.nodeType === 1 || val.nodeType === 9) && val.cloneNode) {
+                transformedVal = $(val);
+            }
+            return transformedVal;
+        }
+        $.fn.fineUploader = function(optionsOrCommand) {
+            var self = this, selfArgs = arguments, retVals = [];
+            this.each(function(index, el) {
+                $el = $(el);
+                if (uploader() && isValidCommand(optionsOrCommand)) {
+                    retVals.push(delegateCommand.apply(self, selfArgs));
+                    if (self.length === 1) {
+                        return false;
+                    }
+                } else if (typeof optionsOrCommand === "object" || !optionsOrCommand) {
+                    init.apply(self, selfArgs);
+                } else {
+                    $.error("Method " + optionsOrCommand + " does not exist on jQuery.fineUploader");
+                }
+            });
+            if (retVals.length === 1) {
+                return retVals[0];
+            } else if (retVals.length > 1) {
+                return retVals;
+            }
+            return this;
+        };
+    })(jQuery);
     var qq = function(element) {
         "use strict";
         return {
@@ -7433,4 +7586,4 @@
         });
     };
 })(window);
-//# sourceMappingURL=fine-uploader.js.map
+//# sourceMappingURL=jquery.fine-uploader.js.map
