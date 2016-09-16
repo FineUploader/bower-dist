@@ -16,7 +16,7 @@
 
 ### Usage
 
-First, download Fine Uploader: 
+First, download Fine Uploader:
 
 ```bash
 bower install fineuploader-dist --save
@@ -55,7 +55,7 @@ $ git pull origin
 In your terminal please navigate to where the project is cloned
 
 ```bash
-$ ./build.sh <version> # e.g: ./build.sh 5.10.0
+$ ./build.sh <version> # e.g: ./build.sh 5.11.1
 ```
 
 **NOTE:**
