@@ -13,7 +13,7 @@ e() {
 
 if [ -z $1 ]; then
 	e '31;0' 'Please specify Fine-uploader version you want to build.'
-	e '31;0' 'Example: ./build.sh 5.11.4'
+	e '31;0' 'Example: ./build.sh 5.11.5'
 	e '31;0' '    See: https://github.com/FineUploader/fine-uploader/releases'
 	exit;
 fi
@@ -50,7 +50,7 @@ e '33;0' 'Clean up dist folder'
 rm -rf ../dist/*
 
 e '33;0' 'Copying build files'
-cp -rf _build/* ../dist/ && cp -rf client/html/templates/ ../dist/templates
+cp -rf _build/* ../dist/
 
 e '33;0' 'Back to master branch'
 git checkout master && git branch -D "v${version}"

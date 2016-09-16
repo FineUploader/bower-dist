@@ -1,4 +1,4 @@
-// Fine Uploader 5.11.4 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
+// Fine Uploader 5.11.5 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
 (function(global) {
     (function($) {
         "use strict";
@@ -151,6 +151,15 @@
                 return retVals;
             }
             return this;
+        };
+    })(jQuery);
+    (function($) {
+        "use strict";
+        $.fn.fineUploaderAzure = function(optionsOrCommand) {
+            if (typeof optionsOrCommand === "object") {
+                optionsOrCommand.endpointType = "azure";
+            }
+            return $.fn.fineUploader.apply(this, arguments);
         };
     })(jQuery);
     var qq = function(element) {
@@ -738,7 +747,7 @@
         };
         qq.Error.prototype = new Error();
     })();
-    qq.version = "5.11.4";
+    qq.version = "5.11.5";
     qq.supportedFeatures = function() {
         "use strict";
         var supportsUploading, supportsUploadingBlobs, supportsFileDrop, supportsAjaxFileUploading, supportsFolderDrop, supportsChunking, supportsResume, supportsUploadViaPaste, supportsUploadCors, supportsDeleteFileXdr, supportsDeleteFileCorsXhr, supportsDeleteFileCors, supportsFolderSelection, supportsImagePreviews, supportsUploadProgress;
