@@ -55,7 +55,7 @@ $ git pull origin
 In your terminal please navigate to where the project is cloned
 
 ```bash
-$ ./build.sh <version> # e.g: ./build.sh 5.11.7
+$ ./build.sh <version> # e.g: ./build.sh 5.11.8
 ```
 
 **NOTE:**
