@@ -1,4 +1,4 @@
-// Fine Uploader 5.11.6 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
+// Fine Uploader 5.11.7 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
 (function(global) {
     (function($) {
         "use strict";
@@ -747,7 +747,7 @@
         };
         qq.Error.prototype = new Error();
     })();
-    qq.version = "5.11.6";
+    qq.version = "5.11.7";
     qq.supportedFeatures = function() {
         "use strict";
         var supportsUploading, supportsUploadingBlobs, supportsFileDrop, supportsAjaxFileUploading, supportsFolderDrop, supportsChunking, supportsResume, supportsUploadViaPaste, supportsUploadCors, supportsDeleteFileXdr, supportsDeleteFileCorsXhr, supportsDeleteFileCors, supportsFolderSelection, supportsImagePreviews, supportsUploadProgress;
@@ -3458,6 +3458,33 @@
             return response;
         }();
         upload.initHandler();
+    };
+    qq.WindowReceiveMessage = function(o) {
+        "use strict";
+        var options = {
+            log: function(message, level) {}
+        }, callbackWrapperDetachers = {};
+        qq.extend(options, o);
+        qq.extend(this, {
+            receiveMessage: function(id, callback) {
+                var onMessageCallbackWrapper = function(event) {
+                    callback(event.data);
+                };
+                if (window.postMessage) {
+                    callbackWrapperDetachers[id] = qq(window).attach("message", onMessageCallbackWrapper);
+                } else {
+                    log("iframe message passing not supported in this browser!", "error");
+                }
+            },
+            stopReceivingMessages: function(id) {
+                if (window.postMessage) {
+                    var detacher = callbackWrapperDetachers[id];
+                    if (detacher) {
+                        detacher();
+                    }
+                }
+            }
+        });
     };
     qq.FormUploadHandler = function(spec) {
         "use strict";
