@@ -25,8 +25,8 @@ bower install fine-uploader --save
 Then, simply reference the necessary JavaScript files on your HTML page:
 
 ```html
-<script src="/bower_components/fineuploader-dist/dist/fineuploader.min.js"></script>
-<link href="/bower_components/fineuploader-dist/dist/fineuploader.min.css" type="text/css">
+<script src="/bower_components/fine-uploader/dist/fineuploader.min.js"></script>
+<link href="/bower_components/fine-uploader/dist/fineuploader.min.css" type="text/css">
 ```
 
 __Enjoy__
