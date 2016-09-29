@@ -1,8 +1,7 @@
 [![Fine Uploader](http://fineuploader.com/img/FineUploader_logo.png)](http://fineuploader.com)
 
-![Bower](https://img.shields.io/bower/v/fineuploader-dist.svg?style=flat-square)
+![Bower](https://img.shields.io/bower/v/fine-uploader.svg?style=flat-square)
 [![license](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE)
-[![Freenode](https://img.shields.io/badge/chat-on%20freenode-brightgreen.svg?style=flat-square)](irc://chat.freenode.net/#fineuploader)
 
 [**Documentation**](http://docs.fineuploader.com) |
 [**Examples**](http://fineuploader.com/demos) |
