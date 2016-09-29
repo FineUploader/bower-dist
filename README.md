@@ -19,7 +19,7 @@
 First, download Fine Uploader:
 
 ```bash
-bower install fineuploader-dist --save
+bower install fine-uploader --save
 ```
 
 Then, simply reference the necessary JavaScript files on your HTML page:
