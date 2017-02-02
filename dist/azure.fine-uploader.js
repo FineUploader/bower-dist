@@ -1,4 +1,4 @@
-// Fine Uploader 5.11.9 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
+// Fine Uploader 5.11.10 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
 (function(global) {
     var qq = function(element) {
         "use strict";
@@ -585,7 +585,7 @@
         };
         qq.Error.prototype = new Error();
     })();
-    qq.version = "5.11.9";
+    qq.version = "5.11.10";
     qq.supportedFeatures = function() {
         "use strict";
         var supportsUploading, supportsUploadingBlobs, supportsFileDrop, supportsAjaxFileUploading, supportsFolderDrop, supportsChunking, supportsResume, supportsUploadViaPaste, supportsUploadCors, supportsDeleteFileXdr, supportsDeleteFileCorsXhr, supportsDeleteFileCors, supportsFolderSelection, supportsImagePreviews, supportsUploadProgress;
@@ -4425,69 +4425,6 @@
         });
         this._testing = {};
         this._testing.parseLittleEndian = parseLittleEndian;
-    };
-    qq.Identify = function(fileOrBlob, log) {
-        "use strict";
-        function isIdentifiable(magicBytes, questionableBytes) {
-            var identifiable = false, magicBytesEntries = [].concat(magicBytes);
-            qq.each(magicBytesEntries, function(idx, magicBytesArrayEntry) {
-                if (questionableBytes.indexOf(magicBytesArrayEntry) === 0) {
-                    identifiable = true;
-                    return false;
-                }
-            });
-            return identifiable;
-        }
-        qq.extend(this, {
-            isPreviewable: function() {
-                var self = this, identifier = new qq.Promise(), previewable = false, name = fileOrBlob.name === undefined ? "blob" : fileOrBlob.name;
-                log(qq.format("Attempting to determine if {} can be rendered in this browser", name));
-                log("First pass: check type attribute of blob object.");
-                if (this.isPreviewableSync()) {
-                    log("Second pass: check for magic bytes in file header.");
-                    qq.readBlobToHex(fileOrBlob, 0, 4).then(function(hex) {
-                        qq.each(self.PREVIEWABLE_MIME_TYPES, function(mime, bytes) {
-                            if (isIdentifiable(bytes, hex)) {
-                                if (mime !== "image/tiff" || qq.supportedFeatures.tiffPreviews) {
-                                    previewable = true;
-                                    identifier.success(mime);
-                                }
-                                return false;
-                            }
-                        });
-                        log(qq.format("'{}' is {} able to be rendered in this browser", name, previewable ? "" : "NOT"));
-                        if (!previewable) {
-                            identifier.failure();
-                        }
-                    }, function() {
-                        log("Error reading file w/ name '" + name + "'.  Not able to be rendered in this browser.");
-                        identifier.failure();
-                    });
-                } else {
-                    identifier.failure();
-                }
-                return identifier;
-            },
-            isPreviewableSync: function() {
-                var fileMime = fileOrBlob.type, isRecognizedImage = qq.indexOf(Object.keys(this.PREVIEWABLE_MIME_TYPES), fileMime) >= 0, previewable = false, name = fileOrBlob.name === undefined ? "blob" : fileOrBlob.name;
-                if (isRecognizedImage) {
-                    if (fileMime === "image/tiff") {
-                        previewable = qq.supportedFeatures.tiffPreviews;
-                    } else {
-                        previewable = true;
-                    }
-                }
-                !previewable && log(name + " is not previewable in this browser per the blob's type attr");
-                return previewable;
-            }
-        });
-    };
-    qq.Identify.prototype.PREVIEWABLE_MIME_TYPES = {
-        "image/jpeg": "ffd8ff",
-        "image/gif": "474946",
-        "image/png": "89504e",
-        "image/bmp": "424d",
-        "image/tiff": [ "49492a00", "4d4d002a" ]
     };
     qq.Identify = function(fileOrBlob, log) {
         "use strict";

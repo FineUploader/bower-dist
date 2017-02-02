@@ -1,4 +1,4 @@
-// Fine Uploader 5.11.9 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
+// Fine Uploader 5.11.10 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
 (function(global) {
     (function($) {
         "use strict";
@@ -143,6 +143,110 @@
                     init.apply(self, selfArgs);
                 } else {
                     $.error("Method " + optionsOrCommand + " does not exist on jQuery.fineUploader");
+                }
+            });
+            if (retVals.length === 1) {
+                return retVals[0];
+            } else if (retVals.length > 1) {
+                return retVals;
+            }
+            return this;
+        };
+    })(jQuery);
+    (function($) {
+        "use strict";
+        var rootDataKey = "fineUploaderDnd", $el;
+        function init(options) {
+            if (!options) {
+                options = {};
+            }
+            options.dropZoneElements = [ $el ];
+            var xformedOpts = transformVariables(options);
+            addCallbacks(xformedOpts);
+            dnd(new qq.DragAndDrop(xformedOpts));
+            return $el;
+        }
+        function dataStore(key, val) {
+            var data = $el.data(rootDataKey);
+            if (val) {
+                if (data === undefined) {
+                    data = {};
+                }
+                data[key] = val;
+                $el.data(rootDataKey, data);
+            } else {
+                if (data === undefined) {
+                    return null;
+                }
+                return data[key];
+            }
+        }
+        function dnd(instanceToStore) {
+            return dataStore("dndInstance", instanceToStore);
+        }
+        function addCallbacks(transformedOpts) {
+            var callbacks = transformedOpts.callbacks = {};
+            $.each(new qq.DragAndDrop.callbacks(), function(prop, func) {
+                var name = prop, $callbackEl;
+                $callbackEl = $el;
+                callbacks[prop] = function() {
+                    var args = Array.prototype.slice.call(arguments), jqueryHandlerResult = $callbackEl.triggerHandler(name, args);
+                    return jqueryHandlerResult;
+                };
+            });
+        }
+        function transformVariables(source, dest) {
+            var xformed, arrayVals;
+            if (dest === undefined) {
+                xformed = {};
+            } else {
+                xformed = dest;
+            }
+            $.each(source, function(prop, val) {
+                if (val instanceof $) {
+                    xformed[prop] = val[0];
+                } else if ($.isPlainObject(val)) {
+                    xformed[prop] = {};
+                    transformVariables(val, xformed[prop]);
+                } else if ($.isArray(val)) {
+                    arrayVals = [];
+                    $.each(val, function(idx, arrayVal) {
+                        if (arrayVal instanceof $) {
+                            $.merge(arrayVals, arrayVal);
+                        } else {
+                            arrayVals.push(arrayVal);
+                        }
+                    });
+                    xformed[prop] = arrayVals;
+                } else {
+                    xformed[prop] = val;
+                }
+            });
+            if (dest === undefined) {
+                return xformed;
+            }
+        }
+        function isValidCommand(command) {
+            return $.type(command) === "string" && command === "dispose" && dnd()[command] !== undefined;
+        }
+        function delegateCommand(command) {
+            var xformedArgs = [], origArgs = Array.prototype.slice.call(arguments, 1);
+            transformVariables(origArgs, xformedArgs);
+            return dnd()[command].apply(dnd(), xformedArgs);
+        }
+        $.fn.fineUploaderDnd = function(optionsOrCommand) {
+            var self = this, selfArgs = arguments, retVals = [];
+            this.each(function(index, el) {
+                $el = $(el);
+                if (dnd() && isValidCommand(optionsOrCommand)) {
+                    retVals.push(delegateCommand.apply(self, selfArgs));
+                    if (self.length === 1) {
+                        return false;
+                    }
+                } else if (typeof optionsOrCommand === "object" || !optionsOrCommand) {
+                    init.apply(self, selfArgs);
+                } else {
+                    $.error("Method " + optionsOrCommand + " does not exist in Fine Uploader's DnD module.");
                 }
             });
             if (retVals.length === 1) {
@@ -747,7 +851,7 @@
         };
         qq.Error.prototype = new Error();
     })();
-    qq.version = "5.11.9";
+    qq.version = "5.11.10";
     qq.supportedFeatures = function() {
         "use strict";
         var supportsUploading, supportsUploadingBlobs, supportsFileDrop, supportsAjaxFileUploading, supportsFolderDrop, supportsChunking, supportsResume, supportsUploadViaPaste, supportsUploadCors, supportsDeleteFileXdr, supportsDeleteFileCorsXhr, supportsDeleteFileCors, supportsFolderSelection, supportsImagePreviews, supportsUploadProgress;
@@ -4587,69 +4691,6 @@
         });
         this._testing = {};
         this._testing.parseLittleEndian = parseLittleEndian;
-    };
-    qq.Identify = function(fileOrBlob, log) {
-        "use strict";
-        function isIdentifiable(magicBytes, questionableBytes) {
-            var identifiable = false, magicBytesEntries = [].concat(magicBytes);
-            qq.each(magicBytesEntries, function(idx, magicBytesArrayEntry) {
-                if (questionableBytes.indexOf(magicBytesArrayEntry) === 0) {
-                    identifiable = true;
-                    return false;
-                }
-            });
-            return identifiable;
-        }
-        qq.extend(this, {
-            isPreviewable: function() {
-                var self = this, identifier = new qq.Promise(), previewable = false, name = fileOrBlob.name === undefined ? "blob" : fileOrBlob.name;
-                log(qq.format("Attempting to determine if {} can be rendered in this browser", name));
-                log("First pass: check type attribute of blob object.");
-                if (this.isPreviewableSync()) {
-                    log("Second pass: check for magic bytes in file header.");
-                    qq.readBlobToHex(fileOrBlob, 0, 4).then(function(hex) {
-                        qq.each(self.PREVIEWABLE_MIME_TYPES, function(mime, bytes) {
-                            if (isIdentifiable(bytes, hex)) {
-                                if (mime !== "image/tiff" || qq.supportedFeatures.tiffPreviews) {
-                                    previewable = true;
-                                    identifier.success(mime);
-                                }
-                                return false;
-                            }
-                        });
-                        log(qq.format("'{}' is {} able to be rendered in this browser", name, previewable ? "" : "NOT"));
-                        if (!previewable) {
-                            identifier.failure();
-                        }
-                    }, function() {
-                        log("Error reading file w/ name '" + name + "'.  Not able to be rendered in this browser.");
-                        identifier.failure();
-                    });
-                } else {
-                    identifier.failure();
-                }
-                return identifier;
-            },
-            isPreviewableSync: function() {
-                var fileMime = fileOrBlob.type, isRecognizedImage = qq.indexOf(Object.keys(this.PREVIEWABLE_MIME_TYPES), fileMime) >= 0, previewable = false, name = fileOrBlob.name === undefined ? "blob" : fileOrBlob.name;
-                if (isRecognizedImage) {
-                    if (fileMime === "image/tiff") {
-                        previewable = qq.supportedFeatures.tiffPreviews;
-                    } else {
-                        previewable = true;
-                    }
-                }
-                !previewable && log(name + " is not previewable in this browser per the blob's type attr");
-                return previewable;
-            }
-        });
-    };
-    qq.Identify.prototype.PREVIEWABLE_MIME_TYPES = {
-        "image/jpeg": "ffd8ff",
-        "image/gif": "474946",
-        "image/png": "89504e",
-        "image/bmp": "424d",
-        "image/tiff": [ "49492a00", "4d4d002a" ]
     };
     qq.Identify = function(fileOrBlob, log) {
         "use strict";
