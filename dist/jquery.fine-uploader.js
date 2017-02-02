@@ -1,4 +1,4 @@
-// Fine Uploader 5.11.10 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
+// Fine Uploader 5.12.0 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
 (function(global) {
     (function($) {
         "use strict";
@@ -842,7 +842,7 @@
         };
         qq.Error.prototype = new Error();
     })();
-    qq.version = "5.11.10";
+    qq.version = "5.12.0";
     qq.supportedFeatures = function() {
         "use strict";
         var supportsUploading, supportsUploadingBlobs, supportsFileDrop, supportsAjaxFileUploading, supportsFolderDrop, supportsChunking, supportsResume, supportsUploadViaPaste, supportsUploadCors, supportsDeleteFileXdr, supportsDeleteFileCorsXhr, supportsDeleteFileCors, supportsFolderSelection, supportsImagePreviews, supportsUploadProgress;
@@ -1857,6 +1857,9 @@
                 this._uploadData.setStatus(id, qq.status.REJECTED);
             },
             _formatSize: function(bytes) {
+                if (bytes === 0) {
+                    return bytes + this._options.text.sizeSymbols[0];
+                }
                 var i = -1;
                 do {
                     bytes = bytes / 1e3;
@@ -2518,7 +2521,7 @@
                     this._itemError("typeError", name, file);
                     return validityChecker.failure();
                 }
-                if (size === 0) {
+                if (!this._options.validation.allowEmpty && size === 0) {
                     this._itemError("emptyError", name, file);
                     return validityChecker.failure();
                 }
@@ -2600,7 +2603,8 @@
                         maxWidth: 0,
                         minHeight: 0,
                         minWidth: 0
-                    }
+                    },
+                    allowEmpty: false
                 },
                 callbacks: {
                     onSubmit: function(id, name) {},
@@ -6348,7 +6352,7 @@
             _onProgress: function(id, name, loaded, total) {
                 this._parent.prototype._onProgress.apply(this, arguments);
                 this._templating.updateProgress(id, loaded, total);
-                if (Math.round(loaded / total * 100) === 100) {
+                if (total === 0 || Math.round(loaded / total * 100) === 100) {
                     this._templating.hideCancel(id);
                     this._templating.hidePause(id);
                     this._templating.hideProgress(id);
