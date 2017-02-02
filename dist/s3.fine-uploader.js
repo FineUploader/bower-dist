@@ -1,4 +1,4 @@
-// Fine Uploader 5.12.0 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
+// Fine Uploader 5.13.0 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
 (function(global) {
     var qq = function(element) {
         "use strict";
@@ -585,7 +585,7 @@
         };
         qq.Error.prototype = new Error();
     })();
-    qq.version = "5.12.0";
+    qq.version = "5.13.0";
     qq.supportedFeatures = function() {
         "use strict";
         var supportsUploading, supportsUploadingBlobs, supportsFileDrop, supportsAjaxFileUploading, supportsFolderDrop, supportsChunking, supportsResume, supportsUploadViaPaste, supportsUploadCors, supportsDeleteFileXdr, supportsDeleteFileCorsXhr, supportsDeleteFileCors, supportsFolderSelection, supportsImagePreviews, supportsUploadProgress;
@@ -6541,7 +6541,10 @@
                     options.log("Error attempting to parse signature response: " + error, "error");
                 }
             }
-            if (response && response.invalid) {
+            if (response && response.error) {
+                isError = true;
+                errorMessage = response.error;
+            } else if (response && response.invalid) {
                 isError = true;
                 errorMessage = "Invalid policy document or request headers!";
             } else if (response) {
