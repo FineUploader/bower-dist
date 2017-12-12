@@ -1,4 +1,4 @@
-// Fine Uploader 5.13.0 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
+// Fine Uploader 5.15.4 - MIT licensed. http://fineuploader.com
 (function(global) {
     (function($) {
         "use strict";
@@ -842,7 +842,7 @@
         };
         qq.Error.prototype = new Error();
     })();
-    qq.version = "5.13.0";
+    qq.version = "5.15.4";
     qq.supportedFeatures = function() {
         "use strict";
         var supportsUploading, supportsUploadingBlobs, supportsFileDrop, supportsAjaxFileUploading, supportsFolderDrop, supportsChunking, supportsResume, supportsUploadViaPaste, supportsUploadCors, supportsDeleteFileXdr, supportsDeleteFileCorsXhr, supportsDeleteFileCors, supportsFolderSelection, supportsImagePreviews, supportsUploadProgress;
@@ -1182,6 +1182,7 @@
                     byStatus[status] = [];
                 }
                 byStatus[status].push(id);
+                spec.onBeforeStatusChange && spec.onBeforeStatusChange(id);
                 uploaderProxy.onStatusChange(id, null, status);
                 return id;
             },
@@ -1482,6 +1483,9 @@
                 }
                 return false;
             },
+            removeFileRef: function(id) {
+                this._handler.expunge(id);
+            },
             reset: function() {
                 this.log("Resetting uploader...");
                 this._handler.reset();
@@ -1546,6 +1550,28 @@
             setUuid: function(id, newUuid) {
                 return this._uploadData.uuidChanged(id, newUuid);
             },
+            setStatus: function(id, newStatus) {
+                var fileRecord = this.getUploads({
+                    id: id
+                });
+                if (!fileRecord) {
+                    throw new qq.Error(id + " is not a valid file ID.");
+                }
+                switch (newStatus) {
+                  case qq.status.DELETED:
+                    this._onDeleteComplete(id, null, false);
+                    break;
+
+                  case qq.status.DELETE_FAILED:
+                    this._onDeleteComplete(id, null, true);
+                    break;
+
+                  default:
+                    var errorMessage = "Method setStatus called on '" + name + "' not implemented yet for " + newStatus;
+                    this.log(errorMessage);
+                    throw new qq.Error(errorMessage);
+                }
+            },
             uploadStoredFiles: function() {
                 if (this._storedIds.length === 0) {
                     this._itemError("noFilesError");
@@ -1556,20 +1582,22 @@
         };
         qq.basePrivateApi = {
             _addCannedFile: function(sessionData) {
-                var id = this._uploadData.addFile({
+                var self = this;
+                return this._uploadData.addFile({
                     uuid: sessionData.uuid,
                     name: sessionData.name,
                     size: sessionData.size,
-                    status: qq.status.UPLOAD_SUCCESSFUL
+                    status: qq.status.UPLOAD_SUCCESSFUL,
+                    onBeforeStatusChange: function(id) {
+                        sessionData.deleteFileEndpoint && self.setDeleteFileEndpoint(sessionData.deleteFileEndpoint, id);
+                        sessionData.deleteFileParams && self.setDeleteFileParams(sessionData.deleteFileParams, id);
+                        if (sessionData.thumbnailUrl) {
+                            self._thumbnailUrls[id] = sessionData.thumbnailUrl;
+                        }
+                        self._netUploaded++;
+                        self._netUploadedOrQueued++;
+                    }
                 });
-                sessionData.deleteFileEndpoint && this.setDeleteFileEndpoint(sessionData.deleteFileEndpoint, id);
-                sessionData.deleteFileParams && this.setDeleteFileParams(sessionData.deleteFileParams, id);
-                if (sessionData.thumbnailUrl) {
-                    this._thumbnailUrls[id] = sessionData.thumbnailUrl;
-                }
-                this._netUploaded++;
-                this._netUploadedOrQueued++;
-                return id;
             },
             _annotateWithButtonId: function(file, associatedInput) {
                 if (qq.isFile(file)) {
@@ -2038,6 +2066,28 @@
                     blob: blob
                 });
             },
+            _handleDeleteSuccess: function(id) {
+                if (this.getUploads({
+                    id: id
+                }).status !== qq.status.DELETED) {
+                    var name = this.getName(id);
+                    this._netUploadedOrQueued--;
+                    this._netUploaded--;
+                    this._handler.expunge(id);
+                    this._uploadData.setStatus(id, qq.status.DELETED);
+                    this.log("Delete request for '" + name + "' has succeeded.");
+                }
+            },
+            _handleDeleteFailed: function(id, xhrOrXdr) {
+                var name = this.getName(id);
+                this._uploadData.setStatus(id, qq.status.DELETE_FAILED);
+                this.log("Delete request for '" + name + "' has failed.", "error");
+                if (!xhrOrXdr || xhrOrXdr.withCredentials === undefined) {
+                    this._options.callbacks.onError(id, name, "Delete request failed", xhrOrXdr);
+                } else {
+                    this._options.callbacks.onError(id, name, "Delete request failed with response code " + xhrOrXdr.status, xhrOrXdr);
+                }
+            },
             _initExtraButton: function(spec) {
                 var button = this._createUploadButton({
                     accept: spec.validation.acceptFiles,
@@ -2263,19 +2313,9 @@
             _onDeleteComplete: function(id, xhrOrXdr, isError) {
                 var name = this.getName(id);
                 if (isError) {
-                    this._uploadData.setStatus(id, qq.status.DELETE_FAILED);
-                    this.log("Delete request for '" + name + "' has failed.", "error");
-                    if (xhrOrXdr.withCredentials === undefined) {
-                        this._options.callbacks.onError(id, name, "Delete request failed", xhrOrXdr);
-                    } else {
-                        this._options.callbacks.onError(id, name, "Delete request failed with response code " + xhrOrXdr.status, xhrOrXdr);
-                    }
+                    this._handleDeleteFailed(id, xhrOrXdr);
                 } else {
-                    this._netUploadedOrQueued--;
-                    this._netUploaded--;
-                    this._handler.expunge(id);
-                    this._uploadData.setStatus(id, qq.status.DELETED);
-                    this.log("Delete request for '" + name + "' has succeeded.");
+                    this._handleDeleteSuccess(id);
                 }
             },
             _onInputChange: function(input) {
@@ -5910,9 +5950,6 @@
             return fileDrag;
         }
         function leavingDocumentOut(e) {
-            if (qq.firefox()) {
-                return !e.relatedTarget;
-            }
             if (qq.safari()) {
                 return e.x < 0 || e.y < 0;
             }
@@ -5952,8 +5989,10 @@
                 maybeHideDropZones();
             });
             disposeSupport.attach(document, "drop", function(e) {
-                e.preventDefault();
-                maybeHideDropZones();
+                if (isFileDrag(e)) {
+                    e.preventDefault();
+                    maybeHideDropZones();
+                }
             });
             disposeSupport.attach(document, HIDE_ZONES_EVENT_NAME, maybeHideDropZones);
         }
@@ -6030,7 +6069,7 @@
             }
             var effectTest, dt = e.dataTransfer, isSafari = qq.safari();
             effectTest = qq.ie() && qq.supportedFeatures.fileDrop ? true : dt.effectAllowed !== "none";
-            return dt && effectTest && (dt.files || !isSafari && dt.types.contains && dt.types.contains("Files"));
+            return dt && effectTest && (dt.files && dt.files.length || !isSafari && dt.types.contains && dt.types.contains("Files") || dt.types.includes && dt.types.includes("Files"));
         }
         function isOrSetDropDisabled(isDisabled) {
             if (isDisabled !== undefined) {
@@ -6113,6 +6152,8 @@
                 return element;
             }
         });
+        this._testing = {};
+        this._testing.isValidFileDrag = isValidFileDrag;
     };
     (function() {
         "use strict";
@@ -6841,7 +6882,7 @@
             dropProcessing: "qq-drop-processing-selector",
             dropProcessingSpinner: "qq-drop-processing-spinner-selector",
             thumbnail: "qq-thumbnail-selector"
-        }, previewGeneration = {}, cachedThumbnailNotAvailableImg = new qq.Promise(), cachedWaitingForThumbnailImg = new qq.Promise(), log, isEditElementsExist, isRetryElementExist, templateHtml, container, fileList, showThumbnails, serverScale, cacheThumbnailPlaceholders = function() {
+        }, previewGeneration = {}, cachedThumbnailNotAvailableImg = new qq.Promise(), cachedWaitingForThumbnailImg = new qq.Promise(), log, isEditElementsExist, isRetryElementExist, templateDom, container, fileList, showThumbnails, serverScale, cacheThumbnailPlaceholders = function() {
             var notAvailableUrl = options.placeholders.thumbnailNotAvailable, waitingUrl = options.placeholders.waitingForThumbnail, spec = {
                 maxSize: thumbnailMaxSize,
                 scale: serverScale
@@ -6973,7 +7014,7 @@
             });
             return notAvailableImgPlacement;
         }, parseAndGetTemplate = function() {
-            var scriptEl, scriptHtml, fileListNode, tempTemplateEl, fileListHtml, defaultButton, dropArea, thumbnail, dropProcessing, dropTextEl, uploaderEl;
+            var scriptEl, scriptHtml, fileListNode, tempTemplateEl, fileListEl, defaultButton, dropArea, thumbnail, dropProcessing, dropTextEl, uploaderEl;
             log("Parsing template");
             if (options.templateIdOrEl == null) {
                 throw new Error("You MUST specify either a template element or ID!");
@@ -7037,15 +7078,15 @@
             if (fileListNode == null) {
                 throw new Error("Could not find the file list container in the template!");
             }
-            fileListHtml = fileListNode.innerHTML;
+            fileListEl = fileListNode.children[0].cloneNode(true);
             fileListNode.innerHTML = "";
             if (tempTemplateEl.getElementsByTagName("DIALOG").length) {
                 document.createElement("dialog");
             }
             log("Template parsing complete");
             return {
-                template: qq.trimStr(tempTemplateEl.innerHTML),
-                fileTemplate: qq.trimStr(fileListHtml)
+                template: tempTemplateEl,
+                fileTemplate: fileListEl
             };
         }, prependFile = function(el, index, fileList) {
             var parentEl = fileList, beforeEl = parentEl.firstChild;
@@ -7151,13 +7192,13 @@
         }
         container = options.containerEl;
         showThumbnails = options.imageGenerator !== undefined;
-        templateHtml = parseAndGetTemplate();
+        templateDom = parseAndGetTemplate();
         cacheThumbnailPlaceholders();
         qq.extend(this, {
             render: function() {
                 log("Rendering template in DOM.");
                 generatedThumbnails = 0;
-                container.innerHTML = templateHtml.template;
+                container.appendChild(templateDom.template.cloneNode(true));
                 hide(getDropProcessing());
                 this.hideTotalProgress();
                 fileList = options.fileContainerEl || getTemplateEl(container, selectorClasses.list);
@@ -7178,7 +7219,7 @@
                 isCancelDisabled = true;
             },
             addFile: function(id, name, prependInfo, hideForever, batch) {
-                var fileEl = qq.toElement(templateHtml.fileTemplate), fileNameEl = getTemplateEl(fileEl, selectorClasses.file), uploaderEl = getTemplateEl(container, selectorClasses.uploader), fileContainer = batch ? fileBatch.content : fileList, thumb;
+                var fileEl = templateDom.fileTemplate.cloneNode(true), fileNameEl = getTemplateEl(fileEl, selectorClasses.file), uploaderEl = getTemplateEl(container, selectorClasses.uploader), fileContainer = batch ? fileBatch.content : fileList, thumb;
                 if (batch) {
                     fileBatch.map[id] = fileEl;
                 }

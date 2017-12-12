@@ -1,4 +1,4 @@
-// Fine Uploader 5.13.0 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
+// Fine Uploader 5.15.4 - MIT licensed. http://fineuploader.com
 (function(global) {
     var qq = function(element) {
         "use strict";
@@ -578,7 +578,7 @@
             global.qq = qq;
         }
     })();
-    qq.version = "5.13.0";
+    qq.version = "5.15.4";
     qq.supportedFeatures = function() {
         "use strict";
         var supportsUploading, supportsUploadingBlobs, supportsFileDrop, supportsAjaxFileUploading, supportsFolderDrop, supportsChunking, supportsResume, supportsUploadViaPaste, supportsUploadCors, supportsDeleteFileXdr, supportsDeleteFileCorsXhr, supportsDeleteFileCors, supportsFolderSelection, supportsImagePreviews, supportsUploadProgress;
@@ -885,9 +885,6 @@
             return fileDrag;
         }
         function leavingDocumentOut(e) {
-            if (qq.firefox()) {
-                return !e.relatedTarget;
-            }
             if (qq.safari()) {
                 return e.x < 0 || e.y < 0;
             }
@@ -927,8 +924,10 @@
                 maybeHideDropZones();
             });
             disposeSupport.attach(document, "drop", function(e) {
-                e.preventDefault();
-                maybeHideDropZones();
+                if (isFileDrag(e)) {
+                    e.preventDefault();
+                    maybeHideDropZones();
+                }
             });
             disposeSupport.attach(document, HIDE_ZONES_EVENT_NAME, maybeHideDropZones);
         }
@@ -1005,7 +1004,7 @@
             }
             var effectTest, dt = e.dataTransfer, isSafari = qq.safari();
             effectTest = qq.ie() && qq.supportedFeatures.fileDrop ? true : dt.effectAllowed !== "none";
-            return dt && effectTest && (dt.files || !isSafari && dt.types.contains && dt.types.contains("Files"));
+            return dt && effectTest && (dt.files && dt.files.length || !isSafari && dt.types.contains && dt.types.contains("Files") || dt.types.includes && dt.types.includes("Files"));
         }
         function isOrSetDropDisabled(isDisabled) {
             if (isDisabled !== undefined) {
@@ -1088,6 +1087,8 @@
                 return element;
             }
         });
+        this._testing = {};
+        this._testing.isValidFileDrag = isValidFileDrag;
     };
 })(window);
 //# sourceMappingURL=dnd.js.map

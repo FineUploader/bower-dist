@@ -1,4 +1,4 @@
-// Fine Uploader 5.13.0 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
+// Fine Uploader 5.15.4 - MIT licensed. http://fineuploader.com
 (function(global) {
     var qq = function(element) {
         "use strict";
@@ -585,7 +585,7 @@
         };
         qq.Error.prototype = new Error();
     })();
-    qq.version = "5.13.0";
+    qq.version = "5.15.4";
     qq.supportedFeatures = function() {
         "use strict";
         var supportsUploading, supportsUploadingBlobs, supportsFileDrop, supportsAjaxFileUploading, supportsFolderDrop, supportsChunking, supportsResume, supportsUploadViaPaste, supportsUploadCors, supportsDeleteFileXdr, supportsDeleteFileCorsXhr, supportsDeleteFileCors, supportsFolderSelection, supportsImagePreviews, supportsUploadProgress;
@@ -925,6 +925,7 @@
                     byStatus[status] = [];
                 }
                 byStatus[status].push(id);
+                spec.onBeforeStatusChange && spec.onBeforeStatusChange(id);
                 uploaderProxy.onStatusChange(id, null, status);
                 return id;
             },
@@ -1225,6 +1226,9 @@
                 }
                 return false;
             },
+            removeFileRef: function(id) {
+                this._handler.expunge(id);
+            },
             reset: function() {
                 this.log("Resetting uploader...");
                 this._handler.reset();
@@ -1289,6 +1293,28 @@
             setUuid: function(id, newUuid) {
                 return this._uploadData.uuidChanged(id, newUuid);
             },
+            setStatus: function(id, newStatus) {
+                var fileRecord = this.getUploads({
+                    id: id
+                });
+                if (!fileRecord) {
+                    throw new qq.Error(id + " is not a valid file ID.");
+                }
+                switch (newStatus) {
+                  case qq.status.DELETED:
+                    this._onDeleteComplete(id, null, false);
+                    break;
+
+                  case qq.status.DELETE_FAILED:
+                    this._onDeleteComplete(id, null, true);
+                    break;
+
+                  default:
+                    var errorMessage = "Method setStatus called on '" + name + "' not implemented yet for " + newStatus;
+                    this.log(errorMessage);
+                    throw new qq.Error(errorMessage);
+                }
+            },
             uploadStoredFiles: function() {
                 if (this._storedIds.length === 0) {
                     this._itemError("noFilesError");
@@ -1299,20 +1325,22 @@
         };
         qq.basePrivateApi = {
             _addCannedFile: function(sessionData) {
-                var id = this._uploadData.addFile({
+                var self = this;
+                return this._uploadData.addFile({
                     uuid: sessionData.uuid,
                     name: sessionData.name,
                     size: sessionData.size,
-                    status: qq.status.UPLOAD_SUCCESSFUL
+                    status: qq.status.UPLOAD_SUCCESSFUL,
+                    onBeforeStatusChange: function(id) {
+                        sessionData.deleteFileEndpoint && self.setDeleteFileEndpoint(sessionData.deleteFileEndpoint, id);
+                        sessionData.deleteFileParams && self.setDeleteFileParams(sessionData.deleteFileParams, id);
+                        if (sessionData.thumbnailUrl) {
+                            self._thumbnailUrls[id] = sessionData.thumbnailUrl;
+                        }
+                        self._netUploaded++;
+                        self._netUploadedOrQueued++;
+                    }
                 });
-                sessionData.deleteFileEndpoint && this.setDeleteFileEndpoint(sessionData.deleteFileEndpoint, id);
-                sessionData.deleteFileParams && this.setDeleteFileParams(sessionData.deleteFileParams, id);
-                if (sessionData.thumbnailUrl) {
-                    this._thumbnailUrls[id] = sessionData.thumbnailUrl;
-                }
-                this._netUploaded++;
-                this._netUploadedOrQueued++;
-                return id;
             },
             _annotateWithButtonId: function(file, associatedInput) {
                 if (qq.isFile(file)) {
@@ -1781,6 +1809,28 @@
                     blob: blob
                 });
             },
+            _handleDeleteSuccess: function(id) {
+                if (this.getUploads({
+                    id: id
+                }).status !== qq.status.DELETED) {
+                    var name = this.getName(id);
+                    this._netUploadedOrQueued--;
+                    this._netUploaded--;
+                    this._handler.expunge(id);
+                    this._uploadData.setStatus(id, qq.status.DELETED);
+                    this.log("Delete request for '" + name + "' has succeeded.");
+                }
+            },
+            _handleDeleteFailed: function(id, xhrOrXdr) {
+                var name = this.getName(id);
+                this._uploadData.setStatus(id, qq.status.DELETE_FAILED);
+                this.log("Delete request for '" + name + "' has failed.", "error");
+                if (!xhrOrXdr || xhrOrXdr.withCredentials === undefined) {
+                    this._options.callbacks.onError(id, name, "Delete request failed", xhrOrXdr);
+                } else {
+                    this._options.callbacks.onError(id, name, "Delete request failed with response code " + xhrOrXdr.status, xhrOrXdr);
+                }
+            },
             _initExtraButton: function(spec) {
                 var button = this._createUploadButton({
                     accept: spec.validation.acceptFiles,
@@ -2006,19 +2056,9 @@
             _onDeleteComplete: function(id, xhrOrXdr, isError) {
                 var name = this.getName(id);
                 if (isError) {
-                    this._uploadData.setStatus(id, qq.status.DELETE_FAILED);
-                    this.log("Delete request for '" + name + "' has failed.", "error");
-                    if (xhrOrXdr.withCredentials === undefined) {
-                        this._options.callbacks.onError(id, name, "Delete request failed", xhrOrXdr);
-                    } else {
-                        this._options.callbacks.onError(id, name, "Delete request failed with response code " + xhrOrXdr.status, xhrOrXdr);
-                    }
+                    this._handleDeleteFailed(id, xhrOrXdr);
                 } else {
-                    this._netUploadedOrQueued--;
-                    this._netUploaded--;
-                    this._handler.expunge(id);
-                    this._uploadData.setStatus(id, qq.status.DELETED);
-                    this.log("Delete request for '" + name + "' has succeeded.");
+                    this._handleDeleteSuccess(id);
                 }
             },
             _onInputChange: function(input) {
@@ -5793,7 +5833,7 @@
             V4_SIGNATURE_PARAM_NAME: "x-amz-signature",
             CASE_SENSITIVE_PARAM_NAMES: [ "Cache-Control", "Content-Disposition", "Content-Encoding", "Content-MD5" ],
             UNSIGNABLE_REST_HEADER_NAMES: [ "Cache-Control", "Content-Disposition", "Content-Encoding", "Content-MD5" ],
-            UNPREFIXED_PARAM_NAMES: [ "Cache-Control", "Content-Disposition", "Content-Encoding", "Content-MD5", "x-amz-server-side-encryption-customer-algorithm", "x-amz-server-side-encryption-customer-key", "x-amz-server-side-encryption-customer-key-MD5" ],
+            UNPREFIXED_PARAM_NAMES: [ "Cache-Control", "Content-Disposition", "Content-Encoding", "Content-MD5", "x-amz-server-side-encryption", "x-amz-server-side-encryption-aws-kms-key-id", "x-amz-server-side-encryption-customer-algorithm", "x-amz-server-side-encryption-customer-key", "x-amz-server-side-encryption-customer-key-MD5" ],
             getBucket: function(endpoint) {
                 var patterns = [ /^(?:https?:\/\/)?([a-z0-9.\-_]+)\.s3(?:-[a-z0-9\-]+)?\.amazonaws\.com/i, /^(?:https?:\/\/)?s3(?:-[a-z0-9\-]+)?\.amazonaws\.com\/([a-z0-9.\-_]+)/i, /^(?:https?:\/\/)?([a-z0-9.\-_]+)/i ], bucket;
                 qq.each(patterns, function(idx, pattern) {
@@ -7184,9 +7224,16 @@
                         handler._registerProgressHandler(id, chunkIdx, chunkData.size);
                         upload.track(id, xhr, chunkIdx).then(promise.success, promise.failure);
                         xhr.open("PUT", url, true);
+                        var hasContentType = false;
                         qq.each(headers, function(name, val) {
+                            if (name === "Content-Type") {
+                                hasContentType = true;
+                            }
                             xhr.setRequestHeader(name, val);
                         });
+                        if (!hasContentType) {
+                            xhr.setRequestHeader("Content-Type", "");
+                        }
                         xhr.send(chunkData.blob);
                     }
                 }, function() {
