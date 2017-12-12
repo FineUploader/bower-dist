@@ -1,4 +1,4 @@
-// Fine Uploader 5.14.1 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
+// Fine Uploader 5.14.2 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
 (function(global) {
     var qq = function(element) {
         "use strict";
@@ -585,7 +585,7 @@
         };
         qq.Error.prototype = new Error();
     })();
-    qq.version = "5.14.1";
+    qq.version = "5.14.2";
     qq.supportedFeatures = function() {
         "use strict";
         var supportsUploading, supportsUploadingBlobs, supportsFileDrop, supportsAjaxFileUploading, supportsFolderDrop, supportsChunking, supportsResume, supportsUploadViaPaste, supportsUploadCors, supportsDeleteFileXdr, supportsDeleteFileCorsXhr, supportsDeleteFileCors, supportsFolderSelection, supportsImagePreviews, supportsUploadProgress;
@@ -925,6 +925,7 @@
                     byStatus[status] = [];
                 }
                 byStatus[status].push(id);
+                spec.onBeforeStatusChange && spec.onBeforeStatusChange(id);
                 uploaderProxy.onStatusChange(id, null, status);
                 return id;
             },
@@ -1324,20 +1325,22 @@
         };
         qq.basePrivateApi = {
             _addCannedFile: function(sessionData) {
-                var id = this._uploadData.addFile({
+                var self = this;
+                return this._uploadData.addFile({
                     uuid: sessionData.uuid,
                     name: sessionData.name,
                     size: sessionData.size,
-                    status: qq.status.UPLOAD_SUCCESSFUL
+                    status: qq.status.UPLOAD_SUCCESSFUL,
+                    onBeforeStatusChange: function(id) {
+                        sessionData.deleteFileEndpoint && self.setDeleteFileEndpoint(sessionData.deleteFileEndpoint, id);
+                        sessionData.deleteFileParams && self.setDeleteFileParams(sessionData.deleteFileParams, id);
+                        if (sessionData.thumbnailUrl) {
+                            self._thumbnailUrls[id] = sessionData.thumbnailUrl;
+                        }
+                        self._netUploaded++;
+                        self._netUploadedOrQueued++;
+                    }
                 });
-                sessionData.deleteFileEndpoint && this.setDeleteFileEndpoint(sessionData.deleteFileEndpoint, id);
-                sessionData.deleteFileParams && this.setDeleteFileParams(sessionData.deleteFileParams, id);
-                if (sessionData.thumbnailUrl) {
-                    this._thumbnailUrls[id] = sessionData.thumbnailUrl;
-                }
-                this._netUploaded++;
-                this._netUploadedOrQueued++;
-                return id;
             },
             _annotateWithButtonId: function(file, associatedInput) {
                 if (qq.isFile(file)) {
