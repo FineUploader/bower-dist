@@ -1,4 +1,4 @@
-// Fine Uploader 5.14.4 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
+// Fine Uploader 5.14.5 - (c) 2013-present Widen Enterprises, Inc. MIT licensed. http://fineuploader.com
 (function(global) {
     (function($) {
         "use strict";
@@ -851,7 +851,7 @@
         };
         qq.Error.prototype = new Error();
     })();
-    qq.version = "5.14.4";
+    qq.version = "5.14.5";
     qq.supportedFeatures = function() {
         "use strict";
         var supportsUploading, supportsUploadingBlobs, supportsFileDrop, supportsAjaxFileUploading, supportsFolderDrop, supportsChunking, supportsResume, supportsUploadViaPaste, supportsUploadCors, supportsDeleteFileXdr, supportsDeleteFileCorsXhr, supportsDeleteFileCors, supportsFolderSelection, supportsImagePreviews, supportsUploadProgress;
@@ -7490,9 +7490,16 @@
                         handler._registerProgressHandler(id, chunkIdx, chunkData.size);
                         upload.track(id, xhr, chunkIdx).then(promise.success, promise.failure);
                         xhr.open("PUT", url, true);
+                        var hasContentType = false;
                         qq.each(headers, function(name, val) {
+                            if (name === "Content-Type") {
+                                hasContentType = true;
+                            }
                             xhr.setRequestHeader(name, val);
                         });
+                        if (!hasContentType) {
+                            xhr.setRequestHeader("Content-Type", "");
+                        }
                         xhr.send(chunkData.blob);
                     }
                 }, function() {
