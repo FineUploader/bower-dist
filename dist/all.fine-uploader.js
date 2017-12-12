@@ -1,4 +1,4 @@
-// Fine Uploader 5.15.2 - MIT licensed. http://fineuploader.com
+// Fine Uploader 5.15.4 - MIT licensed. http://fineuploader.com
 (function(global) {
     var qq = function(element) {
         "use strict";
@@ -585,7 +585,7 @@
         };
         qq.Error.prototype = new Error();
     })();
-    qq.version = "5.15.2";
+    qq.version = "5.15.4";
     qq.supportedFeatures = function() {
         "use strict";
         var supportsUploading, supportsUploadingBlobs, supportsFileDrop, supportsAjaxFileUploading, supportsFolderDrop, supportsChunking, supportsResume, supportsUploadViaPaste, supportsUploadCors, supportsDeleteFileXdr, supportsDeleteFileCorsXhr, supportsDeleteFileCors, supportsFolderSelection, supportsImagePreviews, supportsUploadProgress;
@@ -5693,9 +5693,6 @@
             return fileDrag;
         }
         function leavingDocumentOut(e) {
-            if (qq.firefox()) {
-                return !e.relatedTarget;
-            }
             if (qq.safari()) {
                 return e.x < 0 || e.y < 0;
             }
